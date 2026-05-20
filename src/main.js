@@ -1,16 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://hgdzmwfcghtilyqagjak.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ExD5HM7IkieB_ZWItda83w_rFwR3nrB";
 
-/*
-PASTE YOUR sb_publishable KEY BELOW
-*/
-const SUPABASE_ANON_KEY = "PASTE_KEY_HERE";
-
-const supabase = createClient(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const style = document.createElement("style");
 
@@ -47,17 +40,21 @@ header{
   padding:18px;
   border-bottom:1px solid var(--line);
   background:#070b10ee;
-  backdrop-filter:blur(10px);
 }
 
 h1{
   margin:0;
-  font-size:28px;
+  font-size:24px;
+}
+
+h2{
+  margin:24px 0 12px;
 }
 
 .sub{
   color:var(--muted);
   margin-top:4px;
+  text-transform:capitalize;
 }
 
 main{
@@ -103,6 +100,424 @@ button{
 
 input,
 select,
+textarea{
+  width:100%;
+  background:#0d1520;
+  border:1px solid var(--line);
+  color:var(--text);
+  border-radius:18px;
+  padding:16px;
+  font-size:18px;
+}
+
+textarea{
+  min-height:140px;
+  resize:vertical;
+}
+
+button{
+  border:0;
+  border-radius:18px;
+  padding:16px;
+  font-weight:900;
+  font-size:18px;
+  background:var(--accent);
+  color:#041108;
+}
+
+.menuBtn{
+  width:68px;
+  height:68px;
+  border-radius:24px;
+  background:var(--panel2);
+  border:1px solid var(--line);
+  color:white;
+  font-size:34px;
+}
+
+.drawer{
+  position:fixed;
+  top:100px;
+  left:20px;
+  right:20px;
+  z-index:9999;
+  background:#101822;
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:14px;
+  display:grid;
+  gap:10px;
+}
+
+.drawer button{
+  background:#203044;
+  color:white;
+  text-align:left;
+}
+
+.tag{
+  display:inline-block;
+  background:#203044;
+  border:1px solid var(--line);
+  color:var(--muted);
+  border-radius:999px;
+  padding:4px 10px;
+  margin-right:5px;
+  font-size:13px;
+}
+
+a{
+  color:var(--blue);
+}
+`;
+
+document.head.appendChild(style);
+
+const app = document.getElementById("app");
+
+const species = [
+  "Raccoon",
+  "Grey Squirrel",
+  "Red Squirrel",
+  "Flying Squirrel",
+  "Bat",
+  "Skunk",
+  "Groundhog",
+  "Bird",
+  "Snake",
+  "Opossum",
+  "Rodent",
+  "Rat",
+  "Mouse",
+  "Carpenter Bee",
+  "Other"
+];
+
+let db = {
+  jobs: []
+};
+
+let screen = "dashboard";
+let menuOpen = false;
+let isLoading = false;
+
+function esc(value) {
+  return String(value || "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;"
+  }[character]));
+}
+
+function go(view) {
+  screen = view;
+  menuOpen = false;
+  render();
+}
+
+window.go = go;
+
+window.toggleMenu = function () {
+  menuOpen = !menuOpen;
+  render();
+};
+
+async function loadJobs() {
+  isLoading = true;
+  render();
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  isLoading = false;
+
+  if (error) {
+    alert("Supabase load error: " + error.message);
+    render();
+    return;
+  }
+
+  db.jobs = data || [];
+  render();
+}
+
+window.addJob = async function () {
+  const customerInput = document.getElementById("customer");
+  const phoneInput = document.getElementById("phone");
+  const addressInput = document.getElementById("address");
+  const townInput = document.getElementById("town");
+  const speciesInput = document.getElementById("speciesSelect");
+  const titleInput = document.getElementById("title");
+  const notesInput = document.getElementById("notes");
+
+  const payload = {
+    customer_name: customerInput.value.trim(),
+    customer_phone: phoneInput.value.trim(),
+    address: addressInput.value.trim(),
+    town: townInput.value.trim(),
+    species: speciesInput.value,
+    title: titleInput.value.trim() || speciesInput.value + " job",
+    scope: notesInput.value.trim(),
+    status: "Active"
+  };
+
+  if (!payload.customer_name || !payload.address) {
+    alert("Customer and address required.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("jobs")
+    .insert(payload);
+
+  if (error) {
+    alert("Supabase save error: " + error.message);
+    return;
+  }
+
+  await loadJobs();
+};
+
+function layout(content) {
+  app.innerHTML = `
+    <header>
+      <div>
+        <h1>Wildlife Whisperer FieldOps</h1>
+        <div class="sub">
+          ${esc(screen)} ${isLoading ? "· syncing..." : ""}
+        </div>
+      </div>
+
+      <button class="menuBtn" onclick="toggleMenu()">☰</button>
+    </header>
+
+    ${
+      menuOpen
+        ? `
+          <div class="drawer">
+            <button onclick="go('dashboard')">🏠 Dashboard</button>
+            <button onclick="go('jobs')">🦝 Jobs</button>
+            <button onclick="go('heatmap')">🗺️ Heat Map</button>
+            <button onclick="go('estimate')">💵 Estimator</button>
+            <button onclick="go('ai')">🧠 AI Assistant</button>
+          </div>
+        `
+        : ""
+    }
+
+    <main>
+      ${content}
+    </main>
+  `;
+}
+
+function dashboard() {
+  layout(`
+    <section class="grid">
+      <div class="card">
+        <h2>${db.jobs.filter(job => job.status === "Active").length}</h2>
+        <p>Active jobs</p>
+      </div>
+
+      <div class="card">
+        <h2>${db.jobs.length}</h2>
+        <p>Total jobs</p>
+      </div>
+    </section>
+
+    <h2>Fast Create Job</h2>
+
+    <section class="card form">
+      <input id="customer" placeholder="Customer">
+      <input id="phone" placeholder="Phone">
+      <input id="address" placeholder="Address">
+      <input id="town" placeholder="Town">
+
+      <select id="speciesSelect">
+        ${species.map(item => `<option>${item}</option>`).join("")}
+      </select>
+
+      <input id="title" placeholder="Job title">
+      <textarea id="notes" placeholder="Notes / scope"></textarea>
+
+      <button onclick="addJob()">Create Cloud Job</button>
+    </section>
+
+    <h2>Recent Jobs</h2>
+
+    ${jobCards(db.jobs.slice(0, 5))}
+  `);
+}
+
+function jobCards(list) {
+  if (!list.length) {
+    return `
+      <div class="card">
+        No jobs yet.
+      </div>
+    `;
+  }
+
+  return list.map(job => `
+    <div class="card">
+      <h3>${esc(job.title)}</h3>
+      <p>${esc(job.customer_name)}</p>
+      <p>${esc(job.address)}</p>
+
+      <p>
+        <span class="tag">${esc(job.species)}</span>
+        <span class="tag">${esc(job.status)}</span>
+      </p>
+    </div>
+  `).join("");
+}
+
+function jobs() {
+  layout(`
+    <h2>Jobs</h2>
+    ${jobCards(db.jobs)}
+  `);
+}
+
+function heatmap() {
+  const towns = {};
+
+  db.jobs.forEach(job => {
+    const town = job.town || "Unknown";
+    towns[town] = (towns[town] || 0) + 1;
+  });
+
+  const townCards = Object.entries(towns)
+    .map(([town, count]) => `
+      <div class="card">
+        <h3>${esc(town)}</h3>
+        <p>${count} jobs</p>
+      </div>
+    `)
+    .join("");
+
+  layout(`
+    <h2>Heat Map</h2>
+    ${townCards || `<div class="card">No map data yet.</div>`}
+  `);
+}
+
+function estimate() {
+  layout(`
+    <h2>Estimator</h2>
+
+    <div class="card form">
+      <select id="estSpecies">
+        ${species.map(item => `<option>${item}</option>`).join("")}
+      </select>
+
+      <select id="severity">
+        <option>Low</option>
+        <option>Medium</option>
+        <option>High</option>
+        <option>Critical</option>
+      </select>
+
+      <button onclick="calcEstimate()">Calculate</button>
+
+      <textarea id="estimateOut"></textarea>
+    </div>
+  `);
+}
+
+window.calcEstimate = function () {
+  const selectedSpecies = document.getElementById("estSpecies").value;
+  const selectedSeverity = document.getElementById("severity").value;
+
+  const basePrices = {
+    Raccoon: 650,
+    "Grey Squirrel": 550,
+    "Red Squirrel": 575,
+    "Flying Squirrel": 750,
+    Bat: 950,
+    Skunk: 450,
+    Groundhog: 450,
+    Rat: 350,
+    Mouse: 325,
+    "Carpenter Bee": 350
+  };
+
+  const severityMultipliers = {
+    Low: 1,
+    Medium: 1.35,
+    High: 1.8,
+    Critical: 2.4
+  };
+
+  const price = Math.round(
+    (basePrices[selectedSpecies] || 500) *
+    (severityMultipliers[selectedSeverity] || 1)
+  );
+
+  document.getElementById("estimateOut").value =
+    "Recommended estimate: $" + price;
+};
+
+function ai() {
+  layout(`
+    <h2>AI Species Assistant</h2>
+
+    <div class="card form">
+      <select id="aiSpecies">
+        ${species.map(item => `<option>${item}</option>`).join("")}
+      </select>
+
+      <button onclick="speciesAdvice()">Suggest</button>
+
+      <textarea id="aiOut"></textarea>
+    </div>
+  `);
+}
+
+window.speciesAdvice = function () {
+  const selectedSpecies = document.getElementById("aiSpecies").value;
+
+  const advice = {
+    "Flying Squirrel": "Inspect soffits, returns, attic runs, vents, roofline gaps, and night movement paths.",
+    "Red Squirrel": "Inspect fascia, roof edge, ridge vent chewing, cone caches, and repeat entry points.",
+    "Grey Squirrel": "Inspect attic travel routes, soffit/fascia openings, gable vents, and roof edge chewing.",
+    Raccoon: "Inspect roof returns, soffits, chimney caps, attic latrine areas, and insulation compression.",
+    Bat: "Check legal exclusion windows, guano zones, staining, roost gaps, and one-way device locations.",
+    Rat: "Inspect foundation gaps, crawlspace trails, burrows, grease marks, droppings, and food/water sources.",
+    Mouse: "Inspect utility penetrations, sill plates, garage corners, basement gaps, and food sources."
+  };
+
+  document.getElementById("aiOut").value =
+    advice[selectedSpecies] || "Inspect entry points, recurrence patterns, seasonal behavior, and secondary openings.";
+};
+
+function render() {
+  if (screen === "dashboard") {
+    dashboard();
+  }
+
+  if (screen === "jobs") {
+    jobs();
+  }
+
+  if (screen === "heatmap") {
+    heatmap();
+  }
+
+  if (screen === "estimate") {
+    estimate();
+  }
+
+  if (screen === "ai") {
+    ai();
+  }
+}
+
+loadJobs();select,
 textarea{
   width:100%;
   background:#0d1520;
