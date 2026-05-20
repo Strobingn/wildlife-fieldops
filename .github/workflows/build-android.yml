@@ -21,7 +21,6 @@ jobs:
         run: |
           java -version
           javac -version
-          echo $JAVA_HOME
 
       - name: Install Node
         uses: actions/setup-node@v4
@@ -40,24 +39,16 @@ jobs:
             npx cap add android
           fi
 
+      - name: Generate Android Icons And Splash
+        run: npx capacitor-assets generate --android
+
       - name: Capacitor Sync
         run: npx cap sync android
-
-      - name: Force Java 21 For Gradle
-        run: |
-          mkdir -p ~/.gradle
-          echo "org.gradle.java.home=$JAVA_HOME" >> ~/.gradle/gradle.properties
-          cat ~/.gradle/gradle.properties
-
-      - name: Verify Gradle
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew -version
 
       - name: Build APK
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
