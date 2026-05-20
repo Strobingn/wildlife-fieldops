@@ -1,8 +1,6 @@
 {
   "appId": "com.wildlifewhisperer.fieldops",
-  "appName": "Wildlife FieldOps",
+  "appName": "Wildlife Whisperer FieldOps",
   "webDir": "dist",
-  "server": {
-    "androidScheme": "https"
-  }
+  "bundledWebRuntime": false
 }
