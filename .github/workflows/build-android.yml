@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: 21
 
       - name: Verify Java
         run: |
@@ -25,18 +25,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-
-      - name: Create Env File
-        run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+          node-version: 22
 
       - name: Install Dependencies
         run: npm install
 
-      - name: Build Web App
+      - name: Build Vite
         run: npm run build
+
+      - name: Install Capacitor Android
+        run: npm install @capacitor/android
 
       - name: Add Android Platform
         run: |
@@ -44,18 +42,10 @@ jobs:
             npx cap add android
           fi
 
-      - name: Generate Android Icons And Splash If Assets Exist
-        run: |
-          if [ -f "assets/logo.png" ] || [ -f "assets/logo.svg" ]; then
-            npx capacitor-assets generate --android
-          else
-            echo "No assets/logo.png or assets/logo.svg found. Skipping icon generation."
-          fi
-
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Build Debug APK
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
@@ -65,4 +55,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wildlife-fieldops-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
