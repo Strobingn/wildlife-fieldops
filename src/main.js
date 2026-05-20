@@ -6,7 +6,7 @@ const SUPABASE_URL =
 
 const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
-  "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+  "sb_publishable_ExD5HM7IkieB_ZWItda83w_rFwR3nrB ";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
