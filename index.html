@@ -3,106 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-
   <title>Wildlife Whisperer FieldOps</title>
   <meta name="theme-color" content="#070b10" />
-
-  <style>
-    :root {
-      --bg: #070b10;
-      --panel: #101822;
-      --panel2: #162231;
-      --text: #edf5ff;
-      --muted: #9fb0c3;
-      --accent: #61e28d;
-      --blue: #7ab7ff;
-      --line: #26384d;
-      --danger: #ff6b6b;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      background: radial-gradient(circle at top, #102033 0, #070b10 50%);
-      color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      background: #070b10ee;
-      border-bottom: 1px solid var(--line);
-      padding: 18px 22px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 22px;
-    }
-
-    h2 {
-      margin: 24px 0 12px;
-      font-size: 22px;
-    }
-
-    h3 {
-      margin: 0 0 8px;
-    }
-
-    .sub {
-      color: var(--muted);
-      font-size: 16px;
-      margin-top: 4px;
-      text-transform: capitalize;
-    }
-
-    main {
-      padding: 18px 22px 40px;
-      max-width: 900px;
-      margin: auto;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-
-    .card {
-      background: #101822ee;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 18px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.22);
-      margin-bottom: 14px;
-    }
-
-    .card h2 {
-      margin: 0;
-      font-size: 32px;
-    }
-
-    .card p {
-      color: var(--muted);
-      margin: 8px 0;
-    }
-
-    .form {
-      display: grid;
-      gap: 12px;
-    }
-
-    input,
-    select,
-    textarea,
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>    textarea,
     button {
       font: inherit;
     }
