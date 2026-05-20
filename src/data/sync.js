@@ -1,79 +1,85 @@
 import { supabase } from '../auth/supabaseClient.js';
 
+// Cloudflare Worker URL
+const SYNC_URL = 'https://wildlife-fieldops-sync.YOUR_SUBDOMAIN.workers.dev';
+
 // Queue for offline actions
 let syncQueue = JSON.parse(localStorage.getItem('syncQueue') || '[]');
 
 // Add an action to the sync queue
-export function queueAction(action) {
+export function queueAction(type, payload) {
+  const action = {
+    id: generateId(),
+    type,
+    payload,
+    at: new Date().toISOString(),
+    device: 'fieldops-app',
+  };
   syncQueue.push(action);
   localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+  return action.id;
 }
 
-// Process the sync queue (call this when online)
+// Process the sync queue
 export async function processSyncQueue() {
   if (syncQueue.length === 0) return;
 
   const queue = [...syncQueue]; // Copy to avoid race conditions
-  syncQueue = []; // Clear the queue
+  syncQueue = [];
   localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
 
-  for (const action of queue) {
-    try {
-      await processAction(action);
-    } catch (error) {
-      console.error('Sync error:', error);
+  try {
+    const response = await fetch(SYNC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        device: 'fieldops-app',
+        queue,
+      }),
+    });
+
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('Sync failed:', result.error);
       // Re-add failed actions to the queue
-      syncQueue.unshift(action);
+      syncQueue = queue.concat(syncQueue);
       localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+    } else {
+      console.log(`Synced ${result.syncedActions} actions`);
+      if (result.failures && result.failures.length > 0) {
+        console.warn('Some actions failed:', result.failures);
+        // Re-add failed actions
+        result.failures.forEach(failure => {
+          syncQueue.push(failure.action);
+        });
+        localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
+      }
     }
+  } catch (error) {
+    console.error('Sync error:', error);
+    // Re-add all actions to the queue
+    syncQueue = queue.concat(syncQueue);
+    localStorage.setItem('syncQueue', JSON.stringify(syncQueue));
   }
 }
 
-// Process a single action
-async function processAction(action) {
-  const { type, payload } = action;
-
-  switch (type) {
-    case 'CREATE_JOB':
-      await supabase.from('jobs').insert(payload);
-      break;
-    case 'UPDATE_JOB':
-      await supabase.from('jobs').update(payload).eq('id', payload.id);
-      break;
-    case 'CREATE_VISIT':
-      await supabase.from('visits').insert(payload);
-      break;
-    case 'CREATE_REPAIR':
-      await supabase.from('repairs').insert(payload);
-      break;
-    case 'UPLOAD_PHOTO':
-      const { jobId, file, tag, notes } = payload;
-      const path = `${jobId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('job-photos')
-        .upload(path, file);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('job-photos')
-        .getPublicUrl(path);
-
-      await supabase.from('job_photos').insert({
-        job_id: jobId,
-        path,
-        public_url: urlData.publicUrl,
-        tag,
-        notes,
-      });
-      break;
-    default:
-      console.warn('Unknown action type:', type);
-  }
+// Generate a unique ID
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 // Check online status and sync
 export function setupSync() {
+  // Sync immediately if online
+  if (navigator.onLine) {
+    processSyncQueue();
+  }
+
+  // Sync when coming online
   window.addEventListener('online', processSyncQueue);
+
   // Sync every 5 minutes as a fallback
   setInterval(processSyncQueue, 5 * 60 * 1000);
 }
