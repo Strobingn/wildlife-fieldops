@@ -27,6 +27,11 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Create Env File
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+
       - name: Install Dependencies
         run: npm install
 
@@ -39,8 +44,13 @@ jobs:
             npx cap add android
           fi
 
-      - name: Generate Android App Icons And Splash
-        run: npx capacitor-assets generate --android
+      - name: Generate Android Icons And Splash If Assets Exist
+        run: |
+          if [ -f "assets/logo.png" ] || [ -f "assets/logo.svg" ]; then
+            npx capacitor-assets generate --android
+          else
+            echo "No assets/logo.png or assets/logo.svg found. Skipping icon generation."
+          fi
 
       - name: Sync Capacitor
         run: npx cap sync android
