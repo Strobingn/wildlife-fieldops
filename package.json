@@ -1,19 +1,20 @@
 {
-  "name": "wildlife-fieldops-production",
+  "name": "wildlife-fieldops",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build"
+    "build": "vite build",
+    "dev": "vite --host 0.0.0.0"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
     "@capacitor/android": "latest",
     "@capacitor/cli": "latest",
     "@capacitor/core": "latest",
-    "@capacitor/geolocation": "latest",
     "@capacitor/camera": "latest",
-    "@supabase/supabase-js": "latest",
-    "vite": "latest"
-  }
+    "@capacitor/geolocation": "latest"
+  },
+  "devDependencies": {}
 }
