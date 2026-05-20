@@ -295,24 +295,4 @@ function render() {
   if (screen === "heatmap") heatmap();
   if (screen === "estimate") estimate();
   if (screen === "ai") ai();
-}
-
-render();
-.drawer {
-  position: fixed;
-  top: 90px;
-  right: 20px;
-  left: 20px;
-  z-index: 9999;
-  background: #101822;
-  border: 1px solid #26384d;
-  border-radius: 20px;
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.drawer button {
-  width: 100%;
-  text-align: left;
-}
+} 
