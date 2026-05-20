@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "dev": "vite --host 0.0.0.0"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
     "@capacitor/android": "latest",
+    "@capacitor/camera": "latest",
     "@capacitor/cli": "latest",
     "@capacitor/core": "latest",
-    "@capacitor/camera": "latest",
-    "@capacitor/geolocation": "latest"
-  },
-  "devDependencies": {}
+    "@capacitor/geolocation": "latest",
+    "@supabase/supabase-js": "latest",
+    "vite": "latest"
+  }
 }
