@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Geolocation } from "@capacitor/geolocation";
 
 const SUPABASE_URL = "https://hgdzmwfcghtilyqagjak.supabase.co";
-const SUPABASE_KEY = "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE";
+const SUPABASE_KEY = "sb_publishable_ExD5HM7IkieB_ZWItda83w_rFwR3nrB";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
