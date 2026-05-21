@@ -2,82 +2,359 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  />
+
   <title>Wildlife Whisperer FieldOps</title>
 
   <style>
-    *{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
-    body{background:#050505;color:#fff}
-    #app{min-height:100vh;background:#050505}
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:Arial,Helvetica,sans-serif;
+    }
+
+    :root{
+      --bg:#05070a;
+      --top:#0b1220;
+      --card:#0d1117;
+      --card2:#111827;
+      --border:#1f2937;
+      --accent:#1e3a5f;
+      --accent2:#27496d;
+      --green:#15803d;
+      --text:#f3f4f6;
+      --muted:#94a3b8;
+    }
+
+    html,
+    body{
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      overflow-x:hidden;
+    }
+
+    body{
+      padding-bottom:80px;
+    }
+
+    #app{
+      min-height:100vh;
+      background:var(--bg);
+    }
 
     .top{
       position:sticky;
       top:0;
       z-index:1000;
-      background:#050505;
-      border-bottom:1px solid #1f1f1f;
-      padding-top:max(10px,env(safe-area-inset-top));
+
+      background:var(--top);
+
+      border-bottom:1px solid var(--border);
+
+      padding-top:max(12px, env(safe-area-inset-top));
       padding-left:14px;
       padding-right:14px;
-      padding-bottom:10px;
+      padding-bottom:12px;
+
       display:flex;
       justify-content:space-between;
       align-items:center;
+
+      backdrop-filter:blur(10px);
     }
 
-    .menu{
-      position:fixed;
-      left:-280px;
-      top:0;
-      width:260px;
-      height:100vh;
-      background:#080808;
-      transition:.25s;
-      z-index:2000;
-      padding:18px;
-      overflow:auto;
-      border-right:1px solid #222;
+    .title{
+      font-size:18px;
+      font-weight:700;
     }
 
-    .menu.open{left:0}
+    .sub{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:4px;
+    }
 
-    .menu button{
-      width:100%;
-      margin-bottom:10px;
+    .menuBtn{
+      width:46px;
+      height:46px;
       border:none;
       border-radius:14px;
-      padding:14px;
-      background:#151515;
+
+      background:var(--card2);
+
+      border:1px solid var(--border);
+
       color:#fff;
-      font-size:15px;
-      text-align:left;
+
+      font-size:22px;
+      font-weight:bold;
     }
 
-    .wrap{padding:14px;padding-bottom:80px}
-    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:18px}
-    .card{background:#101010;border:1px solid #242424;border-radius:18px;padding:14px;margin-bottom:14px}
-    .stat{font-size:28px;font-weight:bold}
-    .tiny{opacity:.72;font-size:12px;margin-top:6px}
-    input,select,textarea{width:100%;margin-top:10px;border:none;border-radius:12px;padding:14px;background:#161616;color:#fff;font-size:15px}
-    textarea{min-height:110px}
-    button.action{width:100%;border:none;border-radius:14px;padding:15px;margin-top:12px;background:#1e88ff;color:#fff;font-size:16px;font-weight:bold}
-    .menuButton{width:48px!important;height:44px!important;margin:0!important;padding:10px 14px!important;display:flex;align-items:center;justify-content:center}
-    .green{background:#18a558!important}
-    .dark{background:#191919!important}
-    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#1b1b1b;margin-top:8px;margin-right:6px;font-size:12px}
-    .job{margin-top:12px}
-    .job h3{margin-bottom:8px}
-    .row{display:flex;gap:10px}
-    .row button,.row a{flex:1}
-    .mapbtn{display:block;width:100%;text-align:center;text-decoration:none;background:#18a558;color:#fff;padding:12px;border-radius:12px;margin-top:12px;font-weight:bold}
-    .service{padding:10px;background:#151515;border:1px solid #262626;border-radius:10px;margin-top:8px}
-    a{color:#77b7ff}
+    .drawer{
+      position:fixed;
+      top:0;
+      left:-290px;
+
+      width:270px;
+      height:100vh;
+
+      background:#081018;
+
+      border-right:1px solid var(--border);
+
+      z-index:2000;
+
+      transition:.25s;
+
+      overflow-y:auto;
+
+      padding-top:max(24px, env(safe-area-inset-top));
+      padding-left:14px;
+      padding-right:14px;
+      padding-bottom:30px;
+    }
+
+    .drawer.open{
+      left:0;
+    }
+
+    .drawerTitle{
+      font-size:20px;
+      font-weight:bold;
+      margin-bottom:20px;
+    }
+
+    .drawer button{
+      width:100%;
+
+      margin-bottom:12px;
+
+      border:none;
+
+      border-radius:14px;
+
+      padding:15px;
+
+      text-align:left;
+
+      font-size:15px;
+
+      color:#fff;
+
+      background:var(--card2);
+
+      border:1px solid var(--border);
+    }
+
+    .wrap{
+      padding:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:12px;
+      margin-bottom:18px;
+    }
+
+    .card{
+      background:var(--card);
+
+      border:1px solid var(--border);
+
+      border-radius:20px;
+
+      padding:15px;
+
+      margin-bottom:14px;
+    }
+
+    .stat{
+      font-size:30px;
+      font-weight:800;
+    }
+
+    .tiny{
+      color:var(--muted);
+      font-size:12px;
+      margin-top:6px;
+      line-height:1.4;
+    }
+
+    h2{
+      margin-bottom:12px;
+    }
+
+    input,
+    select,
+    textarea{
+      width:100%;
+
+      background:var(--card2);
+
+      border:1px solid #243041;
+
+      border-radius:14px;
+
+      padding:14px;
+
+      margin-top:10px;
+
+      color:#fff;
+
+      font-size:15px;
+
+      outline:none;
+    }
+
+    textarea{
+      min-height:120px;
+      resize:vertical;
+    }
+
+    button.action{
+      width:100%;
+
+      border:none;
+
+      border-radius:14px;
+
+      padding:15px;
+
+      margin-top:12px;
+
+      background:var(--accent);
+
+      color:#fff;
+
+      font-size:15px;
+      font-weight:700;
+    }
+
+    button.action:active{
+      transform:scale(.98);
+    }
+
+    button.green{
+      background:var(--green);
+    }
+
+    button.dark{
+      background:var(--card2);
+    }
+
+    .pill{
+      display:inline-block;
+
+      background:var(--card2);
+
+      border:1px solid #243041;
+
+      padding:6px 10px;
+
+      border-radius:999px;
+
+      margin-right:6px;
+      margin-top:8px;
+
+      font-size:12px;
+    }
+
+    .job{
+      margin-top:12px;
+    }
+
+    .job h3{
+      margin-bottom:8px;
+    }
+
+    .row{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .row button,
+    .row a{
+      flex:1;
+    }
+
+    .mapbtn{
+      display:block;
+
+      width:100%;
+
+      text-align:center;
+
+      text-decoration:none;
+
+      background:var(--green);
+
+      color:#fff;
+
+      padding:14px;
+
+      border-radius:14px;
+
+      margin-top:12px;
+
+      font-weight:700;
+    }
+
+    .service{
+      padding:12px;
+
+      border-radius:14px;
+
+      background:var(--card2);
+
+      border:1px solid var(--border);
+
+      margin-top:10px;
+    }
+
+    img.photo{
+      width:100%;
+      border-radius:14px;
+      margin-top:10px;
+      border:1px solid var(--border);
+    }
+
+    a{
+      color:#93c5fd;
+    }
+
+    .divider{
+      height:1px;
+      background:var(--border);
+      margin:18px 0;
+    }
   </style>
 </head>
 
 <body>
-  <div id="menu" class="menu"></div>
+
+  <div id="drawer" class="drawer">
+    <div class="drawerTitle">Wildlife Whisperer</div>
+
+    <button onclick="go('dashboard')">🏠 Dashboard</button>
+    <button onclick="go('jobs')">🦝 Jobs</button>
+    <button onclick="go('new')">➕ New Job</button>
+    <button onclick="go('estimate')">💵 Estimator</button>
+    <button onclick="go('techs')">👷 Techs</button>
+    <button onclick="go('ai')">🧠 AI Assistant</button>
+    <button onclick="go('reports')">📄 Reports</button>
+    <button onclick="go('settings')">⚙️ Settings</button>
+  </div>
+
   <div id="app"></div>
+
   <script type="module" src="/src/main.js"></script>
+
 </body>
 </html>
