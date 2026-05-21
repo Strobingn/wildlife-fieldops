@@ -1,28 +1,51 @@
-:root {
-  --bg: #05080d;
-  --panel: #0d1520;
-  --panel2: #111e2d;
-  --panel3: #17283b;
-  --text: #edf5ff;
-  --muted: #93a7bd;
-  --accent: #5ce083;
-  --blue: #74b8ff;
-  --yellow: #f4c15d;
-  --red: #ff6b6b;
-  --line: #26384d;
+body,#app{
+  background:#05070a;
+  color:#f3f4f6;
 }
 
-* {
-  box-sizing: border-box;
+.top{
+  background:#0b1220;
+  border-bottom:1px solid #1f2937;
 }
 
-body {
-  margin: 0;
-  background:
-    radial-gradient(circle at top left, #102033 0, #05080d 46%),
-    linear-gradient(180deg, #07101a, #05080d);
-  color: var(--text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+.menu{
+  background:#0b1220;
+  border-right:1px solid #1f2937;
 }
 
-/* Add all other styles from main.js here */
+.menu button{
+  background:#111827;
+  border:1px solid #1f2937;
+}
+
+.card{
+  background:#0d1117;
+  border:1px solid #1f2937;
+}
+
+input,select,textarea{
+  background:#111827;
+  border:1px solid #243041;
+  color:#fff;
+}
+
+button.action{
+  background:#1e3a5f;
+}
+
+button.action:hover{
+  background:#27496d;
+}
+
+.dark{
+  background:#111827!important;
+}
+
+.green{
+  background:#15803d!important;
+}
+
+.pill{
+  background:#111827;
+  border:1px solid #243041;
+}
