@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout Repo
         uses: actions/checkout@v4
 
@@ -22,7 +23,7 @@ jobs:
           java -version
           javac -version
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -30,28 +31,45 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Verify Capacitor CLI
+      - name: Verify Capacitor
         run: npx cap --version
 
       - name: Build Vite App
         run: npm run build
 
-      - name: Add Android Platform
+      - name: Add Android Platform If Missing
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
-      - name: Sync Capacitor
+      - name: Generate Icons And Splash
+        run: |
+          if [ -f "assets/icon.png" ] && [ -f "assets/splash.png" ]; then
+            npx capacitor-assets generate --android --pwa
+          else
+            echo "Missing assets/icon.png or assets/splash.png"
+            exit 1
+          fi
+
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build Debug APK
+      - name: Build Android APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Print SHA Fingerprints
+        run: |
+          keytool -list -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android
+
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: wildlife-fieldops-apk
