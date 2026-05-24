@@ -44,6 +44,12 @@ jobs:
 
       - name: Generate Icons And Splash
         run: |
+          # Ensure icon.png exists (fallback to logo.png)
+          if [ ! -f "assets/icon.png" ] && [ -f "assets/logo.png" ]; then
+            echo "icon.png not found, using logo.png as fallback"
+            cp assets/logo.png assets/icon.png
+          fi
+
           if [ -f "assets/icon.png" ] && [ -f "assets/splash.png" ]; then
             npx capacitor-assets generate --android --pwa
           else
