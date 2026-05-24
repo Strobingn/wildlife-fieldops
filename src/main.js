@@ -1,11 +1,12 @@
 import { supabase } from "./auth/supabaseClient.js";
 import { Geolocation } from "@capacitor/geolocation";
 import { jsPDF } from "jspdf";
+import { KEYS } from "./config.js";
 
 /* ─── API KEYS ─── */
-const GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
-const GOOGLE_CALENDAR_CLIENT_ID = "YOUR_GOOGLE_CALENDAR_CLIENT_ID";
-const OPENWEATHER_API_KEY = "YOUR_OPENWEATHER_API_KEY";
+const GOOGLE_MAPS_API_KEY = KEYS.GOOGLE_MAPS;
+const GOOGLE_CALENDAR_CLIENT_ID = KEYS.GOOGLE_CALENDAR_CLIENT_ID;
+const OPENWEATHER_API_KEY = KEYS.OPENWEATHER;
 
 /* ─── CONSTANTS ─── */
 const SERVICES = [
@@ -240,7 +241,7 @@ function loadGoogleCalendarAPI() {
   gapiScript.onload = () => {
     window.gapi.load("client", async () => {
       await window.gapi.client.init({
-        apiKey: "YOUR_GOOGLE_API_KEY",
+        apiKey: KEYS.GOOGLE_API_KEY,
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]
       });
       gapiLoaded = true;
@@ -317,18 +318,15 @@ window.dictate = function (el) {
   r.onresult = e => {
     const transcript = e.results[e.results.length - 1][0].transcript;
     el.value += (el.value ? " " : "") + transcript;
-    // Command parsing
     const lower = transcript.toLowerCase();
     if (lower.includes("add job") || lower.includes("new job")) {
       const speciesMatch = transcript.match(/for (a |an )?(\w+(?:\s+\w+)?)/i);
       const addressMatch = transcript.match(/at (.+?)(?:\s+in\s+(.+))?$/i);
-      if (speciesMatch && addressMatch && typeof customer !== "undefined") {
+      if (speciesMatch && addressMatch && document.getElementById("species")) {
         const sp = speciesMatch[2].trim();
         const addr = addressMatch[1].trim();
         const tn = addressMatch[2] ? addressMatch[2].trim() : "";
-        if (SPECIES.some(s => s.toLowerCase() === sp.toLowerCase())) {
-          if (document.getElementById("species")) document.getElementById("species").value = sp;
-        }
+        if (SPECIES.some(s => s.toLowerCase() === sp.toLowerCase())) document.getElementById("species").value = sp;
         if (document.getElementById("address")) document.getElementById("address").value = addr;
         if (document.getElementById("town") && tn) document.getElementById("town").value = tn;
         alert(`Detected: ${sp} at ${addr}${tn ? ", " + tn : ""}. Fill customer name and tap Save Job.`);
@@ -978,7 +976,6 @@ window.importData = async function (raw) {
     const data = JSON.parse(raw);
     if (!data.jobs) { alert("Invalid format: missing jobs array."); return; }
 
-    // Merge strategy: upsert all tables
     if (data.jobs?.length) {
       const { error } = await supabase.from("jobs").upsert(data.jobs);
       if (error) console.error("Jobs import error:", error);
