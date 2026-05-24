@@ -1,5 +1,5 @@
--- Wildlife FieldOps Schema v2
--- Run this in Supabase SQL Editor
+-- Wildlife FieldOps Schema v3
+-- Run this in Supabase SQL Editor (completely idempotent / safe to re-run)
 
 create extension if not exists pgcrypto;
 
@@ -16,7 +16,15 @@ create table if not exists techs (
 
 alter table techs enable row level security;
 
-create policy if not exists "Allow all ops on techs"
+-- Drop existing policies so we can recreate them safely
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'techs' and policyname = 'Allow all ops on techs') then
+    drop policy "Allow all ops on techs" on techs;
+  end if;
+end $$;
+
+create policy "Allow all ops on techs"
   on techs for all
   using (true) with check (true);
 
@@ -46,7 +54,14 @@ create table if not exists jobs (
 
 alter table jobs enable row level security;
 
-create policy if not exists "Allow all ops on jobs"
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'jobs' and policyname = 'Allow all ops on jobs') then
+    drop policy "Allow all ops on jobs" on jobs;
+  end if;
+end $$;
+
+create policy "Allow all ops on jobs"
   on jobs for all
   using (true) with check (true);
 
@@ -65,7 +80,14 @@ create table if not exists services (
 
 alter table services enable row level security;
 
-create policy if not exists "Allow all ops on services"
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'services' and policyname = 'Allow all ops on services') then
+    drop policy "Allow all ops on services" on services;
+  end if;
+end $$;
+
+create policy "Allow all ops on services"
   on services for all
   using (true) with check (true);
 
@@ -82,7 +104,14 @@ create table if not exists inspections (
 
 alter table inspections enable row level security;
 
-create policy if not exists "Allow all ops on inspections"
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'inspections' and policyname = 'Allow all ops on inspections') then
+    drop policy "Allow all ops on inspections" on inspections;
+  end if;
+end $$;
+
+create policy "Allow all ops on inspections"
   on inspections for all
   using (true) with check (true);
 
@@ -100,7 +129,14 @@ create table if not exists photos (
 
 alter table photos enable row level security;
 
-create policy if not exists "Allow all ops on photos"
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'photos' and policyname = 'Allow all ops on photos') then
+    drop policy "Allow all ops on photos" on photos;
+  end if;
+end $$;
+
+create policy "Allow all ops on photos"
   on photos for all
   using (true) with check (true);
 
@@ -118,7 +154,14 @@ create table if not exists pdf_documents (
 
 alter table pdf_documents enable row level security;
 
-create policy if not exists "Allow all ops on pdf_documents"
+do $$
+begin
+  if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'pdf_documents' and policyname = 'Allow all ops on pdf_documents') then
+    drop policy "Allow all ops on pdf_documents" on pdf_documents;
+  end if;
+end $$;
+
+create policy "Allow all ops on pdf_documents"
   on pdf_documents for all
   using (true) with check (true);
 
