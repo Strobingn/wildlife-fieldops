@@ -165,6 +165,13 @@ function validateJob(job) {
   return errors;
 }
 
+function validateTech(tech) {
+  const errors = [];
+  if (!tech.name || tech.name.trim().length < 2) errors.push("Tech name required (min 2 chars)");
+  if (tech.phone && !isValidPhone(tech.phone)) errors.push("Invalid phone number");
+  return errors;
+}
+
 /* ─── IMAGE COMPRESSION ─── */
 async function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {
   return new Promise((resolve, reject) => {
@@ -471,6 +478,7 @@ function nav() {
     <button onclick="go('new')">➕ New Job</button>
     <button onclick="go('estimate')">💵 Estimator</button>
     <button onclick="go('techs')">👷 Techs</button>
+    <button onclick="go('metrics')">📊 Metrics</button>
     <button onclick="go('ai')">🧠 AI Assistant</button>
     <button onclick="exportData()">💾 Export JSON</button>
     <button onclick="importDataPrompt()">📥 Import JSON</button>
@@ -478,7 +486,7 @@ function nav() {
 }
 
 function updateBottomNav(page) {
-  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, ai: 3 };
+  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, metrics: 4 };
   const idx = map[page] ?? -1;
   document.querySelectorAll(".bottom-nav button").forEach((b, i) => {
     b.classList.toggle("active", i === idx);
@@ -504,7 +512,7 @@ function shell(content) {
       <button onclick="go('jobs')" title="Jobs">🦝</button>
       <button onclick="go('new')" title="New Job">➕</button>
       <button onclick="go('estimate')" title="Estimate">💵</button>
-      <button onclick="go('ai')" title="AI">🧠</button>
+      <button onclick="go('metrics')" title="Metrics">📊</button>
     </div>
     <button class="fab" onclick="go('new')" title="New Job">+</button>
   `;
@@ -537,6 +545,8 @@ function dashboard() {
       <div class="card"><div class="stat">${money(total)}</div><div class="tiny">Quoted value</div></div>
     </div>
 
+    <div id="dashWeather" style="margin-bottom:12px;"></div>
+
     <div id="dashMap" style="height:320px;width:100%;border-radius:16px;margin-bottom:18px;border:1px solid var(--border);background:var(--card);"></div>
 
     <button class="action" onclick="go('new')">➕ Create New Job</button>
@@ -545,6 +555,29 @@ function dashboard() {
     <h2 style="margin:18px 0 10px">Recent Jobs</h2>
     ${jobs.slice(0, 5).map(jobCard).join("") || `<div class="card">No jobs yet.</div>`}
   `);
+
+  setTimeout(async () => {
+    const jobWithGps = jobs.find(j => j.latitude && j.longitude);
+    if (jobWithGps) {
+      const weather = await getWeather(jobWithGps.latitude, jobWithGps.longitude);
+      const wbox = document.getElementById("dashWeather");
+      if (wbox && weather) {
+        wbox.innerHTML = `
+          <div class="card">
+            <div class="weather-card">
+              <img src="${weather.icon}" alt="${esc(weather.description)}" style="width:48px;height:48px;">
+              <div>
+                <div style="font-weight:700;font-size:18px;">${weather.temp}°F</div>
+                <div class="tiny">${esc(weather.condition)} · ${esc(weather.description)}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (wbox && OPENWEATHER_API_KEY.includes("YOUR_")) {
+        wbox.innerHTML = `<div class="card tiny">Add OpenWeather API key to enable weather.</div>`;
+      }
+    }
+  }, 100);
 }
 
 function jobCard(j) {
@@ -1038,13 +1071,18 @@ function techsPage() {
 }
 
 window.addTech = async function () {
+  const payload = {
+    name: techName.value.trim(),
+    phone: techPhone.value.trim(),
+    role: techRole.value.trim()
+  };
+
+  const errors = validateTech(payload);
+  if (errors.length) { showToast(errors.join("; "), "error", 5000); return; }
+
   showLoading("Saving tech…");
   try {
-    const { error } = await supabase.from("techs").insert({
-      name: techName.value.trim(),
-      phone: techPhone.value.trim(),
-      role: techRole.value.trim()
-    });
+    const { error } = await supabase.from("techs").insert(payload);
     if (error) throw error;
     await loadData();
     go("techs");
@@ -1157,6 +1195,92 @@ window.importData = async function (raw) {
   }
 };
 
+function metricsPage() {
+  const activeJobs = jobs.filter(j => j.status !== "Closed");
+  const closedJobs = jobs.filter(j => j.status === "Closed");
+  const totalRevenue = jobs.reduce((sum, j) => sum + Number(j.grand_total || 0), 0);
+
+  const speciesCounts = {};
+  jobs.forEach(j => { if (j.species) speciesCounts[j.species] = (speciesCounts[j.species] || 0) + 1; });
+  const maxSpeciesCount = Math.max(...Object.values(speciesCounts), 1);
+
+  const statusCounts = {};
+  jobs.forEach(j => { statusCounts[j.status || "Active"] = (statusCounts[j.status || "Active"] || 0) + 1; });
+
+  const techRevenue = {};
+  techs.forEach(t => techRevenue[t.name] = 0);
+  jobs.forEach(j => { if (j.assigned_tech && techRevenue.hasOwnProperty(j.assigned_tech)) techRevenue[j.assigned_tech] += Number(j.grand_total || 0); });
+  const maxTechRevenue = Math.max(...Object.values(techRevenue), 1);
+
+  const townCounts = {};
+  jobs.forEach(j => { if (j.town) townCounts[j.town] = (townCounts[j.town] || 0) + 1; });
+  const maxTownCount = Math.max(...Object.values(townCounts), 1);
+
+  shell(`
+    <div class="card">
+      <h2>📊 Business Metrics</h2>
+      <div class="grid">
+        <div class="card"><div class="stat">${activeJobs.length}</div><div class="tiny">Active Jobs</div></div>
+        <div class="card"><div class="stat">${closedJobs.length}</div><div class="tiny">Closed Jobs</div></div>
+        <div class="card"><div class="stat">${jobs.length}</div><div class="tiny">Total Jobs</div></div>
+        <div class="card"><div class="stat">${money(totalRevenue)}</div><div class="tiny">Total Revenue</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Jobs by Species</h3>
+      ${Object.entries(speciesCounts).sort((a, b) => b[1] - a[1]).map(([species, count]) => `
+        <div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${esc(species)}</span>
+            <span>${count}</span>
+          </div>
+          <div class="prog"><div class="bar" style="width:${(count / maxSpeciesCount * 100)}%"></div></div>
+        </div>
+      `).join("") || '<div class="tiny">No species data.</div>'}
+    </div>
+
+    <div class="card">
+      <h3>Jobs by Status</h3>
+      ${Object.entries(statusCounts).map(([status, count]) => `
+        <div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${esc(status)}</span>
+            <span>${count}</span>
+          </div>
+          <div class="prog"><div class="bar" style="width:${jobs.length ? (count / jobs.length * 100) : 0}%"></div></div>
+        </div>
+      `).join("") || '<div class="tiny">No status data.</div>'}
+    </div>
+
+    <div class="card">
+      <h3>Tech Revenue</h3>
+      ${Object.entries(techRevenue).sort((a, b) => b[1] - a[1]).map(([name, revenue]) => `
+        <div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${esc(name)}</span>
+            <span>${money(revenue)}</span>
+          </div>
+          <div class="prog"><div class="bar" style="width:${(revenue / maxTechRevenue * 100)}%"></div></div>
+        </div>
+      `).join("") || '<div class="tiny">No tech data.</div>'}
+    </div>
+
+    <div class="card">
+      <h3>Jobs by Town</h3>
+      ${Object.entries(townCounts).sort((a, b) => b[1] - a[1]).map(([town, count]) => `
+        <div style="margin:8px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <span>${esc(town)}</span>
+            <span>${count}</span>
+          </div>
+          <div class="prog"><div class="bar" style="width:${(count / maxTownCount * 100)}%"></div></div>
+        </div>
+      `).join("") || '<div class="tiny">No town data.</div>'}
+    </div>
+  `);
+}
+
 /* ─── RENDER ─── */
 function render() {
   nav();
@@ -1166,6 +1290,7 @@ function render() {
   if (screen === "new") newJobPage();
   if (screen === "estimate") estimatePage();
   if (screen === "techs") techsPage();
+  if (screen === "metrics") metricsPage();
   if (screen === "ai") aiPage();
 }
 
