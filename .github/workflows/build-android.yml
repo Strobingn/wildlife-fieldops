@@ -42,7 +42,7 @@ jobs:
             npx --package @capacitor/cli cap add android
           fi
 
-      - name: Generate Icons And Splash
+      - name: Generate Android Assets
         run: |
           # Ensure icon.png exists (fallback to logo.png)
           if [ ! -f "assets/icon.png" ] && [ -f "assets/logo.png" ]; then
@@ -51,7 +51,7 @@ jobs:
           fi
 
           if [ -f "assets/icon.png" ] && [ -f "assets/splash.png" ]; then
-            npx capacitor-assets generate --android --pwa
+            npx capacitor-assets generate --android
           else
             echo "Missing assets/icon.png or assets/splash.png"
             exit 1
