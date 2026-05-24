@@ -160,6 +160,17 @@ create table if not exists public.sync_events (
 -- =========================
 
 alter table public.jobs add column if not exists estimate numeric(12,2) not null default 0;
+alter table public.jobs add column if not exists customer text;
+alter table public.jobs add column if not exists phone text;
+alter table public.jobs add column if not exists email text;
+alter table public.jobs add column if not exists address text;
+alter table public.jobs add column if not exists town text;
+alter table public.jobs add column if not exists species text;
+alter table public.jobs add column if not exists status text not null default 'Active';
+alter table public.jobs add column if not exists assigned_tech text;
+alter table public.jobs add column if not exists notes text;
+alter table public.jobs add column if not exists latitude text;
+alter table public.jobs add column if not exists longitude text;
 alter table public.jobs add column if not exists subtotal numeric(12,2) not null default 0;
 alter table public.jobs add column if not exists tax_rate numeric(6,3) not null default 0;
 alter table public.jobs add column if not exists tax_amount numeric(12,2) not null default 0;
@@ -275,12 +286,41 @@ group by coalesce(species, 'Unknown');
 -- Realtime
 -- =========================
 
-alter publication supabase_realtime add table public.jobs;
-alter publication supabase_realtime add table public.techs;
-alter publication supabase_realtime add table public.services;
-alter publication supabase_realtime add table public.inspections;
-alter publication supabase_realtime add table public.photos;
-alter publication supabase_realtime add table public.appointments;
+do $$
+begin
+  alter publication supabase_realtime add table public.jobs;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.techs;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.services;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.inspections;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.photos;
+exception when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.appointments;
+exception when duplicate_object then null;
+end $$;
 
 -- =========================
 -- RLS
