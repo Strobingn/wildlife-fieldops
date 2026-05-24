@@ -2,6 +2,12 @@ import { supabase } from "./auth/supabaseClient.js";
 import { Geolocation } from "@capacitor/geolocation";
 import { jsPDF } from "jspdf";
 
+/* ─── API KEYS ─── */
+const GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+const GOOGLE_CALENDAR_CLIENT_ID = "YOUR_GOOGLE_CALENDAR_CLIENT_ID";
+const OPENWEATHER_API_KEY = "YOUR_OPENWEATHER_API_KEY";
+
+/* ─── CONSTANTS ─── */
 const SERVICES = [
   { name: "Inspection", price: 125 },
   { name: "Inspection photography", price: 75 },
@@ -26,9 +32,38 @@ const SPECIES = [
   "Groundhog", "Bird", "Snake", "Opossum", "Rodent", "Mouse", "Rat", "Carpenter Bee", "Other"
 ];
 
-const app = document.getElementById("app");
-const menu = document.getElementById("menu");
+const SPECIES_ICONS = {
+  "Raccoon": "🦝",
+  "Grey Squirrel": "🐿️",
+  "Red Squirrel": "🐿️",
+  "Flying Squirrel": "🦇",
+  "Bat": "🦇",
+  "Skunk": "🦨",
+  "Groundhog": "🦫",
+  "Bird": "🐦",
+  "Snake": "🐍",
+  "Opossum": "🦡",
+  "Rodent": "🐁",
+  "Mouse": "🐁",
+  "Rat": "🐀",
+  "Carpenter Bee": "🐝",
+  "Other": "🐾"
+};
 
+const STATUS_STYLES = {
+  "Active": "active",
+  "Scheduled": "scheduled",
+  "Closed": "closed",
+  "Trapping": "trapping",
+  "Repair": "repair",
+  "Waiting On Customer": "scheduled",
+  "Exclusion": "active",
+  "Warranty": "active"
+};
+
+/* ─── STATE ─── */
+const app = document.getElementById("app");
+const menuEl = document.getElementById("menu");
 let screen = "dashboard";
 let jobs = [];
 let techs = [];
@@ -36,15 +71,33 @@ let services = [];
 let inspections = [];
 let photos = [];
 let selectedJob = null;
+let map = null;
+let markers = [];
+let gapiLoaded = false;
+let gisLoaded = false;
+let tokenClient = null;
+let searchDebounce = null;
 
+/* ─── UTILS ─── */
 function money(n) { return "$" + Number(n || 0).toLocaleString(); }
 function esc(v) {
   return String(v || "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m]));
 }
-function go(page) { screen = page; menu.classList.remove("open"); render(); }
+function go(page) {
+  screen = page;
+  menuEl.classList.remove("open");
+  updateBottomNav(page);
+  render();
+}
 window.go = go;
-window.toggleMenu = () => menu.classList.toggle("open");
+window.toggleMenu = () => menuEl.classList.toggle("open");
 
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+/* ─── DATA ─── */
 async function loadData() {
   try {
     const [j, t, s, i, p] = await Promise.all([
@@ -79,30 +132,293 @@ async function loadData() {
   render();
 }
 
+/* ─── GOOGLE MAPS ─── */
+function loadGoogleMaps() {
+  if (window.google?.maps || GOOGLE_MAPS_API_KEY.includes("YOUR_")) return;
+  const script = document.createElement("script");
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=onGoogleMapsLoaded`;
+  script.async = true;
+  script.defer = true;
+  document.head.appendChild(script);
+}
+window.onGoogleMapsLoaded = function () {
+  if (screen === "dashboard" || screen === "detail") render();
+};
+
+function initMap(containerId) {
+  if (!window.google?.maps || GOOGLE_MAPS_API_KEY.includes("YOUR_")) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = '<div class="card tiny">Add Google Maps API key to enable interactive map.</div>';
+    return null;
+  }
+  const defaultCenter = { lat: 40.7128, lng: -74.0060 };
+  const m = new google.maps.Map(document.getElementById(containerId), {
+    zoom: 12,
+    center: defaultCenter,
+    mapTypeId: "roadmap",
+    styles: [
+      { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+      { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+      { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+      { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+      { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+      { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+      { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+      { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+      { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+      { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+      { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+      { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+      { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+      { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+      { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+      { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+      { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }
+    ]
+  });
+  return m;
+}
+
+function renderMap() {
+  const container = document.getElementById("dashMap");
+  if (!container || !window.google?.maps) return;
+
+  const mappedJobs = jobs.filter(j => j.latitude && j.longitude);
+  if (!mappedJobs.length) {
+    container.innerHTML = '<div class="card tiny">No GPS jobs yet.</div>';
+    return;
+  }
+
+  if (!map) map = initMap("dashMap");
+  if (!map) return;
+
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  const bounds = new google.maps.LatLngBounds();
+  mappedJobs.forEach(job => {
+    const pos = { lat: parseFloat(job.latitude), lng: parseFloat(job.longitude) };
+    const marker = new google.maps.Marker({
+      position: pos,
+      map,
+      title: `${esc(job.species)} - ${esc(job.customer)}`,
+      animation: google.maps.Animation.DROP
+    });
+    marker.addListener("click", () => {
+      selectedJob = job;
+      screen = "detail";
+      updateBottomNav("detail");
+      render();
+    });
+    markers.push(marker);
+    bounds.extend(pos);
+  });
+
+  if (markers.length > 1) map.fitBounds(bounds);
+  else if (markers.length === 1) { map.setCenter(markers[0].getPosition()); map.setZoom(15); }
+}
+
+function navigateToJob(lat, lng, address) {
+  if (!lat || !lng) {
+    if (address) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`, "_blank");
+      return;
+    }
+    return alert("No GPS data for this job.");
+  }
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank");
+}
+window.navigateToJob = navigateToJob;
+
+/* ─── GOOGLE CALENDAR ─── */
+function loadGoogleCalendarAPI() {
+  if (gapiLoaded || GOOGLE_CALENDAR_CLIENT_ID.includes("YOUR_")) return;
+
+  const gapiScript = document.createElement("script");
+  gapiScript.src = "https://apis.google.com/js/api.js";
+  gapiScript.onload = () => {
+    window.gapi.load("client", async () => {
+      await window.gapi.client.init({
+        apiKey: "YOUR_GOOGLE_API_KEY",
+        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]
+      });
+      gapiLoaded = true;
+    });
+  };
+  document.head.appendChild(gapiScript);
+
+  const gisScript = document.createElement("script");
+  gisScript.src = "https://accounts.google.com/gsi/client";
+  gisScript.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CALENDAR_CLIENT_ID,
+      scope: "https://www.googleapis.com/auth/calendar.events",
+      callback: () => {}
+    });
+    gisLoaded = true;
+  };
+  document.head.appendChild(gisScript);
+}
+
+window.createCalendarEvent = async function (job) {
+  if (!gapiLoaded || !gisLoaded || GOOGLE_CALENDAR_CLIENT_ID.includes("YOUR_")) {
+    alert("Google Calendar not configured. Add your Client ID and API Key.");
+    return;
+  }
+
+  return new Promise((resolve) => {
+    tokenClient.callback = async (resp) => {
+      if (resp.error) { alert("Auth error: " + resp.error); resolve(); return; }
+      const event = {
+        summary: `Wildlife Job: ${job.customer} - ${job.species}`,
+        description: `Customer: ${job.customer}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.notes || ""}`,
+        start: { dateTime: new Date().toISOString(), timeZone: "America/New_York" },
+        end: { dateTime: new Date(Date.now() + 3600000).toISOString(), timeZone: "America/New_York" },
+        location: job.address
+      };
+      try {
+        const response = await window.gapi.client.calendar.events.insert({ calendarId: "primary", resource: event });
+        alert(`Event created: ${response.result.htmlLink}`);
+      } catch (err) {
+        alert("Failed to create event: " + err.message);
+      }
+      resolve();
+    };
+    tokenClient.requestAccessToken({ prompt: "consent" });
+  });
+};
+
+/* ─── WEATHER ─── */
+async function getWeather(lat, lng) {
+  if (OPENWEATHER_API_KEY.includes("YOUR_")) return null;
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_API_KEY}&units=imperial`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      temp: Math.round(data.main.temp),
+      condition: data.weather[0].main,
+      description: data.weather[0].description,
+      icon: `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`
+    };
+  } catch (e) { console.error("Weather error:", e); return null; }
+}
+
+/* ─── VOICE COMMANDS ─── */
+window.dictate = function (el) {
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!R) return alert("Speech recognition not supported. Try Chrome.");
+  const r = new R();
+  r.lang = "en-US";
+  r.continuous = true;
+  r.interimResults = true;
+  r.onresult = e => {
+    const transcript = e.results[e.results.length - 1][0].transcript;
+    el.value += (el.value ? " " : "") + transcript;
+    // Command parsing
+    const lower = transcript.toLowerCase();
+    if (lower.includes("add job") || lower.includes("new job")) {
+      const speciesMatch = transcript.match(/for (a |an )?(\w+(?:\s+\w+)?)/i);
+      const addressMatch = transcript.match(/at (.+?)(?:\s+in\s+(.+))?$/i);
+      if (speciesMatch && addressMatch && typeof customer !== "undefined") {
+        const sp = speciesMatch[2].trim();
+        const addr = addressMatch[1].trim();
+        const tn = addressMatch[2] ? addressMatch[2].trim() : "";
+        if (SPECIES.some(s => s.toLowerCase() === sp.toLowerCase())) {
+          if (document.getElementById("species")) document.getElementById("species").value = sp;
+        }
+        if (document.getElementById("address")) document.getElementById("address").value = addr;
+        if (document.getElementById("town") && tn) document.getElementById("town").value = tn;
+        alert(`Detected: ${sp} at ${addr}${tn ? ", " + tn : ""}. Fill customer name and tap Save Job.`);
+      }
+    }
+  };
+  r.start();
+};
+
+/* ─── LAZY LOADING ─── */
+function lazyLoadImages() {
+  const imgs = document.querySelectorAll("img.lazy");
+  if (!imgs.length) return;
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        img.src = img.dataset.src;
+        img.classList.add("loaded");
+        img.classList.remove("lazy");
+        obs.unobserve(img);
+      }
+    });
+  });
+  imgs.forEach(img => obs.observe(img));
+}
+
+/* ─── NAV / SHELL ─── */
 function nav() {
-  menu.innerHTML = `
+  menuEl.innerHTML = `
+    <div style="font-weight:700;font-size:18px;margin-bottom:18px;padding-left:4px;">FieldOps</div>
     <button onclick="go('dashboard')">🏠 Dashboard</button>
     <button onclick="go('jobs')">🦝 Jobs</button>
     <button onclick="go('new')">➕ New Job</button>
     <button onclick="go('estimate')">💵 Estimator</button>
     <button onclick="go('techs')">👷 Techs</button>
     <button onclick="go('ai')">🧠 AI Assistant</button>
+    <button onclick="exportData()">💾 Export JSON</button>
+    <button onclick="importDataPrompt()">📥 Import JSON</button>
   `;
+}
+
+function updateBottomNav(page) {
+  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, ai: 3 };
+  const idx = map[page] ?? -1;
+  document.querySelectorAll(".bottom-nav button").forEach((b, i) => {
+    b.classList.toggle("active", i === idx);
+  });
 }
 
 function shell(content) {
+  const hasMap = screen === "dashboard";
   app.innerHTML = `
     <div class="top">
       <div>
-        <strong>Wildlife Whisperer FieldOps</strong>
-        <div class="tiny">${esc(screen)}</div>
+        <strong style="font-size:16px;">Wildlife Whisperer FieldOps</strong>
+        <div class="tiny" style="margin-top:2px;">${esc(screen)}</div>
       </div>
-      <button class="action menuButton" onclick="toggleMenu()">☰</button>
+      <div class="sync-indicator">
+        ${hasMap ? '<span class="sync-dot"></span><span>Live</span>' : ""}
+        <button class="menuButton" onclick="toggleMenu()" style="margin-left:8px;">☰</button>
+      </div>
     </div>
     <div class="wrap">${content}</div>
+    <div class="bottom-nav">
+      <button onclick="go('dashboard')" title="Dashboard">🏠</button>
+      <button onclick="go('jobs')" title="Jobs">🦝</button>
+      <button onclick="go('new')" title="New Job">➕</button>
+      <button onclick="go('estimate')" title="Estimate">💵</button>
+      <button onclick="go('ai')" title="AI">🧠</button>
+    </div>
+    <button class="fab" onclick="go('new')" title="New Job">+</button>
   `;
+  setTimeout(() => {
+    updateBottomNav(screen);
+    if (screen === "dashboard") renderMap();
+    lazyLoadImages();
+  }, 50);
 }
 
+/* ─── SCORING ─── */
+function jobScore(job) {
+  const v = inspections.some(i => i.job_id === job.id);
+  const p = photos.some(p => p.job_id === job.id);
+  const sv = services.filter(s => s.job_id === job.id);
+  const s = sv.length > 0;
+  return Math.min(100, (v ? 25 : 0) + (p ? 25 : 0) + (s ? 25 : 0) + (job.latitude ? 25 : 0));
+}
+
+/* ─── PAGES ─── */
 function dashboard() {
   const active = jobs.filter(j => j.status !== "Closed");
   const total = jobs.reduce((sum, j) => sum + Number(j.grand_total || j.estimate || 0), 0);
@@ -115,6 +431,8 @@ function dashboard() {
       <div class="card"><div class="stat">${money(total)}</div><div class="tiny">Quoted value</div></div>
     </div>
 
+    <div id="dashMap" style="height:320px;width:100%;border-radius:16px;margin-bottom:18px;border:1px solid var(--border);background:var(--card);"></div>
+
     <button class="action" onclick="go('new')">➕ Create New Job</button>
     <button class="action dark" onclick="go('estimate')">💵 Smart Estimator</button>
 
@@ -124,30 +442,62 @@ function dashboard() {
 }
 
 function jobCard(j) {
+  const icon = SPECIES_ICONS[j.species] || "🐾";
+  const statusClass = STATUS_STYLES[j.status] || "active";
+  const s = jobScore(j);
+  const jobServices = services.filter(s => s.job_id === j.id);
+  const totalServices = jobServices.reduce((sum, s) => sum + Number(s.total || 0), 0);
+
   return `
     <div class="card job">
-      <h3>${esc(j.customer)}</h3>
+      <div class="job-header">
+        <span class="species-icon">${icon}</span>
+        <h3 style="margin:0;flex:1;">${esc(j.customer)}</h3>
+        <span class="status-pill ${statusClass}">${esc(j.status || "Active")}</span>
+      </div>
       <div>${esc(j.address)}</div>
-      <div class="tiny">${esc(j.species)} · ${esc(j.status || "Active")} · ${money(j.grand_total || j.estimate)}</div>
-      <span class="pill">${esc(j.town)}</span>
-      <span class="pill">${esc(j.assigned_tech || "Unassigned")}</span>
-
-      <button class="action" onclick="openJob('${j.id}')">Open Job</button>
-      <a class="mapbtn" href="${directionsUrl(j)}" target="_blank">🚗 Google Maps Directions</a>
+      <div class="tiny">${esc(j.species)} · ${esc(j.town || "")} · ${money(j.grand_total || j.estimate)}</div>
+      <div style="margin-top:6px;">
+        <span class="pill">${esc(j.town || "Unsorted")}</span>
+        <span class="pill muted">${esc(j.assigned_tech || "Unassigned")}</span>
+        <span class="pill info">${jobServices.length} services</span>
+        ${j.latitude ? '<span class="pill">📍 GPS</span>' : ""}
+      </div>
+      <div class="prog"><div class="bar" style="width:${s}%"></div></div>
+      <div class="tiny">Score ${s}% · Est ${money(j.estimate || 0)} · Services ${money(totalServices)}</div>
+      <div class="job-actions">
+        <button class="primary" onclick="openJob('${j.id}')">Open</button>
+        <button class="secondary" onclick="navigateToJob(${j.latitude || "null"}, ${j.longitude || "null"}, '${esc(j.address)}')">Navigate</button>
+      </div>
     </div>
   `;
 }
 
 function jobsPage() {
   shell(`
+    <div class="search-box">
+      <input id="searchInput" placeholder="🔍 Search jobs, customers, addresses, species..." oninput="onSearchInput(this.value)">
+    </div>
     <button class="action" onclick="go('new')">➕ New Job</button>
-    ${jobs.map(jobCard).join("") || `<div class="card">No jobs yet.</div>`}
+    <div id="jobList">${jobs.map(jobCard).join("") || `<div class="card">No jobs yet.</div>`}</div>
   `);
 }
+
+window.onSearchInput = debounce(function (q) {
+  const list = document.getElementById("jobList");
+  if (!list) return;
+  const term = q.toLowerCase();
+  const filtered = jobs.filter(j =>
+    (j.customer + j.address + j.town + j.species + j.status + (j.notes || "")).toLowerCase().includes(term)
+  );
+  list.innerHTML = filtered.map(jobCard).join("") || `<div class="card">No matching jobs.</div>`;
+  lazyLoadImages();
+}, 250);
 
 window.openJob = function (id) {
   selectedJob = jobs.find(j => j.id === id);
   screen = "detail";
+  updateBottomNav("detail");
   render();
 };
 
@@ -158,19 +508,34 @@ function detailPage() {
   const jobInspections = inspections.filter(i => i.job_id === selectedJob.id);
   const jobPhotos = photos.filter(p => p.job_id === selectedJob.id);
   const totalServices = jobServices.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  const icon = SPECIES_ICONS[selectedJob.species] || "🐾";
+  const statusClass = STATUS_STYLES[selectedJob.status] || "active";
+  const s = jobScore(selectedJob);
 
   shell(`
-    <div class="card">
-      <h2>${esc(selectedJob.customer)}</h2>
-      <div>${esc(selectedJob.address)}</div>
-      <div class="tiny">${esc(selectedJob.phone)} · ${esc(selectedJob.species)}</div>
+    <div class="card stack">
+      <div class="job-header">
+        <span class="species-icon">${icon}</span>
+        <h2 style="margin:0;flex:1;">${esc(selectedJob.customer)}</h2>
+        <span class="status-pill ${statusClass}">${esc(selectedJob.status || "Active")}</span>
+      </div>
+      <div>${esc(selectedJob.address)}${selectedJob.town ? ", " + esc(selectedJob.town) : ""}</div>
+      <div class="tiny">${esc(selectedJob.phone)} · ${esc(selectedJob.species)} · ${esc(selectedJob.email || "")}</div>
       <div class="tiny">Estimate: ${money(selectedJob.estimate)} · Tax: ${money(selectedJob.tax_amount)} · Total: ${money(selectedJob.grand_total)}</div>
+      <div class="prog"><div class="bar" style="width:${s}%"></div></div>
+      <div class="tiny">Job Score ${s}%</div>
 
-      <a class="mapbtn" href="${mapUrl(selectedJob)}" target="_blank">📍 Open In Google Maps</a>
-      <a class="mapbtn" href="${directionsUrl(selectedJob)}" target="_blank">🚗 Start Directions</a>
-      <button class="action" onclick="saveGps('${selectedJob.id}')">📌 Save Current GPS To Job</button>
-      <button class="action dark" onclick="generateJobPDF()">📄 Download Job PDF</button>
+      <div class="job-actions" style="margin-top:14px;">
+        <button class="primary" onclick="saveGps('${selectedJob.id}')">📌 Save GPS</button>
+        <button class="secondary" onclick="navigateToJob(${selectedJob.latitude || "null"}, ${selectedJob.longitude || "null"}, '${esc(selectedJob.address)}')">🚗 Navigate</button>
+      </div>
+      <button class="action dark" style="margin-top:8px;" onclick="createCalendarEvent(${JSON.stringify(selectedJob).replace(/"/g, '&quot;')})">📅 Add to Google Calendar</button>
+      <button class="action dark" style="margin-top:8px;" onclick="generateJobPDF()">📄 Download Job PDF</button>
     </div>
+
+    <div id="weatherBox"></div>
+
+    <div id="detailMap" style="height:280px;width:100%;border-radius:16px;margin-top:12px;border:1px solid var(--border);background:var(--card);"></div>
 
     <div class="card">
       <h3>Add Service</h3>
@@ -200,6 +565,7 @@ function detailPage() {
       </select>
       <textarea id="inspectionNotes" placeholder="Inspection notes"></textarea>
       <button class="action" onclick="saveInspection('${selectedJob.id}')">Save Inspection Notes</button>
+      <button class="action dark" style="margin-top:8px;" onclick="dictate(inspectionNotes)">🎙️ Dictate Notes</button>
     </div>
 
     <div class="card">
@@ -244,11 +610,41 @@ function detailPage() {
         <div class="service">
           <strong>${esc(p.tag)}</strong>
           <div class="tiny">${esc(p.notes)}</div>
-          ${p.image_url ? `<img src="${p.image_url}" style="width:100%;border-radius:12px;margin-top:10px">` : ""}
+          ${p.image_url ? `<img class="photo lazy" data-src="${p.image_url}" alt="${esc(p.tag)}">` : ""}
         </div>
       `).join("") || `<div class="tiny">No photos yet.</div>`}
     </div>
   `);
+
+  setTimeout(async () => {
+    if (selectedJob.latitude && selectedJob.longitude) {
+      if (window.google?.maps) {
+        const dmap = initMap("detailMap");
+        if (dmap) {
+          const pos = { lat: parseFloat(selectedJob.latitude), lng: parseFloat(selectedJob.longitude) };
+          dmap.setCenter(pos);
+          dmap.setZoom(16);
+          new google.maps.Marker({ position: pos, map: dmap, title: esc(selectedJob.customer) });
+        }
+      }
+
+      const weather = await getWeather(selectedJob.latitude, selectedJob.longitude);
+      const wbox = document.getElementById("weatherBox");
+      if (wbox && weather) {
+        wbox.innerHTML = `
+          <div class="card">
+            <div class="weather-card">
+              <img src="${weather.icon}" alt="${esc(weather.description)}" style="width:48px;height:48px;">
+              <div>
+                <div style="font-weight:700;font-size:18px;">${weather.temp}°F</div>
+                <div class="tiny">${esc(weather.condition)} · ${esc(weather.description)}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  }, 100);
 }
 
 function newJobPage() {
@@ -267,6 +663,7 @@ function newJobPage() {
       </select>
       <textarea id="notes" placeholder="Notes / scope"></textarea>
       <button class="action" onclick="createJob()">Save Job</button>
+      <button class="action dark" onclick="dictate(notes)">🎙️ Dictate Notes</button>
     </div>
   `);
 }
@@ -517,6 +914,7 @@ function aiPage() {
       <select id="aiSpecies">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>
       <textarea id="aiObs" placeholder="Observed signs: noises, droppings, chewing, attic, soffit, roofline..."></textarea>
       <button class="action" onclick="aiSuggest()">Suggest Plan</button>
+      <button class="action dark" onclick="dictate(aiObs)">🎙️ Dictate</button>
       <textarea id="aiOut" readonly></textarea>
     </div>
   `);
@@ -544,16 +942,6 @@ window.aiSuggest = function () {
   aiOut.value = tips.map(t => "• " + t).join("\n");
 };
 
-function mapUrl(j) {
-  const q = j.latitude && j.longitude ? `${j.latitude},${j.longitude}` : j.address;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-}
-
-function directionsUrl(j) {
-  const q = j.latitude && j.longitude ? `${j.latitude},${j.longitude}` : j.address;
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}&travelmode=driving`;
-}
-
 window.saveGps = async function (jobId) {
   try {
     const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000 });
@@ -570,6 +958,56 @@ window.saveGps = async function (jobId) {
   }
 };
 
+/* ─── EXPORT / IMPORT ─── */
+window.exportData = function () {
+  const data = { jobs, techs, services, inspections, photos, exportedAt: new Date().toISOString() };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.download = `wildlife-fieldops-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+};
+
+window.importDataPrompt = function () {
+  const raw = prompt("Paste JSON backup data:");
+  if (!raw) return;
+  importData(raw);
+};
+
+window.importData = async function (raw) {
+  try {
+    const data = JSON.parse(raw);
+    if (!data.jobs) { alert("Invalid format: missing jobs array."); return; }
+
+    // Merge strategy: upsert all tables
+    if (data.jobs?.length) {
+      const { error } = await supabase.from("jobs").upsert(data.jobs);
+      if (error) console.error("Jobs import error:", error);
+    }
+    if (data.techs?.length) {
+      const { error } = await supabase.from("techs").upsert(data.techs);
+      if (error) console.error("Techs import error:", error);
+    }
+    if (data.services?.length) {
+      const { error } = await supabase.from("services").upsert(data.services);
+      if (error) console.error("Services import error:", error);
+    }
+    if (data.inspections?.length) {
+      const { error } = await supabase.from("inspections").upsert(data.inspections);
+      if (error) console.error("Inspections import error:", error);
+    }
+    if (data.photos?.length) {
+      const { error } = await supabase.from("photos").upsert(data.photos);
+      if (error) console.error("Photos import error:", error);
+    }
+
+    alert("Import complete. Reloading data...");
+    await loadData();
+  } catch (e) {
+    alert("Import failed: " + e.message);
+  }
+};
+
+/* ─── RENDER ─── */
 function render() {
   nav();
   if (screen === "dashboard") dashboard();
@@ -581,4 +1019,21 @@ function render() {
   if (screen === "ai") aiPage();
 }
 
+/* ─── INIT ─── */
+loadGoogleMaps();
+loadGoogleCalendarAPI();
 loadData();
+
+/* ─── SERVICE WORKER UPDATE ─── */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").then(reg => {
+    reg.addEventListener("updatefound", () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener("statechange", () => {
+        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          if (confirm("App update available. Reload now?")) location.reload();
+        }
+      });
+    });
+  }).catch(() => {});
+}
