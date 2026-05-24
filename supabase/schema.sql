@@ -1,5 +1,5 @@
--- Wildlife FieldOps Schema v4
--- Run this in Supabase SQL Editor (safe to re-run, migrates existing tables)
+-- Wildlife FieldOps Schema v4.1
+-- Run this in Supabase SQL Editor AFTER running migrate_v4.sql
 
 create extension if not exists pgcrypto;
 
@@ -28,7 +28,7 @@ create policy "Allow all ops on techs"
   using (true) with check (true);
 
 -- ============================================
--- JOBS  (with migration for missing columns)
+-- JOBS
 -- ============================================
 create table if not exists jobs (
   id uuid primary key default gen_random_uuid(),
@@ -50,13 +50,6 @@ create table if not exists jobs (
   grand_total numeric default 0,
   created_at timestamp with time zone default now()
 );
-
--- Migrate: add columns that might be missing from older schema
-alter table jobs add column if not exists subtotal numeric default 0;
-alter table jobs add column if not exists tax_rate numeric default 0;
-alter table jobs add column if not exists tax_amount numeric default 0;
-alter table jobs add column if not exists grand_total numeric default 0;
-alter table jobs add column if not exists ai_notes text;
 
 alter table jobs enable row level security;
 
