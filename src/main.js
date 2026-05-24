@@ -3,10 +3,11 @@ import { Geolocation } from "@capacitor/geolocation";
 import { jsPDF } from "jspdf";
 import { KEYS } from "./config.js";
 
-/* ─── API KEYS ─── */
-const GOOGLE_MAPS_API_KEY = KEYS.GOOGLE_MAPS;
-const GOOGLE_CALENDAR_CLIENT_ID = KEYS.GOOGLE_CALENDAR_CLIENT_ID;
-const OPENWEATHER_API_KEY = KEYS.OPENWEATHER;
+/* ─── API KEYS (env vars preferred, fallback to config.js) ─── */
+const GOOGLE_MAPS_API_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || KEYS.GOOGLE_MAPS;
+const GOOGLE_CALENDAR_CLIENT_ID = import.meta.env?.VITE_GOOGLE_CALENDAR_CLIENT_ID || KEYS.GOOGLE_CALENDAR_CLIENT_ID;
+const OPENWEATHER_API_KEY = import.meta.env?.VITE_OPENWEATHER_API_KEY || KEYS.OPENWEATHER;
+const GOOGLE_API_KEY = import.meta.env?.VITE_GOOGLE_API_KEY || KEYS.GOOGLE_API_KEY;
 
 /* ─── CONSTANTS ─── */
 const SERVICES = [
@@ -98,8 +99,110 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+/* ─── UI HELPERS ─── */
+function showLoading(msg = "Loading…") {
+  let ov = document.getElementById("loading-overlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "loading-overlay";
+    ov.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:9998;color:#fff;font-size:14px;font-family:Inter,sans-serif;";
+    ov.innerHTML = `<div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#22c55e;border-radius:50%;animation:spin 1s linear infinite;"></div><span>${msg}</span>`;
+    document.body.appendChild(ov);
+    const style = document.createElement("style");
+    style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}";
+    document.head.appendChild(style);
+  } else {
+    ov.querySelector("span").textContent = msg;
+  }
+  ov.style.display = "flex";
+}
+
+function hideLoading() {
+  const ov = document.getElementById("loading-overlay");
+  if (ov) ov.style.display = "none";
+}
+
+function showToast(msg, type = "success", duration = 3000) {
+  let t = document.getElementById("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:opacity 0.3s ease;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;";
+    document.body.appendChild(t);
+  }
+  const colors = {
+    success: "background:rgba(34,197,94,0.95);color:#fff;",
+    error: "background:rgba(239,68,68,0.95);color:#fff;",
+    warn: "background:rgba(251,191,36,0.95);color:#000;"
+  };
+  t.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:opacity 0.3s ease;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;" + (colors[type] || colors.success);
+  t.textContent = msg;
+  requestAnimationFrame(() => { t.style.opacity = "1"; });
+  setTimeout(() => { t.style.opacity = "0"; }, duration);
+}
+
+/* ─── VALIDATION ─── */
+function isValidPhone(phone) {
+  if (!phone) return true;
+  const cleaned = phone.replace(/\D/g, "");
+  return cleaned.length >= 10 && cleaned.length <= 15;
+}
+
+function formatPhone(phone) {
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length === 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  if (cleaned.length === 11 && cleaned[0] === "1") return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  return phone;
+}
+
+function validateJob(job) {
+  const errors = [];
+  if (!job.customer || job.customer.trim().length < 2) errors.push("Customer name required (min 2 chars)");
+  if (!job.address || job.address.trim().length < 5) errors.push("Address required (min 5 chars)");
+  if (job.phone && !isValidPhone(job.phone)) errors.push("Invalid phone number");
+  if (job.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(job.email)) errors.push("Invalid email");
+  return errors;
+}
+
+/* ─── IMAGE COMPRESSION ─── */
+async function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width, h = img.height;
+      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+/* ─── GPS WITH FALLBACK ─── */
+async function getCurrentPosition() {
+  try {
+    if (typeof Geolocation !== "undefined" && Geolocation.getCurrentPosition) {
+      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+      return { latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) };
+    }
+  } catch (e) { console.warn("Capacitor geolocation failed, trying fallback:", e); }
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) }),
+      err => reject(err),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  });
+}
+
 /* ─── DATA ─── */
 async function loadData() {
+  showLoading("Loading data…");
   try {
     const [j, t, s, i, p] = await Promise.all([
       supabase.from("jobs").select("*").order("created_at", { ascending: false }),
@@ -121,12 +224,15 @@ async function loadData() {
     }));
   } catch (err) {
     console.error("Sync failed, using cached data:", err);
+    showToast("Offline mode — using cached data", "warn", 4000);
     const cached = JSON.parse(localStorage.getItem("ww_fieldops_cache") || "{}");
     jobs = cached.jobs || [];
     techs = cached.techs || [];
     services = cached.services || [];
     inspections = cached.inspections || [];
     photos = cached.photos || [];
+  } finally {
+    hideLoading();
   }
 
   if (selectedJob) selectedJob = jobs.find(x => x.id === selectedJob.id) || selectedJob;
@@ -136,10 +242,12 @@ async function loadData() {
 /* ─── GOOGLE MAPS ─── */
 function loadGoogleMaps() {
   if (window.google?.maps || GOOGLE_MAPS_API_KEY.includes("YOUR_")) return;
+  if (document.querySelector("script[data-maps]")) return;
   const script = document.createElement("script");
   script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=onGoogleMapsLoaded`;
   script.async = true;
   script.defer = true;
+  script.dataset.maps = "true";
   document.head.appendChild(script);
 }
 window.onGoogleMapsLoaded = function () {
@@ -226,7 +334,7 @@ function navigateToJob(lat, lng, address) {
       window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`, "_blank");
       return;
     }
-    return alert("No GPS data for this job.");
+    return showToast("No GPS data for this job.", "warn");
   }
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank");
 }
@@ -241,7 +349,7 @@ function loadGoogleCalendarAPI() {
   gapiScript.onload = () => {
     window.gapi.load("client", async () => {
       await window.gapi.client.init({
-        apiKey: KEYS.GOOGLE_API_KEY,
+        apiKey: GOOGLE_API_KEY,
         discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]
       });
       gapiLoaded = true;
@@ -264,13 +372,13 @@ function loadGoogleCalendarAPI() {
 
 window.createCalendarEvent = async function (job) {
   if (!gapiLoaded || !gisLoaded || GOOGLE_CALENDAR_CLIENT_ID.includes("YOUR_")) {
-    alert("Google Calendar not configured. Add your Client ID and API Key.");
+    showToast("Google Calendar not configured.", "warn");
     return;
   }
 
   return new Promise((resolve) => {
     tokenClient.callback = async (resp) => {
-      if (resp.error) { alert("Auth error: " + resp.error); resolve(); return; }
+      if (resp.error) { showToast("Auth error: " + resp.error, "error"); resolve(); return; }
       const event = {
         summary: `Wildlife Job: ${job.customer} - ${job.species}`,
         description: `Customer: ${job.customer}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.notes || ""}`,
@@ -280,9 +388,9 @@ window.createCalendarEvent = async function (job) {
       };
       try {
         const response = await window.gapi.client.calendar.events.insert({ calendarId: "primary", resource: event });
-        alert(`Event created: ${response.result.htmlLink}`);
+        showToast("Event added to calendar!");
       } catch (err) {
-        alert("Failed to create event: " + err.message);
+        showToast("Failed to create event: " + err.message, "error");
       }
       resolve();
     };
@@ -310,7 +418,7 @@ async function getWeather(lat, lng) {
 /* ─── VOICE COMMANDS ─── */
 window.dictate = function (el) {
   const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!R) return alert("Speech recognition not supported. Try Chrome.");
+  if (!R) { showToast("Speech recognition not supported. Try Chrome.", "warn"); return; }
   const r = new R();
   r.lang = "en-US";
   r.continuous = true;
@@ -329,7 +437,7 @@ window.dictate = function (el) {
         if (SPECIES.some(s => s.toLowerCase() === sp.toLowerCase())) document.getElementById("species").value = sp;
         if (document.getElementById("address")) document.getElementById("address").value = addr;
         if (document.getElementById("town") && tn) document.getElementById("town").value = tn;
-        alert(`Detected: ${sp} at ${addr}${tn ? ", " + tn : ""}. Fill customer name and tap Save Job.`);
+        showToast(`Detected: ${sp} at ${addr}${tn ? ", " + tn : ""}. Fill customer name and tap Save Job.`);
       }
     }
   };
@@ -518,7 +626,7 @@ function detailPage() {
         <span class="status-pill ${statusClass}">${esc(selectedJob.status || "Active")}</span>
       </div>
       <div>${esc(selectedJob.address)}${selectedJob.town ? ", " + esc(selectedJob.town) : ""}</div>
-      <div class="tiny">${esc(selectedJob.phone)} · ${esc(selectedJob.species)} · ${esc(selectedJob.email || "")}</div>
+      <div class="tiny">${formatPhone(selectedJob.phone) || esc(selectedJob.phone || "")} · ${esc(selectedJob.species)} · ${esc(selectedJob.email || "")}</div>
       <div class="tiny">Estimate: ${money(selectedJob.estimate)} · Tax: ${money(selectedJob.tax_amount)} · Total: ${money(selectedJob.grand_total)}</div>
       <div class="prog"><div class="bar" style="width:${s}%"></div></div>
       <div class="tiny">Job Score ${s}%</div>
@@ -649,10 +757,10 @@ function newJobPage() {
   shell(`
     <div class="card">
       <h2>New Job</h2>
-      <input id="customer" placeholder="Customer name">
-      <input id="phone" placeholder="Phone">
+      <input id="customer" placeholder="Customer name *">
+      <input id="phone" placeholder="Phone (e.g. 555-123-4567)">
       <input id="email" placeholder="Email">
-      <input id="address" placeholder="Address">
+      <input id="address" placeholder="Address *">
       <input id="town" placeholder="Town">
       <select id="species">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>
       <select id="assignedTech">
@@ -683,13 +791,21 @@ window.createJob = async function () {
     grand_total: 0
   };
 
-  if (!payload.customer || !payload.address) { alert("Customer and address required."); return; }
+  const errors = validateJob(payload);
+  if (errors.length) { showToast(errors.join("; "), "error", 5000); return; }
 
-  const { error } = await supabase.from("jobs").insert(payload);
-  if (error) { alert(error.message); return; }
-
-  await loadData();
-  go("jobs");
+  showLoading("Saving job…");
+  try {
+    const { error } = await supabase.from("jobs").insert(payload);
+    if (error) throw error;
+    showToast("Job created");
+    await loadData();
+    go("jobs");
+  } catch (err) {
+    showToast(err.message || "Save failed", "error");
+  } finally {
+    hideLoading();
+  }
 };
 
 window.addService = async function (jobId) {
@@ -697,18 +813,24 @@ window.addService = async function (jobId) {
   const price = Number(servicePrice.value || 0);
   const total = qty * price;
 
-  const { error } = await supabase.from("services").insert({
-    job_id: jobId,
-    service: serviceName.value,
-    qty,
-    unit_price: price,
-    total
-  });
-
-  if (error) { alert(error.message); return; }
-
-  await updateJobEstimate(jobId);
-  await loadData();
+  showLoading("Saving service…");
+  try {
+    const { error } = await supabase.from("services").insert({
+      job_id: jobId,
+      service: serviceName.value,
+      qty,
+      unit_price: price,
+      total
+    });
+    if (error) throw error;
+    await updateJobEstimate(jobId);
+    await loadData();
+    showToast("Service added");
+  } catch (err) {
+    showToast(err.message || "Failed to add service", "error");
+  } finally {
+    hideLoading();
+  }
 };
 
 async function updateJobEstimate(jobId) {
@@ -727,48 +849,71 @@ async function updateJobEstimate(jobId) {
 }
 
 window.applyTax = async function (jobId) {
-  const taxRate = Number(jobTaxRate.value || 0);
-  const job = jobs.find(j => j.id === jobId);
-  const subtotal = Number(job?.estimate || 0);
-  const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
-  const grandTotal = +(subtotal + taxAmount).toFixed(2);
+  showLoading("Applying tax…");
+  try {
+    const taxRate = Number(jobTaxRate.value || 0);
+    const job = jobs.find(j => j.id === jobId);
+    const subtotal = Number(job?.estimate || 0);
+    const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
+    const grandTotal = +(subtotal + taxAmount).toFixed(2);
 
-  const { error } = await supabase.from("jobs").update({
-    tax_rate: taxRate,
-    tax_amount: taxAmount,
-    grand_total: grandTotal
-  }).eq("id", jobId);
+    const { error } = await supabase.from("jobs").update({
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      grand_total: grandTotal
+    }).eq("id", jobId);
 
-  if (error) { alert(error.message); return; }
-  await loadData();
+    if (error) throw error;
+    await loadData();
+    showToast("Tax applied");
+  } catch (err) {
+    showToast(err.message || "Failed to apply tax", "error");
+  } finally {
+    hideLoading();
+  }
 };
 
 window.saveInspection = async function (jobId) {
-  const { error } = await supabase.from("inspections").insert({
-    job_id: jobId,
-    inspection_type: inspectionType.value,
-    notes: inspectionNotes.value
-  });
-
-  if (error) { alert(error.message); return; }
-  await loadData();
+  showLoading("Saving inspection…");
+  try {
+    const { error } = await supabase.from("inspections").insert({
+      job_id: jobId,
+      inspection_type: inspectionType.value,
+      notes: inspectionNotes.value
+    });
+    if (error) throw error;
+    await loadData();
+    showToast("Inspection saved");
+  } catch (err) {
+    showToast(err.message || "Failed to save inspection", "error");
+  } finally {
+    hideLoading();
+  }
 };
 
 window.saveInspectionPhoto = async function (jobId) {
   const file = photoFile.files[0];
-  if (!file) { alert("Choose a photo."); return; }
+  if (!file) { showToast("Choose a photo.", "warn"); return; }
 
+  showLoading("Compressing & uploading…");
   const reader = new FileReader();
   reader.onload = async () => {
-    const { error } = await supabase.from("photos").insert({
-      job_id: jobId,
-      image_url: reader.result,
-      tag: photoTag.value,
-      notes: photoNotes.value
-    });
-
-    if (error) { alert(error.message); return; }
-    await loadData();
+    try {
+      const compressed = await compressImage(reader.result, 1200, 0.7);
+      const { error } = await supabase.from("photos").insert({
+        job_id: jobId,
+        image_url: compressed,
+        tag: photoTag.value,
+        notes: photoNotes.value
+      });
+      if (error) throw error;
+      await loadData();
+      showToast("Photo saved");
+    } catch (err) {
+      showToast(err.message || "Upload failed", "error");
+    } finally {
+      hideLoading();
+    }
   };
   reader.readAsDataURL(file);
 };
@@ -835,7 +980,7 @@ window.generateEstimatePDF = function () {
 };
 
 window.generateJobPDF = function () {
-  if (!selectedJob) return alert("No job selected.");
+  if (!selectedJob) return showToast("No job selected.", "warn");
   const doc = new jsPDF();
   doc.setFontSize(18);
   doc.text("Wildlife Whisperer LLC", 20, 20);
@@ -886,23 +1031,29 @@ function techsPage() {
     ${techs.map(t => `
       <div class="card">
         <strong>${esc(t.name)}</strong>
-        <div class="tiny">${esc(t.phone)} · ${esc(t.role)}</div>
+        <div class="tiny">${formatPhone(t.phone) || esc(t.phone || "")} · ${esc(t.role || "")}</div>
       </div>
     `).join("")}
   `);
 }
 
 window.addTech = async function () {
-  const { error } = await supabase.from("techs").insert({
-    name: techName.value.trim(),
-    phone: techPhone.value.trim(),
-    role: techRole.value.trim()
-  });
-
-  if (error) { alert(error.message); return; }
-
-  await loadData();
-  go("techs");
+  showLoading("Saving tech…");
+  try {
+    const { error } = await supabase.from("techs").insert({
+      name: techName.value.trim(),
+      phone: techPhone.value.trim(),
+      role: techRole.value.trim()
+    });
+    if (error) throw error;
+    await loadData();
+    go("techs");
+    showToast("Tech added");
+  } catch (err) {
+    showToast(err.message || "Failed to add tech", "error");
+  } finally {
+    hideLoading();
+  }
 };
 
 function aiPage() {
@@ -941,18 +1092,17 @@ window.aiSuggest = function () {
 };
 
 window.saveGps = async function (jobId) {
+  showLoading("Getting GPS…");
   try {
-    const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000 });
-    const latitude = String(pos.coords.latitude);
-    const longitude = String(pos.coords.longitude);
-
-    const { error } = await supabase.from("jobs").update({ latitude, longitude }).eq("id", jobId);
-    if (error) { alert(error.message); return; }
-
-    alert("GPS saved to job.");
+    const pos = await getCurrentPosition();
+    const { error } = await supabase.from("jobs").update({ latitude: pos.latitude, longitude: pos.longitude }).eq("id", jobId);
+    if (error) throw error;
+    showToast("GPS saved to job");
     await loadData();
   } catch (err) {
-    alert("GPS error: " + err.message);
+    showToast(err.message || "GPS error", "error");
+  } finally {
+    hideLoading();
   }
 };
 
@@ -972,9 +1122,10 @@ window.importDataPrompt = function () {
 };
 
 window.importData = async function (raw) {
+  showLoading("Importing…");
   try {
     const data = JSON.parse(raw);
-    if (!data.jobs) { alert("Invalid format: missing jobs array."); return; }
+    if (!data.jobs) { showToast("Invalid format: missing jobs array.", "error"); return; }
 
     if (data.jobs?.length) {
       const { error } = await supabase.from("jobs").upsert(data.jobs);
@@ -997,10 +1148,12 @@ window.importData = async function (raw) {
       if (error) console.error("Photos import error:", error);
     }
 
-    alert("Import complete. Reloading data...");
+    showToast("Import complete — reloading data…");
     await loadData();
   } catch (e) {
-    alert("Import failed: " + e.message);
+    showToast("Import failed: " + e.message, "error");
+  } finally {
+    hideLoading();
   }
 };
 
@@ -1017,9 +1170,18 @@ function render() {
 }
 
 /* ─── INIT ─── */
+function hideSplash() {
+  const sp = document.getElementById("splash");
+  if (sp) {
+    sp.classList.add("hidden");
+    setTimeout(() => sp.remove(), 600);
+  }
+}
+
 loadGoogleMaps();
 loadGoogleCalendarAPI();
 loadData();
+setTimeout(hideSplash, 1500);
 
 /* ─── SERVICE WORKER UPDATE ─── */
 if ("serviceWorker" in navigator) {
@@ -1028,7 +1190,8 @@ if ("serviceWorker" in navigator) {
       const newWorker = reg.installing;
       newWorker.addEventListener("statechange", () => {
         if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-          if (confirm("App update available. Reload now?")) location.reload();
+          showToast("App update available — reloading…", "success");
+          setTimeout(() => location.reload(), 1500);
         }
       });
     });
