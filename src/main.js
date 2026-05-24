@@ -487,7 +487,7 @@ function nav() {
 }
 
 function updateBottomNav(page) {
-  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, metrics: 4 };
+  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, ai: 4 };
   const idx = map[page] ?? -1;
   document.querySelectorAll(".bottom-nav button").forEach((b, i) => {
     b.classList.toggle("active", i === idx);
@@ -513,7 +513,7 @@ function shell(content) {
       <button onclick="go('jobs')" title="Jobs">🦝</button>
       <button onclick="go('new')" title="New Job">➕</button>
       <button onclick="go('estimate')" title="Estimate">💵</button>
-      <button onclick="go('metrics')" title="Metrics">📊</button>
+      <button onclick="go('ai')" title="AI">🧠</button>
     </div>
     <button class="fab" onclick="go('new')" title="New Job">+</button>
   `;
