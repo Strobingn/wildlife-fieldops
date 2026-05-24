@@ -1,4 +1,5 @@
 import { supabase } from "./auth/supabaseClient.js";
+import { runFieldAI, formatFieldAIResult } from "./ai/fieldAssistant.js";
 import { Geolocation } from "@capacitor/geolocation";
 import { jsPDF } from "jspdf";
 import { KEYS } from "./config.js";
@@ -1097,36 +1098,71 @@ window.addTech = async function () {
 function aiPage() {
   shell(`
     <div class="card">
-      <h2>AI Field Assistant</h2>
+      <h2>🧠 Kimi AI Field Assistant</h2>
+      <select id="aiMode">
+        <option value="field_plan">Field Plan</option>
+        <option value="job_notes">Job Notes</option>
+        <option value="estimate">Estimate Guidance</option>
+        <option value="customer_message">Customer Message</option>
+        <option value="invoice_notes">Invoice Notes</option>
+        <option value="risk_check">Risk / Safety Check</option>
+      </select>
       <select id="aiSpecies">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>
-      <textarea id="aiObs" placeholder="Observed signs: noises, droppings, chewing, attic, soffit, roofline..."></textarea>
-      <button class="action" onclick="aiSuggest()">Suggest Plan</button>
+      <textarea id="aiObs" rows="6" placeholder="Example: raccoon entry near soffit, attic droppings, customer hears noise at night..."></textarea>
+      <button class="action" onclick="aiSuggest()">Generate Kimi AI Plan</button>
       <button class="action dark" onclick="dictate(aiObs)">🎙️ Dictate</button>
-      <textarea id="aiOut" readonly></textarea>
+      <textarea id="aiOut" rows="14" placeholder="AI output appears here..."></textarea>
     </div>
   `);
 }
 
-window.aiSuggest = function () {
-  const s = aiSpecies.value;
-  const o = aiObs.value.toLowerCase();
+window.aiSuggest = async function () {
+  const mode = document.getElementById("aiMode")?.value || "field_plan";
+  const species = document.getElementById("aiSpecies")?.value || selectedJob?.species || "";
+  const observation = document.getElementById("aiObs")?.value || selectedJob?.notes || "";
 
-  let tips = [
-    `Species: ${s}`,
-    "Photograph all inspection findings.",
-    "Write inspection notes before pricing.",
-    "Check secondary entry points before sealing.",
-    "Document warranty boundaries clearly."
-  ];
+  const jobServices = selectedJob ? services.filter(s => s.job_id === selectedJob.id) : [];
 
-  if (s.includes("Squirrel")) tips.push("Inspect soffits, fascia, gable vents, roof returns, chewing damage, and stainless mesh needs.");
-  if (s === "Raccoon") tips.push("Inspect attic latrine areas, chimney, soffits, and roofline access.");
-  if (s === "Bat") tips.push("Check guano, staining, legal exclusion timing, and roost gaps.");
-  if (o.includes("soffit")) tips.push("Prioritize soffit/fascia repair and stainless mesh reinforcement.");
-  if (o.includes("bird")) tips.push("Consider bird gel, mesh, ledge exclusion, and inspection photography.");
-  if (o.includes("gap")) tips.push("Use caulking, sheet metal, or stainless steel mesh depending on gap size.");
+  showLoading("Running Kimi AI assistant…");
 
-  aiOut.value = tips.map(t => "• " + t).join("\n");
+  try {
+    const result = await runFieldAI(supabase, {
+      mode,
+      species,
+      observation,
+      job: selectedJob || { species, notes: observation },
+      services: jobServices,
+      businessContext: "Wildlife Whisperer nuisance wildlife removal field app. Prioritize inspection notes, exclusion planning, estimate clarity, customer communication, safety reminders, and professional documentation."
+    });
+
+    const formatted = formatFieldAIResult(result);
+    const out = document.getElementById("aiOut");
+    if (out) out.value = formatted;
+
+    if (selectedJob?.id) {
+      await supabase.from("jobs").update({
+        ai_notes: formatted,
+        ai_customer_message: result.customer_message || null,
+        ai_invoice_notes: result.invoice_notes || null,
+        ai_last_run_at: new Date().toISOString()
+      }).eq("id", selectedJob.id);
+
+      await supabase.from("ai_runs").insert({
+        job_id: selectedJob.id,
+        mode,
+        input: { species, observation, services: jobServices },
+        output: result,
+        provider: "kimi_moonshot"
+      });
+    }
+
+    showToast("Kimi AI assistant complete");
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || "Kimi AI assistant failed", "error", 6000);
+  } finally {
+    hideLoading();
+  }
 };
 
 window.saveGps = async function (jobId) {
