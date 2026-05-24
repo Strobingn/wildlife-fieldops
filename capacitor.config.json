@@ -3,8 +3,12 @@
   "appName": "Wildlife Whisperer FieldOps",
   "webDir": "dist",
   "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "hostname": "wildlifewhispererllc.com"
+  },
   "android": {
-    "allowMixedContent": true,
+    "allowMixedContent": false,
     "buildOptions": {
       "keystorePath": "wildlife-whisperer.keystore",
       "keystorePassword": "YOUR_KEYSTORE_PASSWORD",
