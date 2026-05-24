@@ -118,41 +118,94 @@ function extractJson(text: string) {
   }
 }
 
-async function callKimi(payload: AiRequest) {
-  const apiKey = Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("KIMI_API_KEY");
-  if (!apiKey) {
-    throw new Error("Missing MOONSHOT_API_KEY Supabase secret.");
+type AiProvider = {
+  name: string;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+function getProvider(): AiProvider {
+  const moonshotKey = Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("KIMI_API_KEY");
+  if (moonshotKey) {
+    return {
+      name: "kimi_moonshot",
+      apiKey: moonshotKey,
+      baseUrl: Deno.env.get("MOONSHOT_BASE_URL") || "https://api.moonshot.ai/v1",
+      model: Deno.env.get("KIMI_MODEL") || Deno.env.get("MOONSHOT_MODEL") || "kimi-k2-0905-preview",
+    };
   }
 
-  const baseUrl = Deno.env.get("MOONSHOT_BASE_URL") || "https://api.moonshot.ai/v1";
-  const model = Deno.env.get("KIMI_MODEL") || Deno.env.get("MOONSHOT_MODEL") || "kimi-k2-0905-preview";
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
+    return {
+      name: "openai",
+      apiKey: openaiKey,
+      baseUrl: Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1",
+      model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+    };
+  }
 
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+  const deepseekKey = Deno.env.get("DEEPSEEK_API_KEY");
+  if (deepseekKey) {
+    return {
+      name: "deepseek",
+      apiKey: deepseekKey,
+      baseUrl: Deno.env.get("DEEPSEEK_BASE_URL") || "https://api.deepseek.com/v1",
+      model: Deno.env.get("DEEPSEEK_MODEL") || "deepseek-chat",
+    };
+  }
+
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  if (geminiKey) {
+    return {
+      name: "gemini",
+      apiKey: geminiKey,
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      model: Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash",
+    };
+  }
+
+  throw new Error(
+    "No AI API key found. Add one of these Supabase secrets: MOONSHOT_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY, or GEMINI_API_KEY."
+  );
+}
+
+async function callAI(payload: AiRequest) {
+  const provider = getProvider();
+
+  const body: Record<string, unknown> = {
+    model: provider.model,
+    messages: buildMessages(payload),
+    temperature: 0.2,
+    max_tokens: 1600,
+  };
+
+  // Only add response_format if the provider supports it (OpenAI and Moonshot do; DeepSeek may not)
+  if (provider.name !== "deepseek") {
+    body.response_format = { type: "json_object" };
+  }
+
+  const res = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      messages: buildMessages(payload),
-      temperature: 0.2,
-      max_tokens: 1600,
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
   });
 
   const raw = await res.text();
 
   if (!res.ok) {
-    throw new Error(`Kimi/Moonshot error ${res.status}: ${raw.slice(0, 1000)}`);
+    throw new Error(`${provider.name} error ${res.status}: ${raw.slice(0, 1000)}`);
   }
 
   const data = JSON.parse(raw);
   const content = data?.choices?.[0]?.message?.content;
 
   if (!content) {
-    throw new Error("Kimi/Moonshot returned no message content.");
+    throw new Error(`${provider.name} returned no message content.`);
   }
 
   return extractJson(content);
@@ -180,11 +233,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const result = await callKimi(payload);
+    const result = await callAI(payload);
+    const provider = getProvider();
 
     return jsonResponse({
       ok: true,
-      provider: "kimi_moonshot",
+      provider: provider.name,
       result,
     });
   } catch (err) {
