@@ -424,34 +424,6 @@ async function getWeather(lat, lng) {
 }
 
 /* ─── VOICE COMMANDS ─── */
-window.dictate = function (el) {
-  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!R) { showToast("Speech recognition not supported. Try Chrome.", "warn"); return; }
-  const r = new R();
-  r.lang = "en-US";
-  r.continuous = true;
-  r.interimResults = true;
-  r.onresult = e => {
-    const transcript = e.results[e.results.length - 1][0].transcript;
-    el.value += (el.value ? " " : "") + transcript;
-    const lower = transcript.toLowerCase();
-    if (lower.includes("add job") || lower.includes("new job")) {
-      const speciesMatch = transcript.match(/for (a |an )?(\w+(?:\s+\w+)?)/i);
-      const addressMatch = transcript.match(/at (.+?)(?:\s+in\s+(.+))?$/i);
-      if (speciesMatch && addressMatch && document.getElementById("species")) {
-        const sp = speciesMatch[2].trim();
-        const addr = addressMatch[1].trim();
-        const tn = addressMatch[2] ? addressMatch[2].trim() : "";
-        if (SPECIES.some(s => s.toLowerCase() === sp.toLowerCase())) document.getElementById("species").value = sp;
-        if (document.getElementById("address")) document.getElementById("address").value = addr;
-        if (document.getElementById("town") && tn) document.getElementById("town").value = tn;
-        showToast(`Detected: ${sp} at ${addr}${tn ? ", " + tn : ""}. Fill customer name and tap Save Job.`);
-      }
-    }
-  };
-  r.start();
-};
-
 /* ─── LAZY LOADING ─── */
 function lazyLoadImages() {
   const imgs = document.querySelectorAll("img.lazy");
@@ -705,7 +677,7 @@ function detailPage() {
       </select>
       <textarea id="inspectionNotes" placeholder="Inspection notes"></textarea>
       <button class="action" onclick="saveInspection('${selectedJob.id}')">Save Inspection Notes</button>
-      <button class="action dark" style="margin-top:8px;" onclick="dictate(inspectionNotes)">🎙️ Dictate Notes</button>
+
     </div>
 
     <div class="card">
@@ -803,7 +775,7 @@ function newJobPage() {
       </select>
       <textarea id="notes" placeholder="Notes / scope"></textarea>
       <button class="action" onclick="createJob()">Save Job</button>
-      <button class="action dark" onclick="dictate(notes)">🎙️ Dictate Notes</button>
+
     </div>
   `);
 }
@@ -1110,7 +1082,7 @@ function aiPage() {
       <select id="aiSpecies">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>
       <textarea id="aiObs" rows="6" placeholder="Example: raccoon entry near soffit, attic droppings, customer hears noise at night..."></textarea>
       <button class="action" onclick="aiSuggest()">Generate Kimi AI Plan</button>
-      <button class="action dark" onclick="dictate(aiObs)">🎙️ Dictate</button>
+
       <textarea id="aiOut" rows="14" placeholder="AI output appears here..."></textarea>
     </div>
   `);
