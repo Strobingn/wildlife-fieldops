@@ -1,6 +1,7 @@
 // supabase/functions/ai-assistant/index.ts
-// Wildlife Whisperer FieldOps AI Assistant — Gemini only
-// Add GEMINI_API_KEY to Supabase Edge Function Secrets
+// Wildlife Whisperer FieldOps AI Assistant
+// Supports: OpenRouter, Gemini, OpenAI, DeepSeek, Moonshot
+// Add your preferred API key to Supabase Edge Function Secrets
 
 type AiMode =
   | "field_plan"
@@ -40,22 +41,62 @@ function safeString(value: unknown, max = 6000) {
   return String(value ?? "").slice(0, max);
 }
 
-function buildGeminiPrompt(payload: AiRequest) {
+function buildMessages(payload: AiRequest) {
   const mode = payload.mode || "field_plan";
 
-  return [
+  const system = [
     "You are the Wildlife Whisperer FieldOps AI assistant.",
     "You help a nuisance wildlife removal technician produce practical field notes, estimate guidance, customer messages, and invoice notes.",
+    "You are not a lawyer, veterinarian, pesticide label authority, or code-enforcement official.",
+    "Do not invent exact legal claims. Give reminders to verify local/state rules, pesticide labels, bat exclusion timing, permits, and protected species requirements.",
+    "Prefer concise, job-ready output. Use plain English. Avoid hype.",
+    "Pricing should be guidance only and should be framed as a suggested range, not a guaranteed price.",
     "Return ONLY valid JSON. Do not wrap it in markdown. Do not add extra commentary.",
-    "",
-    `Requested mode: ${mode}`,
-    `Species: ${payload.species || payload.job?.species || ""}`,
-    `Observation: ${safeString(payload.observation || payload.job?.notes || "")}`,
-    `Business context: ${payload.businessContext || "Small nuisance wildlife removal company."}`,
-    "",
-    "Return JSON with this shape:",
-    '{"summary":"string","recommended_next_steps":["string"],"estimate_guidance":{"suggested_line_items":[{"service":"string","qty":number,"unit_price":number,"rationale":"string"}],"subtotal_low":number,"subtotal_high":number,"pricing_notes":"string"},"customer_message":"string","invoice_notes":"string","safety_flags":["string"],"legal_or_permit_reminders":["string"],"confidence":"low|medium|high"}',
   ].join("\n");
+
+  const user = JSON.stringify(
+    {
+      requested_mode: mode,
+      business_context:
+        payload.businessContext ||
+        "Small nuisance wildlife removal company. Services include inspection, exclusion, repair, trapping coordination, sanitation, and documentation.",
+      job: payload.job || {},
+      species: payload.species || payload.job?.species || "",
+      observation: safeString(payload.observation || payload.job?.notes || ""),
+      services: payload.services || [],
+      inspections: payload.inspections || [],
+      required_json_shape: {
+        mode: "string",
+        summary: "string",
+        recommended_next_steps: ["string"],
+        estimate_guidance: {
+          suggested_line_items: [
+            {
+              service: "string",
+              qty: "number",
+              unit_price: "number",
+              rationale: "string",
+            },
+          ],
+          subtotal_low: "number",
+          subtotal_high: "number",
+          pricing_notes: "string",
+        },
+        customer_message: "string",
+        invoice_notes: "string",
+        safety_flags: ["string"],
+        legal_or_permit_reminders: ["string"],
+        confidence: "low | medium | high",
+      },
+    },
+    null,
+    2,
+  );
+
+  return [
+    { role: "system", content: system },
+    { role: "user", content: user },
+  ];
 }
 
 function extractJson(text: string) {
@@ -99,7 +140,7 @@ function getDemoResult(payload: AiRequest) {
       ],
       subtotal_low: 275,
       subtotal_high: 450,
-      pricing_notes: "Demo estimate. Add a real GEMINI_API_KEY for live AI.",
+      pricing_notes: "Demo estimate. Add a real API key for live AI.",
     },
     customer_message: `Hi, we inspected your property for ${species} activity. We found evidence and recommend exclusion work. We'll send a detailed estimate shortly.`,
     invoice_notes: `Demo invoice notes. Inspection and exclusion work for ${species}.`,
@@ -109,43 +150,110 @@ function getDemoResult(payload: AiRequest) {
   };
 }
 
-async function callGemini(payload: AiRequest) {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) {
-    console.log("No GEMINI_API_KEY found. Returning demo response.");
+type AiProvider = {
+  name: string;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+};
+
+function getProvider(): AiProvider | null {
+  const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
+  if (openrouterKey) {
+    return {
+      name: "openrouter",
+      apiKey: openrouterKey,
+      baseUrl: "https://openrouter.ai/api/v1",
+      model: Deno.env.get("OPENROUTER_MODEL") || "openai/gpt-4o-mini",
+    };
+  }
+
+  const geminiKey = Deno.env.get("GEMINI_API_KEY");
+  if (geminiKey) {
+    return {
+      name: "gemini",
+      apiKey: geminiKey,
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      model: Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash",
+    };
+  }
+
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  if (openaiKey) {
+    return {
+      name: "openai",
+      apiKey: openaiKey,
+      baseUrl: Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1",
+      model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+    };
+  }
+
+  const deepseekKey = Deno.env.get("DEEPSEEK_API_KEY");
+  if (deepseekKey) {
+    return {
+      name: "deepseek",
+      apiKey: deepseekKey,
+      baseUrl: Deno.env.get("DEEPSEEK_BASE_URL") || "https://api.deepseek.com/v1",
+      model: Deno.env.get("DEEPSEEK_MODEL") || "deepseek-chat",
+    };
+  }
+
+  const moonshotKey = Deno.env.get("MOONSHOT_API_KEY") || Deno.env.get("KIMI_API_KEY");
+  if (moonshotKey) {
+    return {
+      name: "kimi_moonshot",
+      apiKey: moonshotKey,
+      baseUrl: Deno.env.get("MOONSHOT_BASE_URL") || "https://api.moonshot.ai/v1",
+      model: Deno.env.get("KIMI_MODEL") || Deno.env.get("MOONSHOT_MODEL") || "kimi-k2-0905-preview",
+    };
+  }
+
+  console.log("No AI API key found. Returning demo response.");
+  return null;
+}
+
+async function callAI(payload: AiRequest) {
+  const provider = getProvider();
+
+  if (!provider) {
     return getDemoResult(payload);
   }
 
-  const model = Deno.env.get("GEMINI_MODEL") || "gemini-1.5-flash";
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const body: Record<string, unknown> = {
+    model: provider.model,
+    messages: buildMessages(payload),
+    temperature: 0.2,
+    max_tokens: 1600,
+  };
 
-  const res = await fetch(url, {
+  // Only add response_format if the provider supports it
+  if (provider.name !== "deepseek") {
+    body.response_format = { type: "json_object" };
+  }
+
+  const res = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: buildGeminiPrompt(payload) }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 1600,
-        responseMimeType: "application/json",
-      },
-    }),
+    headers: {
+      Authorization: `Bearer ${provider.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
   const raw = await res.text();
 
   if (!res.ok) {
-    throw new Error(`Gemini error ${res.status}: ${raw.slice(0, 1000)}`);
+    throw new Error(`${provider.name} error ${res.status}: ${raw.slice(0, 1000)}`);
   }
 
   const data = JSON.parse(raw);
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const content = data?.choices?.[0]?.message?.content;
 
-  if (!text) {
-    throw new Error("Gemini returned no text content.");
+  if (!content) {
+    throw new Error(`${provider.name} returned no message content.`);
   }
 
-  return extractJson(text);
+  return extractJson(content);
 }
 
 Deno.serve(async (req) => {
@@ -168,12 +276,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const result = await callGemini(payload);
-    const hasKey = !!Deno.env.get("GEMINI_API_KEY");
+    const result = await callAI(payload);
+    const provider = getProvider();
 
     return jsonResponse({
       ok: true,
-      provider: hasKey ? "gemini" : "demo",
+      provider: provider?.name || "demo",
       result,
     });
   } catch (err) {
