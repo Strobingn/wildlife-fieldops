@@ -67,12 +67,18 @@ jobs:
           ./gradlew assembleDebug --stacktrace
 
       - name: Print SHA Fingerprints
+        continue-on-error: true
         run: |
-          keytool -list -v \
-            -keystore ~/.android/debug.keystore \
-            -alias androiddebugkey \
-            -storepass android \
-            -keypass android
+          if [ -f "$HOME/.android/debug.keystore" ]; then
+            keytool -list -v \
+              -keystore ~/.android/debug.keystore \
+              -alias androiddebugkey \
+              -storepass android \
+              -keypass android
+          else
+            echo "No debug.keystore found at ~/.android/debug.keystore"
+            echo "The APK built successfully; generate a keystore locally to see SHA fingerprints."
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
