@@ -782,15 +782,15 @@ function newJobPage() {
 
 window.createJob = async function () {
   const payload = {
-    customer: customer.value.trim(),
-    phone: phone.value.trim(),
-    email: email.value.trim(),
-    address: address.value.trim(),
-    town: town.value.trim(),
-    species: species.value,
+    customer: document.getElementById("customer").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    address: document.getElementById("address").value.trim(),
+    town: document.getElementById("town").value.trim(),
+    species: document.getElementById("species").value,
     status: "Active",
-    assigned_tech: assignedTech.value,
-    notes: notes.value.trim(),
+    assigned_tech: document.getElementById("assignedTech").value,
+    notes: document.getElementById("notes").value.trim(),
     estimate: 0,
     tax_rate: 0,
     tax_amount: 0,
@@ -815,15 +815,15 @@ window.createJob = async function () {
 };
 
 window.addService = async function (jobId) {
-  const qty = Number(serviceQty.value || 1);
-  const price = Number(servicePrice.value || 0);
+  const qty = Number(document.getElementById("serviceQty").value || 1);
+  const price = Number(document.getElementById("servicePrice").value || 0);
   const total = qty * price;
 
   showLoading("Saving service…");
   try {
     const { error } = await supabase.from("services").insert({
       job_id: jobId,
-      service: serviceName.value,
+      service: document.getElementById("serviceName").value,
       qty,
       unit_price: price,
       total
@@ -857,7 +857,7 @@ async function updateJobEstimate(jobId) {
 window.applyTax = async function (jobId) {
   showLoading("Applying tax…");
   try {
-    const taxRate = Number(jobTaxRate.value || 0);
+    const taxRate = Number(document.getElementById("jobTaxRate").value || 0);
     const job = jobs.find(j => j.id === jobId);
     const subtotal = Number(job?.estimate || 0);
     const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
@@ -884,8 +884,8 @@ window.saveInspection = async function (jobId) {
   try {
     const { error } = await supabase.from("inspections").insert({
       job_id: jobId,
-      inspection_type: inspectionType.value,
-      notes: inspectionNotes.value
+      inspection_type: document.getElementById("inspectionType").value,
+      notes: document.getElementById("inspectionNotes").value
     });
     if (error) throw error;
     await loadData();
@@ -898,7 +898,7 @@ window.saveInspection = async function (jobId) {
 };
 
 window.saveInspectionPhoto = async function (jobId) {
-  const file = photoFile.files[0];
+  const file = document.getElementById("photoFile").files[0];
   if (!file) { showToast("Choose a photo.", "warn"); return; }
 
   showLoading("Compressing & uploading…");
@@ -909,8 +909,8 @@ window.saveInspectionPhoto = async function (jobId) {
       const { error } = await supabase.from("photos").insert({
         job_id: jobId,
         image_url: compressed,
-        tag: photoTag.value,
-        notes: photoNotes.value
+        tag: document.getElementById("photoTag").value,
+        notes: document.getElementById("photoNotes").value
       });
       if (error) throw error;
       await loadData();
@@ -948,16 +948,16 @@ function estimatePage() {
 }
 
 window.calcEstimate = function () {
-  const subtotal = Number(estQty.value || 0) * Number(estPrice.value || 0);
-  const taxRate = Number(estTax.value || 0);
+  const subtotal = Number(document.getElementById("estQty").value || 0) * Number(document.getElementById("estPrice").value || 0);
+  const taxRate = Number(document.getElementById("estTax").value || 0);
   const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);
   const total = +(subtotal + taxAmount).toFixed(2);
 
-  estimateOut.value =
+  document.getElementById("estimateOut").value =
     `Wildlife Whisperer LLC Estimate\n\n` +
-    `Service: ${estService.value}\n` +
-    `Quantity: ${estQty.value}\n` +
-    `Unit Price: ${money(estPrice.value)}\n\n` +
+    `Service: ${document.getElementById("estService").value}\n` +
+    `Quantity: ${document.getElementById("estQty").value}\n` +
+    `Unit Price: ${money(document.getElementById("estPrice").value)}\n\n` +
     `Subtotal: ${money(subtotal)}\n` +
     `Tax Rate: ${taxRate}%\n` +
     `Tax Amount: ${money(taxAmount)}\n\n` +
@@ -966,21 +966,23 @@ window.calcEstimate = function () {
 };
 
 window.emailEstimate = function () {
-  if (!estimateOut.value) calcEstimate();
+  const out = document.getElementById("estimateOut");
+  if (!out.value) calcEstimate();
   const subject = encodeURIComponent("Wildlife Whisperer LLC Estimate");
-  const body = encodeURIComponent(estimateOut.value);
+  const body = encodeURIComponent(out.value);
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 };
 
 window.generateEstimatePDF = function () {
-  if (!estimateOut.value) calcEstimate();
+  const out = document.getElementById("estimateOut");
+  if (!out.value) calcEstimate();
   const doc = new jsPDF();
   doc.setFontSize(18);
   doc.text("Wildlife Whisperer LLC", 20, 20);
   doc.setFontSize(14);
   doc.text("Estimate", 20, 30);
   doc.setFontSize(11);
-  const lines = doc.splitTextToSize(estimateOut.value, 170);
+  const lines = doc.splitTextToSize(out.value, 170);
   doc.text(lines, 20, 45);
   doc.save("wildlife-estimate.pdf");
 };
@@ -1045,9 +1047,9 @@ function techsPage() {
 
 window.addTech = async function () {
   const payload = {
-    name: techName.value.trim(),
-    phone: techPhone.value.trim(),
-    role: techRole.value.trim()
+    name: document.getElementById("techName").value.trim(),
+    phone: document.getElementById("techPhone").value.trim(),
+    role: document.getElementById("techRole").value.trim()
   };
 
   const errors = validateTech(payload);
