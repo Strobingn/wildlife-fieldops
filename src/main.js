@@ -93,11 +93,23 @@ function go(page) {
   render();
 }
 window.go = go;
-window.toggleMenu = () => menuEl.classList.toggle("open");
+window.toggleMenu = () => {
+  menuEl.classList.toggle("open");
+  const backdrop = document.getElementById("menuBackdrop");
+  if (backdrop) backdrop.classList.toggle("open", menuEl.classList.contains("open"));
+};
 
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+function throttle(fn, ms) {
+  let last = 0;
+  return (...args) => {
+    const now = Date.now();
+    if (now - last >= ms) { last = now; fn(...args); }
+  };
 }
 
 /* ─── UI HELPERS ─── */
@@ -140,6 +152,105 @@ function showToast(msg, type = "success", duration = 3000) {
   t.textContent = msg;
   requestAnimationFrame(() => { t.style.opacity = "1"; });
   setTimeout(() => { t.style.opacity = "0"; }, duration);
+}
+
+/* ─── THEME ─── */
+function initTheme() {
+  const saved = localStorage.getItem("ww_theme") || "dark";
+  document.documentElement.setAttribute("data-theme", saved);
+}
+window.toggleTheme = function () {
+  const html = document.documentElement;
+  const current = html.getAttribute("data-theme") || "dark";
+  const next = current === "dark" ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+  localStorage.setItem("ww_theme", next);
+  showToast(next === "dark" ? "Dark mode enabled" : "Light mode enabled", "success", 2000);
+};
+
+/* ─── MODAL ─── */
+window.openModal = function (title, content) {
+  const backdrop = document.getElementById("modalBackdrop");
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalBody").innerHTML = content;
+  backdrop.classList.add("open");
+  document.body.style.overflow = "hidden";
+};
+window.closeModal = function () {
+  const backdrop = document.getElementById("modalBackdrop");
+  backdrop.classList.remove("open");
+  document.body.style.overflow = "";
+};
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+/* ─── SCROLL REVEAL ─── */
+function setupReveal() {
+  const reveals = document.querySelectorAll(".reveal");
+  if (!reveals.length) return;
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => obs.observe(el));
+}
+
+/* ─── ANIMATED COUNTERS ─── */
+function animateCounter(el, target, duration = 1200) {
+  const start = performance.now();
+  const from = 0;
+  function step(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.floor(from + (target - from) * eased);
+    el.textContent = current.toLocaleString();
+    if (progress < 1) requestAnimationFrame(step);
+    else el.textContent = target.toLocaleString();
+  }
+  requestAnimationFrame(step);
+}
+
+/* ─── ALERTS ─── */
+window.showAlert = function (msg, type = "error", containerId = "alertBox") {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  const alert = document.createElement("div");
+  alert.className = `alert ${type}`;
+  alert.innerHTML = `<span>${esc(msg)}</span><button class="alert-dismiss" onclick="this.parentElement.remove()">&times;</button>`;
+  box.appendChild(alert);
+};
+
+/* ─── FAB SCROLL HIDE/SHOW ─── */
+function setupFabScroll() {
+  const fab = document.querySelector(".fab");
+  if (!fab) return;
+  let lastScroll = 0;
+  window.addEventListener("scroll", throttle(() => {
+    const current = window.scrollY || document.documentElement.scrollTop;
+    if (current > lastScroll && current > 100) fab.classList.add("hidden-fab");
+    else fab.classList.remove("hidden-fab");
+    lastScroll = current;
+  }, 150), { passive: true });
+}
+
+/* ─── RIPPLE EFFECT ─── */
+function setupRipple() {
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("button.action, button.primary, button.secondary, .quick-action");
+    if (!btn) return;
+    const circle = document.createElement("span");
+    circle.classList.add("ripple-circle");
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    circle.style.width = circle.style.height = size + "px";
+    circle.style.left = (e.clientX - rect.left - size / 2) + "px";
+    circle.style.top = (e.clientY - rect.top - size / 2) + "px";
+    btn.appendChild(circle);
+    setTimeout(() => circle.remove(), 600);
+  });
 }
 
 /* ─── VALIDATION ─── */
@@ -468,15 +579,23 @@ function updateBottomNav(page) {
 
 function shell(content) {
   const hasMap = screen === "dashboard";
+  const alertCount = jobs.filter(j => j.status === "Active").length;
   app.innerHTML = `
     <div class="top">
       <div>
         <strong style="font-size:16px;">Wildlife Whisperer FieldOps</strong>
         <div class="tiny" style="margin-top:2px;">${esc(screen)}</div>
       </div>
-      <div class="sync-indicator">
+      <div class="sync-indicator" style="gap:8px;">
         ${hasMap ? '<span class="sync-dot"></span><span>Live</span>' : ""}
-        <button class="menuButton" onclick="toggleMenu()" style="margin-left:8px;">☰</button>
+        <button class="notification-btn" onclick="go('jobs')" title="Active jobs">
+          🔔
+          <span class="badge">${alertCount > 0 ? alertCount : ""}</span>
+        </button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+          ${document.documentElement.getAttribute("data-theme") === "light" ? "🌙" : "☀️"}
+        </button>
+        <button class="menuButton" onclick="toggleMenu()">☰</button>
       </div>
     </div>
     <div class="wrap">${content}</div>
@@ -493,6 +612,9 @@ function shell(content) {
     updateBottomNav(screen);
     if (screen === "dashboard") renderMap();
     lazyLoadImages();
+    setupReveal();
+    setupFabScroll();
+    setupRipple();
   }, 50);
 }
 
@@ -511,32 +633,68 @@ function dashboard() {
   const total = jobs.reduce((sum, j) => sum + Number(j.grand_total || j.estimate || 0), 0);
 
   shell(`
-    <div class="grid">
-      <div class="card"><div class="stat">${active.length}</div><div class="tiny">Active jobs</div></div>
-      <div class="card"><div class="stat">${jobs.length}</div><div class="tiny">Total jobs</div></div>
-      <div class="card"><div class="stat">${techs.length}</div><div class="tiny">Techs</div></div>
-      <div class="card"><div class="stat">${money(total)}</div><div class="tiny">Quoted value</div></div>
+    <div class="hero reveal">
+      <h1>🦝 Wildlife Whisperer</h1>
+      <p>Field Operations Dashboard — ${new Date().toLocaleDateString()}</p>
+    </div>
+
+    <div id="alertBox"></div>
+
+    <div class="quick-actions reveal delay-1">
+      <div class="quick-action ripple" onclick="go('new')">
+        ➕<span>New Job</span>
+      </div>
+      <div class="quick-action ripple" onclick="go('estimate')">
+        💵<span>Estimate</span>
+      </div>
+      <div class="quick-action ripple" onclick="go('techs')">
+        👷<span>Techs</span>
+      </div>
+      <div class="quick-action ripple" onclick="go('metrics')">
+        📊<span>Metrics</span>
+      </div>
+    </div>
+
+    <div class="grid reveal delay-2">
+      <div class="card"><div class="stat" data-count="${active.length}">0</div><div class="tiny">Active jobs</div></div>
+      <div class="card"><div class="stat" data-count="${jobs.length}">0</div><div class="tiny">Total jobs</div></div>
+      <div class="card"><div class="stat" data-count="${techs.length}">0</div><div class="tiny">Techs</div></div>
+      <div class="card"><div class="stat" data-count="${Math.round(total)}">$0</div><div class="tiny">Quoted value</div></div>
     </div>
 
     <div id="dashWeather" style="margin-bottom:12px;"></div>
 
     <div id="dashMap" style="height:320px;width:100%;border-radius:16px;margin-bottom:18px;border:1px solid var(--border);background:var(--card);"></div>
 
-    <button class="action" onclick="go('new')">➕ Create New Job</button>
-    <button class="action dark" onclick="go('estimate')">💵 Smart Estimator</button>
+    <button class="action reveal" onclick="go('new')">➕ Create New Job</button>
+    <button class="action dark reveal" onclick="go('estimate')">💵 Smart Estimator</button>
 
     <h2 style="margin:18px 0 10px">Recent Jobs</h2>
-    ${jobs.slice(0, 5).map(jobCard).join("") || `<div class="card">No jobs yet.</div>`}
+    ${jobs.slice(0, 5).map((j, i) => jobCard(j).replace('class="card job"', `class="card job reveal delay-${(i % 3) + 1}"`)).join("") || `<div class="card reveal">No jobs yet.</div>`}
   `);
 
   setTimeout(async () => {
+    document.querySelectorAll("[data-count]").forEach(el => {
+      const target = parseInt(el.dataset.count, 10) || 0;
+      const isMoney = el.nextElementSibling?.textContent.includes("value");
+      animateCounter(el, target, 1200);
+      if (isMoney) {
+        const original = el.textContent;
+        const check = () => {
+          if (el.textContent === target.toLocaleString()) el.textContent = money(target);
+          else requestAnimationFrame(check);
+        };
+        check();
+      }
+    });
+
     const jobWithGps = jobs.find(j => j.latitude && j.longitude);
     if (jobWithGps) {
       const weather = await getWeather(jobWithGps.latitude, jobWithGps.longitude);
       const wbox = document.getElementById("dashWeather");
       if (wbox && weather) {
         wbox.innerHTML = `
-          <div class="card">
+          <div class="card reveal">
             <div class="weather-card">
               <img src="${weather.icon}" alt="${esc(weather.description)}" style="width:48px;height:48px;">
               <div>
@@ -547,8 +705,13 @@ function dashboard() {
           </div>
         `;
       } else if (wbox && OPENWEATHER_API_KEY.includes("YOUR_")) {
-        wbox.innerHTML = `<div class="card tiny">Add OpenWeather API key to enable weather.</div>`;
+        wbox.innerHTML = `<div class="card tiny reveal">Add OpenWeather API key to enable weather.</div>`;
       }
+    }
+
+    const alertBox = document.getElementById("alertBox");
+    if (alertBox && !jobs.length) {
+      showAlert("No jobs yet. Tap + to create your first job.", "info", "alertBox");
     }
   }, 100);
 }
@@ -1313,10 +1476,12 @@ function hideSplash() {
   }
 }
 
+initTheme();
 loadGoogleMaps();
 loadGoogleCalendarAPI();
 loadData();
 setTimeout(hideSplash, 1500);
+window.closeModal = closeModal;
 
 /* ─── SERVICE WORKER UPDATE ─── */
 if ("serviceWorker" in navigator) {
