@@ -161,6 +161,9 @@ create table if not exists public.sync_events (
 
 alter table public.jobs add column if not exists estimate numeric(12,2) not null default 0;
 alter table public.jobs add column if not exists customer text;
+alter table public.jobs add column if not exists customer_name text;
+alter table public.jobs add column if not exists state text;
+alter table public.jobs add column if not exists zip text;
 alter table public.jobs add column if not exists phone text;
 alter table public.jobs add column if not exists email text;
 alter table public.jobs add column if not exists address text;
