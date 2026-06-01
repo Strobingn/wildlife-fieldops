@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "serviceworker": true,
+    "worker": true
+  },
+  "extends": [
+    "eslint:recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "impliedStrict": true
+    }
+  },
+  "globals": {
+    "__APP_VERSION__": "readonly",
+    "__BUILD_TIME__": "readonly",
+    "__BUILD_MODE__": "readonly",
+    "globalThis": "readonly",
+    "Capacitor": "readonly",
+    "cordova": "readonly"
+  },
+  "rules": {
+    // Error Prevention
+    "no-unused-vars": ["error", {
+      "vars": "all",
+      "args": "after-used",
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "no-undef": "error",
+    "no-unreachable": "error",
+    "no-dupe-keys": "error",
+    "no-dupe-args": "error",
+    "no-duplicate-case": "error",
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-extra-semi": "warn",
+    "no-func-assign": "error",
+    "no-obj-calls": "error",
+    "no-sparse-arrays": "warn",
+    "valid-typeof": "error",
+    "no-self-assign": "warn",
+    "no-self-compare": "warn",
+    "no-template-curly-in-string": "warn",
+    "no-unmodified-loop-condition": "warn",
+
+    // Best Practices
+    "eqeqeq": ["warn", "always", { "null": "ignore" }],
+    "curly": ["warn", "multi-line", "consistent"],
+    "default-param-last": "warn",
+    "dot-notation": "warn",
+    "no-alert": "warn",
+    "no-caller": "error",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-extend-native": "error",
+    "no-floating-decimal": "warn",
+    "no-global-assign": "error",
+    "no-implicit-globals": "warn",
+    "no-lone-blocks": "warn",
+    "no-loop-func": "warn",
+    "no-multi-spaces": "warn",
+    "no-new": "warn",
+    "no-new-wrappers": "warn",
+    "no-proto": "warn",
+    "no-return-assign": ["warn", "except-parens"],
+    "no-sequences": "warn",
+    "no-throw-literal": "warn",
+    "no-unused-expressions": ["warn", { "allowShortCircuit": true, "allowTernary": true }],
+    "no-useless-call": "warn",
+    "no-useless-concat": "warn",
+    "no-useless-escape": "warn",
+    "no-useless-return": "warn",
+    "prefer-promise-reject-errors": "warn",
+    "radix": "warn",
+    "require-atomic-updates": "warn",
+    "yoda": ["warn", "never", { "exceptRange": true }],
+
+    // Variables
+    "no-shadow": ["warn", { "builtinGlobals": true, "hoist": "functions", "allow": ["_"] }],
+    "no-shadow-restricted-names": "error",
+    "no-use-before-define": ["warn", { "functions": false, "classes": false }],
+
+    // Stylistic (non-critical, mostly warnings)
+    "array-bracket-spacing": ["warn", "never"],
+    "block-spacing": ["warn", "always"],
+    "brace-style": ["warn", "1tbs", { "allowSingleLine": true }],
+    "comma-dangle": ["warn", "never"],
+    "comma-spacing": ["warn", { "before": false, "after": true }],
+    "comma-style": ["warn", "last"],
+    "computed-property-spacing": ["warn", "never"],
+    "eol-last": ["warn", "always"],
+    "func-call-spacing": ["warn", "never"],
+    "indent": ["warn", 2, {
+      "SwitchCase": 1,
+      "VariableDeclarator": 1,
+      "outerIIFEBody": 1,
+      "MemberExpression": 1,
+      "FunctionDeclaration": { "parameters": 1, "body": 1 },
+      "FunctionExpression": { "parameters": 1, "body": 1 },
+      "CallExpression": { "arguments": 1 },
+      "ArrayExpression": 1,
+      "ObjectExpression": 1,
+      "ImportDeclaration": 1,
+      "flatTernaryExpressions": false,
+      "ignoreComments": false
+    }],
+    "key-spacing": ["warn", { "beforeColon": false, "afterColon": true }],
+    "keyword-spacing": ["warn", { "before": true, "after": true }],
+    "linebreak-style": ["warn", "unix"],
+    "max-len": ["warn", {
+      "code": 120,
+      "tabWidth": 2,
+      "ignoreUrls": true,
+      "ignoreStrings": true,
+      "ignoreTemplateLiterals": true,
+      "ignoreRegExpLiterals": true
+    }],
+    "new-cap": ["warn", { "newIsCap": true, "capIsNew": false }],
+    "new-parens": "warn",
+    "no-array-constructor": "warn",
+    "no-lonely-if": "warn",
+    "no-mixed-operators": "warn",
+    "no-mixed-spaces-and-tabs": "warn",
+    "no-multiple-empty-lines": ["warn", { "max": 2, "maxEOF": 1 }],
+    "no-nested-ternary": "warn",
+    "no-new-object": "warn",
+    "no-trailing-spaces": "warn",
+    "no-whitespace-before-property": "warn",
+    "object-curly-spacing": ["warn", "always"],
+    "operator-assignment": ["warn", "always"],
+    "prefer-const": ["warn", { "destructuring": "any", "ignoreReadBeforeAssign": false }],
+    "quotes": ["warn", "single", { "avoidEscape": true, "allowTemplateLiterals": true }],
+    "semi": ["warn", "always"],
+    "semi-spacing": ["warn", { "before": false, "after": true }],
+    "space-before-blocks": ["warn", "always"],
+    "space-before-function-paren": ["warn", { "anonymous": "always", "named": "never", "asyncArrow": "always" }],
+    "space-in-parens": ["warn", "never"],
+    "space-infix-ops": "warn",
+    "space-unary-ops": ["warn", { "words": true, "nonwords": false }],
+    "spaced-comment": ["warn", "always", { "line": { "markers": ["/"] }, "block": { "exceptions": ["*"] } }],
+    "switch-colon-spacing": ["warn", { "after": true, "before": false }]
+  },
+  "ignorePatterns": [
+    "dist/",
+    "android/",
+    "ios/",
+    "node_modules/",
+    "*.min.js",
+    "sw.js",
+    "coverage/",
+    "build/"
+  ],
+  "overrides": [
+    {
+      "files": ["sw.js"],
+      "env": {
+        "browser": false,
+        "serviceworker": true
+      },
+      "rules": {
+        "no-restricted-globals": "off",
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["*.test.js", "*.spec.js"],
+      "env": {
+        "vitest-globals/env": true
+      },
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly",
+        "vi": "readonly"
+      }
+    }
+  ]
+}

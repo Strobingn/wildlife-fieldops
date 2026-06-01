@@ -1,173 +1,2480 @@
-import { supabase } from "./auth/supabaseClient.js";import { runFieldAI, formatFieldAIResult } from "./ai/fieldAssistant.js";import { Geolocation } from "@capacitor/geolocation";import { jsPDF } from "jspdf";import { KEYS } from "./config.js";/* ─── API KEYS (env vars preferred, fallback to config.js) ─── */const GOOGLE_MAPS_API_KEY = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY || KEYS.GOOGLE_MAPS;const GOOGLE_CALENDAR_CLIENT_ID = import.meta.env?.VITE_GOOGLE_CALENDAR_CLIENT_ID || KEYS.GOOGLE_CALENDAR_CLIENT_ID;const OPENWEATHER_API_KEY = import.meta.env?.VITE_OPENWEATHER_API_KEY || KEYS.OPENWEATHER;const GOOGLE_API_KEY = import.meta.env?.VITE_GOOGLE_API_KEY || KEYS.GOOGLE_API_KEY;/* ─── CONSTANTS ─── */const SERVICES = [  { name: "Inspection", price: 125 },  { name: "Inspection photography", price: 75 },  { name: "One-way set / one-way door", price: 225 },  { name: "Bird gel", price: 125 },  { name: "Sheet metal work", price: 35 },  { name: "Caulking", price: 12 },  { name: "Stainless steel mesh", price: 45 },  { name: "Hardware cloth", price: 35 },  { name: "Exclusion repair", price: 150 },  { name: "Soffit / fascia repair", price: 225 },  { name: "Ridge vent guard", price: 300 },  { name: "Chimney cap", price: 350 },  { name: "Gable vent screening", price: 175 },  { name: "Foundation gap sealing", price: 95 },  { name: "Cleanup / sanitation", price: 250 },  { name: "Warranty follow-up", price: 125 }];const SPECIES = [  "Raccoon", "Grey Squirrel", "Red Squirrel", "Flying Squirrel", "Bat", "Skunk",  "Groundhog", "Bird", "Snake", "Opossum", "Rodent", "Mouse", "Rat", "Carpenter Bee", "Other"];const SPECIES_ICONS = {  "Raccoon": "🦝",  "Grey Squirrel": "🐿️",  "Red Squirrel": "🐿️",  "Flying Squirrel": "🦇",  "Bat": "🦇",  "Skunk": "🦨",  "Groundhog": "🦫",  "Bird": "🐦",  "Snake": "🐍",  "Opossum": "🦡",  "Rodent": "🐁",  "Mouse": "🐁",  "Rat": "🐀",  "Carpenter Bee": "🐝",  "Other": "🐾"};const STATUS_STYLES = {  "Active": "active",  "Scheduled": "scheduled",  "Closed": "closed",  "Trapping": "trapping",  "Repair": "repair",  "Waiting On Customer": "scheduled",  "Exclusion": "active",  "Warranty": "active"};/* ─── STATE ─── */const app = document.getElementById("app");const menuEl = document.getElementById("menu");let screen = "dashboard";let jobs = [];let techs = [];let services = [];let inspections = [];let photos = [];let expenses = [];let selectedJob = null;let map = null;let markers = [];let gapiLoaded = false;let gisLoaded = false;let tokenClient = null;let searchDebounce = null;/* ─── UTILS ─── */function money(n) { return "$" + Number(n || 0).toLocaleString(); }function esc(v) {  return String(v || "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m]));}function go(page) {  screen = page;  menuEl.classList.remove("open");  updateBottomNav(page);  render();}window.go = go;window.toggleMenu = () => {  menuEl.classList.toggle("open");  const backdrop = document.getElementById("menuBackdrop");  if (backdrop) backdrop.classList.toggle("open", menuEl.classList.contains("open"));};function debounce(fn, ms) {  let t;  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };}function throttle(fn, ms) {  let last = 0;  return (...args) => {    const now = Date.now();    if (now - last >= ms) { last = now; fn(...args); }  };}/* ─── UI HELPERS ─── */function showLoading(msg = "Loading…") {  let ov = document.getElementById("loading-overlay");  if (!ov) {    ov = document.createElement("div");    ov.id = "loading-overlay";    ov.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:9998;color:#fff;font-size:14px;font-family:Inter,sans-serif;";    ov.innerHTML = `<div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#22c55e;border-radius:50%;animation:spin 1s linear infinite;"></div><span>${msg}</span>`;    document.body.appendChild(ov);    const style = document.createElement("style");    style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}";    document.head.appendChild(style);  } else {    ov.querySelector("span").textContent = msg;  }  ov.style.display = "flex";}function hideLoading() {  const ov = document.getElementById("loading-overlay");  if (ov) ov.style.display = "none";}function showToast(msg, type = "success", duration = 3000) {  let t = document.getElementById("toast");  if (!t) {    t = document.createElement("div");    t.id = "toast";    t.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:opacity 0.3s ease;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;";    document.body.appendChild(t);  }  const colors = {    success: "background:rgba(34,197,94,0.95);color:#fff;",    error: "background:rgba(239,68,68,0.95);color:#fff;",    warn: "background:rgba(251,191,36,0.95);color:#000;"  };  t.style.cssText = "position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:0;transition:opacity 0.3s ease;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;" + (colors[type] || colors.success);  t.textContent = msg;  requestAnimationFrame(() => { t.style.opacity = "1"; });  setTimeout(() => { t.style.opacity = "0"; }, duration);}/* ─── THEME ─── */function initTheme() {  const saved = localStorage.getItem("ww_theme") || "dark";  document.documentElement.setAttribute("data-theme", saved);}window.toggleTheme = function () {  const html = document.documentElement;  const current = html.getAttribute("data-theme") || "dark";  const next = current === "dark" ? "light" : "dark";  html.setAttribute("data-theme", next);  localStorage.setItem("ww_theme", next);  showToast(next === "dark" ? "Dark mode enabled" : "Light mode enabled", "success", 2000);};/* ─── MODAL ─── */window.openModal = function (title, content) {  const backdrop = document.getElementById("modalBackdrop");  document.getElementById("modalTitle").textContent = title;  document.getElementById("modalBody").innerHTML = content;  backdrop.classList.add("open");  document.body.style.overflow = "hidden";};window.closeModal = function () {  const backdrop = document.getElementById("modalBackdrop");  backdrop.classList.remove("open");  document.body.style.overflow = "";};document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });/* ─── SCROLL REVEAL ─── */function setupReveal() {  const reveals = document.querySelectorAll(".reveal");  if (!reveals.length) return;  const obs = new IntersectionObserver((entries) => {    entries.forEach(entry => {      if (entry.isIntersecting) {        entry.target.classList.add("visible");        obs.unobserve(entry.target);      }    });  }, { threshold: 0.1 });  reveals.forEach(el => obs.observe(el));}/* ─── ANIMATED COUNTERS ─── */function animateCounter(el, target, duration = 1200) {  const start = performance.now();  const from = 0;  function step(now) {    const progress = Math.min((now - start) / duration, 1);    const eased = 1 - Math.pow(1 - progress, 3);    const current = Math.floor(from + (target - from) * eased);    el.textContent = current.toLocaleString();    if (progress < 1) requestAnimationFrame(step);    else el.textContent = target.toLocaleString();  }  requestAnimationFrame(step);}/* ─── ALERTS ─── */window.showAlert = function (msg, type = "error", containerId = "alertBox") {  const box = document.getElementById(containerId);  if (!box) return;  const alert = document.createElement("div");  alert.className = `alert ${type}`;  alert.innerHTML = `<span>${esc(msg)}</span><button class="alert-dismiss" onclick="this.parentElement.remove()">&times;</button>`;  box.appendChild(alert);};/* ─── FAB SCROLL HIDE/SHOW ─── */function setupFabScroll() {  const fab = document.querySelector(".fab");  if (!fab) return;  let lastScroll = 0;  window.addEventListener("scroll", throttle(() => {    const current = window.scrollY || document.documentElement.scrollTop;    if (current > lastScroll && current > 100) fab.classList.add("hidden-fab");    else fab.classList.remove("hidden-fab");    lastScroll = current;  }, 150), { passive: true });}/* ─── RIPPLE EFFECT ─── */function setupRipple() {  document.addEventListener("click", e => {    const btn = e.target.closest("button.action, button.primary, button.secondary, .quick-action");    if (!btn) return;    const circle = document.createElement("span");    circle.classList.add("ripple-circle");    const rect = btn.getBoundingClientRect();    const size = Math.max(rect.width, rect.height);    circle.style.width = circle.style.height = size + "px";    circle.style.left = (e.clientX - rect.left - size / 2) + "px";    circle.style.top = (e.clientY - rect.top - size / 2) + "px";    btn.appendChild(circle);    setTimeout(() => circle.remove(), 600);  });}/* ─── VALIDATION ─── */function isValidPhone(phone) {  if (!phone) return true;  const cleaned = phone.replace(/\D/g, "");  return cleaned.length >= 10 && cleaned.length <= 15;}function formatPhone(phone) {  if (!phone) return "";  const cleaned = phone.replace(/\D/g, "");  if (cleaned.length === 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;  if (cleaned.length === 11 && cleaned[0] === "1") return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;  return phone;}function validateJob(job) {  const errors = [];  if (!job.customer_name || job.customer_name.trim().length < 2) errors.push("Customer name required (min 2 chars)");  if (!job.address || job.address.trim().length < 5) errors.push("Address required (min 5 chars)");  if (job.phone && !isValidPhone(job.phone)) errors.push("Invalid phone number");  if (job.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(job.email)) errors.push("Invalid email");  if (job.deposit_paid && isNaN(job.deposit_paid)) errors.push("Deposit must be a number");    return errors;}function validateTech(tech) {  const errors = [];  if (!tech.name || tech.name.trim().length < 2) errors.push("Tech name required (min 2 chars)");  if (tech.phone && !isValidPhone(tech.phone)) errors.push("Invalid phone number");  return errors;}/* ─── IMAGE COMPRESSION ─── */async function compressImage(dataUrl, maxWidth = 1200, quality = 0.7) {  return new Promise((resolve, reject) => {    const img = new Image();    img.onload = () => {      const canvas = document.createElement("canvas");      let w = img.width, h = img.height;      if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }      canvas.width = w; canvas.height = h;      canvas.getContext("2d").drawImage(img, 0, 0, w, h);      resolve(canvas.toDataURL("image/jpeg", quality));    };    img.onerror = reject;    img.src = dataUrl;  });}/* ─── GPS WITH FALLBACK ─── */async function getCurrentPosition() {  try {    if (typeof Geolocation !== "undefined" && Geolocation.getCurrentPosition) {      const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });      return { latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) };    }  } catch (e) { console.warn("Capacitor geolocation failed, trying fallback:", e); }  return new Promise((resolve, reject) => {    if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return; }    navigator.geolocation.getCurrentPosition(      pos => resolve({ latitude: String(pos.coords.latitude), longitude: String(pos.coords.longitude) }),      err => reject(err),      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }    );  });}/* ─── DATA ─── */async function loadData() {  showLoading("Loading data…");  try {    const [j, t, s, i, p, e] = await Promise.all([      supabase.from("jobs").select("*").order("created_at", { ascending: false }),      supabase.from("techs").select("*").order("created_at", { ascending: false }),      supabase.from("services").select("*"),      supabase.from("inspections").select("*").order("created_at", { ascending: false }),      supabase.from("photos").select("*").order("created_at", { ascending: false })    ]);    jobs = j.data || [];    techs = t.data || [];    services = s.data || [];    inspections = i.data || [];    photos = p.data || [];    expenses = e.data || [];    localStorage.setItem("ww_fieldops_cache", JSON.stringify({      jobs, techs, services, inspections, photos,      cachedAt: new Date().toISOString()    }));  } catch (err) {    console.error("Sync failed, using cached data:", err);    showToast("Offline mode — using cached data", "warn", 4000);    const cached = JSON.parse(localStorage.getItem("ww_fieldops_cache") || "{}");    jobs = cached.jobs || [];    techs = cached.techs || [];    services = cached.services || [];    inspections = cached.inspections || [];    photos = cached.photos || [];    expenses = cached.expenses || [];  } finally {    hideLoading();  }  if (selectedJob) selectedJob = jobs.find(x => x.id === selectedJob.id) || selectedJob;  render();}/* ─── GOOGLE MAPS ─── */function loadGoogleMaps() {  if (window.google?.maps || GOOGLE_MAPS_API_KEY.includes("YOUR_")) return;  if (document.querySelector("script[data-maps]")) return;  const script = document.createElement("script");  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&callback=onGoogleMapsLoaded`;  script.async = true;  script.defer = true;  script.dataset.maps = "true";  document.head.appendChild(script);}window.onGoogleMapsLoaded = function () {  if (screen === "dashboard" || screen === "detail") render();};function initMap(containerId) {  if (!window.google?.maps || GOOGLE_MAPS_API_KEY.includes("YOUR_")) {    const el = document.getElementById(containerId);    if (el) el.innerHTML = '<div class="card tiny">Add Google Maps API key to enable interactive map.</div>';    return null;  }  const defaultCenter = { lat: 40.7128, lng: -74.0060 };  const m = new google.maps.Map(document.getElementById(containerId), {    zoom: 12,    center: defaultCenter,    mapTypeId: "roadmap",    styles: [      { elementType: "geometry", stylers: [{ color: "#242f3e" }] },      { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },      { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },      { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },      { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },      { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },      { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },      { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },      { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },      { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },      { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },      { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },      { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },      { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },      { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },      { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },      { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },      { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] }    ]  });  return m;}function renderMap() {  const container = document.getElementById("dashMap");  if (!container || !window.google?.maps) return;  const mappedJobs = jobs.filter(j => j.latitude && j.longitude);  if (!mappedJobs.length) {    container.innerHTML = '<div class="card tiny">No GPS jobs yet.</div>';    return;  }  if (!map) map = initMap("dashMap");  if (!map) return;  markers.forEach(m => m.setMap(null));  markers = [];  const bounds = new google.maps.LatLngBounds();  mappedJobs.forEach(job => {    const pos = { lat: parseFloat(job.latitude), lng: parseFloat(job.longitude) };    const marker = new google.maps.Marker({      position: pos,      map,      title: `${esc(job.species)} - ${esc(job.customer)}`,      animation: google.maps.Animation.DROP    });    marker.addListener("click", () => {      selectedJob = job;      screen = "detail";      updateBottomNav("detail");      render();    });    markers.push(marker);    bounds.extend(pos);  });  if (markers.length > 1) map.fitBounds(bounds);  else if (markers.length === 1) { map.setCenter(markers[0].getPosition()); map.setZoom(15); }}function navigateToJob(lat, lng, address) {  if (!lat || !lng) {    if (address) {      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`, "_blank");      return;    }    return showToast("No GPS data for this job.", "warn");  }  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank");}window.navigateToJob = navigateToJob;/* ─── GOOGLE CALENDAR ─── */function loadGoogleCalendarAPI() {  if (gapiLoaded || GOOGLE_CALENDAR_CLIENT_ID.includes("YOUR_")) return;  const gapiScript = document.createElement("script");  gapiScript.src = "https://apis.google.com/js/api.js";  gapiScript.onload = () => {    window.gapi.load("client", async () => {      await window.gapi.client.init({        apiKey: GOOGLE_API_KEY,        discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest"]      });      gapiLoaded = true;    });  };  document.head.appendChild(gapiScript);  const gisScript = document.createElement("script");  gisScript.src = "https://accounts.google.com/gsi/client";  gisScript.onload = () => {    tokenClient = google.accounts.oauth2.initTokenClient({      client_id: GOOGLE_CALENDAR_CLIENT_ID,      scope: "https://www.googleapis.com/auth/calendar.events",      callback: () => {}    });    gisLoaded = true;  };  document.head.appendChild(gisScript);}window.createCalendarEvent = async function (job) {  if (!gapiLoaded || !gisLoaded || GOOGLE_CALENDAR_CLIENT_ID.includes("YOUR_")) {    showToast("Google Calendar not configured.", "warn");    return;  }  return new Promise((resolve) => {    tokenClient.callback = async (resp) => {      if (resp.error) { showToast("Auth error: " + resp.error, "error"); resolve(); return; }      const event = {        summary: `Wildlife Job: ${job.customer} - ${job.species}`,        description: `Customer: ${job.customer}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.notes || ""}`,        start: { dateTime: new Date().toISOString(), timeZone: "America/New_York" },        end: { dateTime: new Date(Date.now() + 3600000).toISOString(), timeZone: "America/New_York" },        location: job.address      };      try {        const response = await window.gapi.client.calendar.events.insert({ calendarId: "primary", resource: event });        showToast("Event added to calendar!");      } catch (err) {        showToast("Failed to create event: " + err.message, "error");      }      resolve();    };    tokenClient.requestAccessToken({ prompt: "consent" });  });};/* ─── WEATHER ─── */async function getWeather(lat, lng) {  if (OPENWEATHER_API_KEY.includes("YOUR_")) return null;  try {    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_API_KEY}&units=imperial`;    const res = await fetch(url);    if (!res.ok) return null;    const data = await res.json();    return {      temp: Math.round(data.main.temp),      condition: data.weather[0].main,      description: data.weather[0].description,      icon: `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`    };  } catch (e) { console.error("Weather error:", e); return null; }}/* ─── VOICE COMMANDS ─── *//* ─── LAZY LOADING ─── */function lazyLoadImages() {  const imgs = document.querySelectorAll("img.lazy");  if (!imgs.length) return;  const obs = new IntersectionObserver((entries) => {    entries.forEach(entry => {      if (entry.isIntersecting) {        const img = entry.target;        img.src = img.dataset.src;        img.classList.add("loaded");        img.classList.remove("lazy");        obs.unobserve(img);      }    });  });  imgs.forEach(img => obs.observe(img));}/* ─── NAV / SHELL ─── */function nav() {  menuEl.innerHTML = `    <div style="font-weight:700;font-size:18px;margin-bottom:18px;padding-left:4px;">FieldOps</div>    <button onclick="go('dashboard')">🏠 Dashboard</button>    <button onclick="go('jobs')">🦝 Jobs</button>    <button onclick="go('new')">➕ New Job</button>    <button onclick="go('estimate')">💵 Estimator</button>    <button onclick="go('techs')">👷 Techs</button>    <button onclick="go('metrics')">📊 Metrics</button>    <button onclick="go('ai')">🧠 AI Assistant</button>    <button onclick="exportData()">💾 Export JSON</button>    <button onclick="importDataPrompt()">📥 Import JSON</button>  `;}function updateBottomNav(page) {  const map = { dashboard: 0, jobs: 1, detail: 2, new: 2, estimate: 3, ai: 4 };  const idx = map[page] ?? -1;  document.querySelectorAll(".bottom-nav button").forEach((b, i) => {    b.classList.toggle("active", i === idx);  });}function shell(content) {  const hasMap = screen === "dashboard";  const alertCount = jobs.filter(j => j.status === "Active").length;  const overdueReminders = jobs.filter(j => j.reminder_date && new Date(j.reminder_date) <= new Date()).length;  app.innerHTML = `    <div class="top">      <div>        <strong style="font-size:16px;">Wildlife Whisperer FieldOps</strong>        <div class="tiny" style="margin-top:2px;">${esc(screen)}</div>      </div>      <div class="sync-indicator" style="gap:8px;">        ${hasMap ? '<span class="sync-dot"></span><span>Live</span>' : ""}        <button class="notification-btn" onclick="go('jobs')" title="Active jobs">          🔔          <span class="badge">${alertCount > 0 ? alertCount : ""}</span>        </button>        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">          ${document.documentElement.getAttribute("data-theme") === "light" ? "🌙" : "☀️"}        </button>        <button class="menuButton" onclick="toggleMenu()">☰</button>      </div>    </div>    <div class="wrap">${content}</div>    <div class="bottom-nav">      <button onclick="go('dashboard')" title="Dashboard">🏠</button>      <button onclick="go('jobs')" title="Jobs">🦝</button>      <button onclick="go('new')" title="New Job">➕</button>      <button onclick="go('estimate')" title="Estimate">💵</button>      <button onclick="go('ai')" title="AI">🧠</button>    </div>    <button class="fab" onclick="go('new')" title="New Job">+</button>  `;  setTimeout(() => {    updateBottomNav(screen);    if (screen === "dashboard") renderMap();    lazyLoadImages();    setupReveal();    setupFabScroll();    setupRipple();  }, 50);}/* ─── SCORING ─── */function jobScore(job) {  const v = inspections.some(i => i.job_id === job.id);  const p = photos.some(p => p.job_id === job.id);  const sv = services.filter(s => s.job_id === job.id);  const s = sv.length > 0;  return Math.min(100, (v ? 25 : 0) + (p ? 25 : 0) + (s ? 25 : 0) + (job.latitude ? 25 : 0));}/* ─── PAGES ─── */function dashboard() {  const active = jobs.filter(j => j.status !== "Closed");  const total = jobs.reduce((sum, j) => sum + Number(j.grand_total || j.estimate || 0), 0);  shell(`    <div class="hero reveal">      <h1>🦝 Wildlife Whisperer</h1>      <p>Field Operations Dashboard — ${new Date().toLocaleDateString()}</p>    </div>    <div id="alertBox"></div>    <div class="quick-actions reveal delay-1">      <div class="quick-action ripple" onclick="go('new')">        ➕<span>New Job</span>      </div>      <div class="quick-action ripple" onclick="go('estimate')">        💵<span>Estimate</span>      </div>      <div class="quick-action ripple" onclick="go('techs')">        👷<span>Techs</span>      </div>      <div class="quick-action ripple" onclick="go('metrics')">        📊<span>Metrics</span>      </div>    </div>    <div class="grid reveal delay-2">      <div class="card"><div class="stat" data-count="${active.length}">0</div><div class="tiny">Active jobs</div></div>      <div class="card"><div class="stat" data-count="${jobs.length}">0</div><div class="tiny">Total jobs</div></div>      <div class="card"><div class="stat" data-count="${techs.length}">0</div><div class="tiny">Techs</div></div>      <div class="card"><div class="stat" data-count="${Math.round(total)}">$0</div><div class="tiny">Quoted value</div></div>      <div class="card"><div class="stat">${money(totalExpensesAll)}</div><div class="tiny">Total Expenses</div></div>      <div class="card"><div class="stat">${money(netProfit)}</div><div class="tiny">Net Profit</div></div>    </div>    <div id="dashWeather" style="margin-bottom:12px;"></div>    <div id="dashMap" style="height:320px;width:100%;border-radius:16px;margin-bottom:18px;border:1px solid var(--border);background:var(--card);"></div>    <button class="action reveal" onclick="go('new')">➕ Create New Job</button>    <button class="action dark reveal" onclick="go('estimate')">💵 Smart Estimator</button>    <h2 style="margin:18px 0 10px">Recent Jobs</h2>    ${jobs.slice(0, 5).map((j, i) => jobCard(j).replace('class="card job"', `class="card job reveal delay-${(i % 3) + 1}"`)).join("") || `<div class="card reveal">No jobs yet.</div>`}  `);  setTimeout(async () => {    document.querySelectorAll("[data-count]").forEach(el => {      const target = parseInt(el.dataset.count, 10) || 0;      const isMoney = el.nextElementSibling?.textContent.includes("value");      animateCounter(el, target, 1200);      if (isMoney) {        const original = el.textContent;        const check = () => {          if (el.textContent === target.toLocaleString()) el.textContent = money(target);          else requestAnimationFrame(check);        };        check();      }    });    const jobWithGps = jobs.find(j => j.latitude && j.longitude);    if (jobWithGps) {      const weather = await getWeather(jobWithGps.latitude, jobWithGps.longitude);      const wbox = document.getElementById("dashWeather");      if (wbox && weather) {        wbox.innerHTML = `          <div class="card reveal">            <div class="weather-card">              <img src="${weather.icon}" alt="${esc(weather.description)}" style="width:48px;height:48px;">              <div>                <div style="font-weight:700;font-size:18px;">${weather.temp}°F</div>                <div class="tiny">${esc(weather.condition)} · ${esc(weather.description)}</div>              </div>            </div>          </div>        `;      } else if (wbox && OPENWEATHER_API_KEY.includes("YOUR_")) {        wbox.innerHTML = `<div class="card tiny reveal">Add OpenWeather API key to enable weather.</div>`;      }    }    const alertBox = document.getElementById("alertBox");    if (alertBox && !jobs.length) {      showAlert("No jobs yet. Tap + to create your first job.", "info", "alertBox");    }    if (alertBox && overdueReminders > 0) {      showAlert(`${overdueReminders} job(s) have overdue reminders. Check Jobs page.`, "warn", "alertBox");    }  }, 100);}function jobCard(j) {  const icon = SPECIES_ICONS[j.species] || "??";  const statusClass = STATUS_STYLES[j.status] || "active";  const s = jobScore(j);  const jobServices = services.filter(s => s.job_id === j.id);  const totalServices = jobServices.reduce((sum, s) => sum + Number(s.total || 0), 0);  const balance = Number(j.grand_total || j.estimate || 0) - Number(j.deposit_paid || 0);  const priorityIcon = j.priority === "urgent" ? "🔥" : j.priority === "high" ? "⚠️" : j.priority === "low" ? "⬇️" : "";    const paymentBadge = balance > 0.01 ? `<span class="pill" style="background:#ef4444;color:#fff;">💰 ${money(balance)} due</span>` : j.deposit_paid > 0 ? `<span class="pill" style="background:#22c55e;color:#fff;">💵 Paid</span>` : "";  const timerBadge = j.timer_total > 0 ? `<span class="pill">⏱️ ${j.timer_total}m</span>` : "";  const reminderBadge = j.reminder_date && new Date(j.reminder_date) <= new Date() ? `<span class="pill" style="background:#f59e0b;color:#000;">🔔 Due</span>` : "";  return `    <div class="card job">      <div class="job-header">        <span class="species-icon">${icon}</span>        <h3 style="margin:0;flex:1;">${esc(j.customer)} ${priorityIcon}</h3>        <span class="status-pill ${statusClass}">${esc(j.status || "Active")}</span>      </div>      <div>${esc(j.address)}</div>      <div class="tiny">${esc(j.species)} · ${esc(j.town || "")} · ${money(j.grand_total || j.estimate)}</div>      <div style="margin-top:6px;">        <span class="pill">${esc(j.town || "Unsorted")}</span>        <span class="pill muted">${esc(j.assigned_tech || "Unassigned")}</span>        <span class="pill info">${jobServices.length} services</span>        ${j.latitude ? `<span class="pill">📍 GPS</span>` : ""}        ${paymentBadge}                ${timerBadge}        ${reminderBadge}      </div>      <div class="prog"><div class="bar" style="width:${s}%"></div></div>      <div class="tiny">Score ${s}% · Est ${money(j.estimate || 0)} · Services ${money(totalServices)}</div>      <div class="job-actions">        <button class="primary" onclick="openJob('${j.id}')">Open</button>        <button class="secondary" onclick="navigateToJob(${j.latitude || "null"}, ${j.longitude || "null"}, '${esc(j.address)}')">Navigate</button>      </div>    </div>  `;}function jobsPage() {  shell(`    <div class="search-box">      <input id="searchInput" placeholder="🔍 Search jobs, customers, addresses, species..." oninput="onSearchInput(this.value)">    </div>    <button class="action" onclick="go('new')">➕ New Job</button>    <div id="jobList">${jobs.map(jobCard).join("") || `<div class="card">No jobs yet.</div>`}</div>  `);}window.onSearchInput = debounce(function (q) {  const list = document.getElementById("jobList");  if (!list) return;  const term = q.toLowerCase();  const filtered = jobs.filter(j =>    (j.customer + j.address + j.town + j.species + j.status + (j.notes || "")).toLowerCase().includes(term)  );  list.innerHTML = filtered.map(jobCard).join("") || `<div class="card">No matching jobs.</div>`;  lazyLoadImages();}, 250);window.openJob = function (id) {  selectedJob = jobs.find(j => j.id === id);  screen = "detail";  updateBottomNav("detail");  render();};function detailPage() {  if (!selectedJob) { shell(`<div class="card">No job selected.</div>`); return; }  const jobServices = services.filter(s => s.job_id === selectedJob.id);  const jobInspections = inspections.filter(i => i.job_id === selectedJob.id);  const jobPhotos = photos.filter(p => p.job_id === selectedJob.id);  const jobExpenses = expenses.filter(e => e.job_id === selectedJob.id);  const totalServices = jobServices.reduce((sum, s) => sum + Number(s.total || 0), 0);  const totalExpenses = jobExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);  const icon = SPECIES_ICONS[selectedJob.species] || "??";  const statusClass = STATUS_STYLES[selectedJob.status] || "active";  const s = jobScore(selectedJob);  const balance = Number(selectedJob.grand_total || selectedJob.estimate || 0) - Number(selectedJob.deposit_paid || 0);  const timerRunning = !!selectedJob.timer_start;    shell(`    <div class="card stack">      <div class="job-header">        <span class="species-icon">${icon}</span>        <h2 style="margin:0;flex:1;">${esc(selectedJob.customer)} ${selectedJob.priority === "urgent" ? "🔥" : selectedJob.priority === "high" ? "⚠️" : ""}</h2>        <span class="status-pill ${statusClass}">${esc(selectedJob.status || "Active")}</span>      </div>      <div>${esc(selectedJob.address)}${selectedJob.town ? ", " + esc(selectedJob.town) : ""}${selectedJob.state ? ", " + esc(selectedJob.state) : ""}${selectedJob.zip ? " " + esc(selectedJob.zip) : ""}</div>      <div class="tiny">${formatPhone(selectedJob.phone) || esc(selectedJob.phone || "")} · ${esc(selectedJob.species)} · ${esc(selectedJob.email || "")}</div>      <div class="tiny">Estimate: ${money(selectedJob.estimate)} · Tax: ${money(selectedJob.tax_amount)} · Total: ${money(selectedJob.grand_total)} · Balance: ${money(balance)}</div>      <div class="prog"><div class="bar" style="width:${s}%"></div></div>      <div class="tiny">Job Score ${s}% · Priority: ${esc(selectedJob.priority || "normal")} </div>      <div class="job-actions" style="margin-top:14px;">        <button class="primary" onclick="saveGps('${selectedJob.id}')">📍 Save GPS</button>        <button class="secondary" onclick="navigateToJob(${selectedJob.latitude || "null"}, ${selectedJob.longitude || "null"}, '${esc(selectedJob.address)}')">🚗 Navigate</button>      </div>      <button class="action dark" style="margin-top:8px;" onclick="createCalendarEvent(${JSON.stringify(selectedJob).replace(/"/g, "&quot;")})">📅 Add to Google Calendar</button>      <button class="action dark" style="margin-top:8px;" onclick="generateJobPDF()">📄 Download Job PDF</button>    </div>    <div id="weatherBox"></div>    <div id="detailMap" style="height:280px;width:100%;border-radius:16px;margin-top:12px;border:1px solid var(--border);background:var(--card);"></div>    <div class="card">      <h3>⏱️ Time Tracker</h3>      <div style="font-size:24px;font-weight:700;margin:8px 0;" id="timerDisplay">${selectedJob.timer_total || 0} min</div>      <button class="action" style="background:${timerRunning ? "#ef4444" : "#22c55e"};" onclick="${timerRunning ? "stopJobTimer" : "startJobTimer"}('${selectedJob.id}')">${timerRunning ? "Stop Timer" : "Start Timer"}</button>    </div>    <div class="card">      <h3>💵 Payment Tracking</h3>      <div class="tiny">Total: ${money(selectedJob.grand_total)} · Deposit: ${money(selectedJob.deposit_paid)} · Balance: ${money(balance)}</div>      <input id="paymentAmount" type="number" placeholder="Add payment amount">      <button class="action" onclick="addPayment('${selectedJob.id}')">Record Payment</button>    </div>        <div class="card">      <h3>✏️ Customer Signature</h3>      <canvas id="sigCanvas" width="300" height="150" style="border:1px solid var(--border);border-radius:8px;background:#fff;cursor:crosshair;max-width:100%;"></canvas>      <div style="display:flex;gap:8px;margin-top:8px;">        <button class="action" onclick="clearSignature()">Clear</button>        <button class="action" onclick="saveSignature('${selectedJob.id}')">Save Signature</button>      </div>    </div>    <div class="card">      <h3>📈 Expenses</h3>      <input id="expenseDesc" placeholder="Expense description (e.g. gas, materials)">      <input id="expenseAmount" type="number" placeholder="Amount ($)">      <button class="action" onclick="addExpense('${selectedJob.id}')">Add Expense</button>      <div style="margin-top:8px;">${jobExpenses.map(e => `<div class="tiny">${esc(e.description)}: ${money(e.amount)}</div>`).join("") || "<div class="tiny">No expenses yet.</div>"}</div>      <div class="tiny" style="margin-top:4px;font-weight:600;">Total Expenses: ${money(totalExpenses)}</div>    </div>    <div class="card">      <h3>Add Service</h3>      <select id="serviceName" onchange="servicePrice.value=this.selectedOptions[0].dataset.price">        ${SERVICES.map(s => `<option data-price="${s.price}">${s.name}</option>`).join("")}      </select>      <input id="serviceQty" type="number" value="1" placeholder="Qty / feet / units">      <input id="servicePrice" type="number" value="${SERVICES[0].price}" placeholder="Unit price">      <button class="action" onclick="addService('${selectedJob.id}')">Save Service</button>    </div>    <div class="card">      <h3>Tax</h3>      <input id="jobTaxRate" type="number" value="${selectedJob.tax_rate || 0}" placeholder="Tax rate %">      <button class="action" onclick="applyTax('${selectedJob.id}')">Apply Tax To Estimate</button>    </div>    <div class="card">      <h3>Inspection Notes</h3>      <select id="inspectionType">        <option>Initial inspection</option>        <option>Roofline inspection</option>        <option>Attic inspection</option>        <option>Crawlspace inspection</option>        <option>Exterior inspection</option>        <option>Warranty inspection</option>      </select>      <textarea id="inspectionNotes" placeholder="Inspection notes"></textarea>      <button class="action" onclick="saveInspection('${selectedJob.id}')">Save Inspection Notes</button>    </div>    <div class="card">      <h3>Inspection Photography</h3>      <input id="photoFile" type="file" accept="image/*">      <select id="photoTag">        <option>Inspection photo</option>        <option>Entry point</option>        <option>Damage</option>        <option>Droppings / evidence</option>        <option>Repair before</option>        <option>Repair after</option>      </select>      <textarea id="photoNotes" placeholder="Photo notes"></textarea>      <button class="action" onclick="saveInspectionPhoto('${selectedJob.id}')">Save Inspection Photo</button>      <button class="action dark" style="margin-top:8px;" onclick="quickPhoto('${selectedJob.id}')">📷 Quick Photo (Auto-Entry Point)</button>    </div>    <div class="card">      <h3>Services Total: ${money(totalServices)}</h3>      ${jobServices.map(s => `        <div class="service">          <strong>${esc(s.service)}</strong><br>          ${s.qty} x ${money(s.unit_price)} = ${money(s.total)}        </div>      `).join("") || `<div class="tiny">No services added yet.</div>`}    </div>    <div class="card">      <h3>Inspection History</h3>      ${jobInspections.map(i => `        <div class="service">          <strong>${esc(i.inspection_type)}</strong>          <div class="tiny">${esc(i.created_at)}</div>          <div>${esc(i.notes)}</div>        </div>      `).join("") || `<div class="tiny">No inspections yet.</div>`}    </div>    <div class="card">      <h3>Photos</h3>      ${jobPhotos.map(p => `        <div class="service">          <strong>${esc(p.tag)}</strong>          <div class="tiny">${esc(p.notes)}</div>          ${p.image_url ? `<img class="photo lazy" data-src="${p.image_url}" alt="${esc(p.tag)}">` : ""}        </div>      `).join("") || `<div class="tiny">No photos yet.</div>`}    </div>  `);  setTimeout(async () => {    if (selectedJob.latitude && selectedJob.longitude) {      if (window.google?.maps) {        const dmap = initMap("detailMap");        if (dmap) {          const pos = { lat: parseFloat(selectedJob.latitude), lng: parseFloat(selectedJob.longitude) };          dmap.setCenter(pos);          dmap.setZoom(16);          new google.maps.Marker({ position: pos, map: dmap, title: esc(selectedJob.customer) });        }      }      const weather = await getWeather(selectedJob.latitude, selectedJob.longitude);      const wbox = document.getElementById("weatherBox");      if (wbox && weather) {        wbox.innerHTML = `          <div class="card">            <div class="weather-card">              <img src="${weather.icon}" alt="${esc(weather.description)}" style="width:48px;height:48px;">              <div>                <div style="font-weight:700;font-size:18px;">${weather.temp}°F</div>                <div class="tiny">${esc(weather.condition)} · ${esc(weather.description)}</div>              </div>            </div>          </div>        `;      }    }    initSignatureCanvas();  }, 100);}function newJobPage() {  shell(`    <div class="card">      <h2>New Job</h2>      <input id="customerName" placeholder="Customer name *">      <input id="phone" placeholder="Phone (e.g. 555-123-4567)">      <input id="email" placeholder="Email">      <input id="address" placeholder="Address *">      <input id="town" placeholder="Town"><input id="state" placeholder="State"><input id="zip" placeholder="Zip">      <select id="species">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>      <select id="priority">        <option value="normal">Priority: Normal</option>        <option value="low">Priority: Low</option>        <option value="high">Priority: High</option>        <option value="urgent">Priority: Urgent</option>      </select>      <select id="assignedTech">        <option value="">Unassigned</option>        ${techs.map(t => `<option>${esc(t.name)}</option>`).join("")}      </select>      <input id="depositPaid" type="number" placeholder="Deposit paid ($)">            <input id="reminderDate" type="date" placeholder="Reminder date">      <textarea id="notes" placeholder="Notes / scope"></textarea>      <button class="action" onclick="createJob()">Save Job</button>    </div>  `);}window.createJob = async function () {  const depositVal = document.getElementById("depositPaid")?.value?.trim() || "0";  const warrantyVal = document.getElementById("warrantyDate")?.value?.trim() || null;  const reminderVal = document.getElementById("reminderDate")?.value?.trim() || null;  const priority = document.getElementById("priority")?.value || "normal";  const payload = {    customer: document.getElementById("customerName").value.trim(),customer_name: document.getElementById("customerName").value.trim(),    phone: document.getElementById("phone").value.trim(),    email: document.getElementById("email").value.trim(),    address: document.getElementById("address").value.trim(),    town: document.getElementById("town").value.trim(),state: document.getElementById("state").value.trim(),zip: document.getElementById("zip").value.trim(),    species: document.getElementById("species").value,    status: "Active",    priority: priority,    assigned_tech: document.getElementById("assignedTech").value,    notes: document.getElementById("notes").value.trim(),    estimate: 0,    tax_rate: 0,    tax_amount: 0,    grand_total: 0,    deposit_paid: Number(depositVal) || 0,    balance_due: 0,    warranty_date: warrantyVal,    warranty_status: warrantyVal ? "Active" : null,    reminder_date: reminderVal,    timer_total: 0  };  const errors = validateJob(payload);  if (errors.length) { showToast(errors.join("; "), "error", 5000); return; }  showLoading("Saving job.");  try {    const { error } = await supabase.from("jobs").insert(payload);    if (error) throw error;    showToast("Job created");    await loadData();    go("jobs");  } catch (err) {    showToast(err.message || "Save failed", "error");  } finally {    hideLoading();  }};window.addService = async function (jobId) {  const qty = Number(document.getElementById("serviceQty").value || 1);  const price = Number(document.getElementById("servicePrice").value || 0);  const total = qty * price;  showLoading("Saving service…");  try {    const { error } = await supabase.from("services").insert({      job_id: jobId,      service: document.getElementById("serviceName").value,      qty,      unit_price: price,      total    });    if (error) throw error;    await updateJobEstimate(jobId);    await loadData();    showToast("Service added");  } catch (err) {    showToast(err.message || "Failed to add service", "error");  } finally {    hideLoading();  }};async function updateJobEstimate(jobId) {  const { data } = await supabase.from("services").select("*").eq("job_id", jobId);  const subtotal = (data || []).reduce((sum, s) => sum + Number(s.total || 0), 0);  const job = jobs.find(j => j.id === jobId);  const taxRate = Number(job?.tax_rate || 0);  const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);  const grandTotal = +(subtotal + taxAmount).toFixed(2);  await supabase.from("jobs").update({    estimate: subtotal,    tax_amount: taxAmount,    grand_total: grandTotal  }).eq("id", jobId);}window.applyTax = async function (jobId) {  showLoading("Applying tax…");  try {    const taxRate = Number(document.getElementById("jobTaxRate").value || 0);    const job = jobs.find(j => j.id === jobId);    const subtotal = Number(job?.estimate || 0);    const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);    const grandTotal = +(subtotal + taxAmount).toFixed(2);    const { error } = await supabase.from("jobs").update({      tax_rate: taxRate,      tax_amount: taxAmount,      grand_total: grandTotal    }).eq("id", jobId);    if (error) throw error;    await loadData();    showToast("Tax applied");  } catch (err) {    showToast(err.message || "Failed to apply tax", "error");  } finally {    hideLoading();  }};window.saveInspection = async function (jobId) {  showLoading("Saving inspection…");  try {    const { error } = await supabase.from("inspections").insert({      job_id: jobId,      inspection_type: document.getElementById("inspectionType").value,      notes: document.getElementById("inspectionNotes").value    });    if (error) throw error;    await loadData();    showToast("Inspection saved");  } catch (err) {    showToast(err.message || "Failed to save inspection", "error");  } finally {    hideLoading();  }};window.saveInspectionPhoto = async function (jobId) {  const file = document.getElementById("photoFile").files[0];  if (!file) { showToast("Choose a photo.", "warn"); return; }  showLoading("Compressing & uploading…");  const reader = new FileReader();  reader.onload = async () => {    try {      const compressed = await compressImage(reader.result, 1200, 0.7);      const { error } = await supabase.from("photos").insert({        job_id: jobId,        image_url: compressed,        tag: document.getElementById("photoTag").value,        notes: document.getElementById("photoNotes").value      });      if (error) throw error;      await loadData();      showToast("Photo saved");    } catch (err) {      showToast(err.message || "Upload failed", "error");    } finally {      hideLoading();    }  };  reader.readAsDataURL(file);};function estimatePage() {  shell(`    <div class="card">      <h2>Smart Estimator</h2>      <h3>Job Template</h3>      <select id="estTemplate" onchange="applyTemplate()">        <option value="">-- No template --</option>        <option value="raccoon_attic">Raccoon in Attic</option>        <option value="squirrel_soffit">Squirrel in Soffit</option>        <option value="bat_exclusion">Bat Exclusion</option>        <option value="groundhog_dig">Groundhog Digging</option>        <option value="bird_vent">Bird in Vent</option>        <option value="skunk_under">Skunk Under Deck</option>      </select>      <h3>Customer Info</h3>      <input id="estCustomer" placeholder="Customer name *" oninput="calcEstimate()">      <input id="estPhone" placeholder="Phone (e.g. 555-123-4567)" oninput="calcEstimate()">      <input id="estEmail" placeholder="Email" oninput="calcEstimate()">      <input id="estAddress" placeholder="Address *" oninput="calcEstimate()">      <input id="estTown" placeholder="Town" oninput="calcEstimate()"><input id="estState" placeholder="State" oninput="calcEstimate()"><input id="estZip" placeholder="Zip" oninput="calcEstimate()">      <h3>Issue & Species</h3>      <select id="estSpecies">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>      <textarea id="estIssue" rows="4" placeholder="Describe the issue / scope of work..."></textarea>      <h3>Service</h3>      <select id="estService" onchange="estPrice.value=this.selectedOptions[0].dataset.price; calcEstimate()">        ${SERVICES.map(s => `<option data-price="${s.price}">${s.name}</option>`).join("")}      </select>      <input id="estQty" type="number" value="1" oninput="calcEstimate()" placeholder="Qty / feet / units">      <input id="estPrice" type="number" value="${SERVICES[0].price}" oninput="calcEstimate()" placeholder="Unit price">      <input id="estTax" type="number" value="0" oninput="calcEstimate()" placeholder="Tax rate %">      <label style="display:flex;align-items:center;gap:8px;margin:8px 0;"><input type="checkbox" id="estSignUp"> Customer signed up for this job</label>      <textarea id="estimateOut" rows="10" readonly></textarea>      <button class="action" onclick="calcEstimate()">Calculate</button>      <button class="action" style="background:#22c55e;" onclick="convertEstimateToJob()">Convert to Job</button>      <button class="action dark" onclick="emailEstimate()">Open Gmail Estimate</button>      <button class="action" onclick="generateEstimatePDF()">📄 Download PDF</button>    </div>  `);  setTimeout(() => calcEstimate(), 50);}window.calcEstimate = function () {  const customer = document.getElementById("estCustomer")?.value?.trim() || "";  const phone = document.getElementById("estPhone")?.value?.trim() || "";  const email = document.getElementById("estEmail")?.value?.trim() || "";  const address = document.getElementById("estAddress")?.value?.trim() || "";  const town = document.getElementById("estTown")?.value?.trim() || "";  const state = document.getElementById("estState")?.value?.trim() || "";  const zip = document.getElementById("estZip")?.value?.trim() || "";  const species = document.getElementById("estSpecies")?.value || "";  const issue = document.getElementById("estIssue")?.value?.trim() || "";  const subtotal = Number(document.getElementById("estQty").value || 0) * Number(document.getElementById("estPrice").value || 0);  const taxRate = Number(document.getElementById("estTax").value || 0);  const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);  const total = +(subtotal + taxAmount).toFixed(2);  document.getElementById("estimateOut").value =    `Wildlife Whisperer LLC Estimate\n\n` +    `Customer: ${customer}\n` +    `Phone: ${phone}\n` +    `Email: ${email}\n` +    `Address: ${address}${town ? ", " + town : ""}${state ? ", " + state : ""}${zip ? " " + zip : ""}\n\n` +    `Species: ${species}\n` +    `Issue / Scope: ${issue}\n\n` +    `Service: ${document.getElementById("estService").value}\n` +    `Quantity: ${document.getElementById("estQty").value}\n` +    `Unit Price: ${money(document.getElementById("estPrice").value)}\n\n` +    `Subtotal: ${money(subtotal)}\n` +    `Tax Rate: ${taxRate}%\n` +    `Tax Amount: ${money(taxAmount)}\n\n` +    `Recommended Total: ${money(total)}\n\n` +    `Scope includes professional nuisance wildlife inspection, inspection photography when selected, exclusion work, repair materials, service documentation, and warranty boundaries.`;};window.emailEstimate = function () {  const out = document.getElementById("estimateOut");  if (!out.value) calcEstimate();  const customer = document.getElementById("estCustomer")?.value?.trim() || "Estimate";  const subject = encodeURIComponent(`Wildlife Whisperer LLC Estimate - ${customer}`);  const body = encodeURIComponent(out.value);  window.location.href = `mailto:?subject=${subject}&body=${body}`;};window.generateEstimatePDF = function () {  const out = document.getElementById("estimateOut");  if (!out.value) calcEstimate();  const customer = document.getElementById("estCustomer")?.value?.trim() || "estimate";  const doc = new jsPDF();  doc.setFontSize(18);  doc.text("Wildlife Whisperer LLC", 20, 20);  doc.setFontSize(14);  doc.text("Estimate", 20, 30);  doc.setFontSize(11);  const lines = doc.splitTextToSize(out.value, 170);  doc.text(lines, 20, 45);  doc.save(`wildlife-estimate-${customer.replace(/[^a-z0-9]/gi, "_")}.pdf`);};window.convertEstimateToJob = async function () {  const out = document.getElementById("estimateOut");  if (!out.value) calcEstimate();  const customer = document.getElementById("estCustomer").value.trim();  const phone = document.getElementById("estPhone").value.trim();  const email = document.getElementById("estEmail").value.trim();  const address = document.getElementById("estAddress").value.trim();  const town = document.getElementById("estTown").value.trim();  const state = document.getElementById("estState").value.trim();  const zip = document.getElementById("estZip").value.trim();  const species = document.getElementById("estSpecies").value;  const issue = document.getElementById("estIssue").value.trim();  const estService = document.getElementById("estService").value;  const qty = Number(document.getElementById("estQty").value || 1);  const price = Number(document.getElementById("estPrice").value || 0);  const taxRate = Number(document.getElementById("estTax").value || 0);  const subtotal = qty * price;  const taxAmount = +(subtotal * (taxRate / 100)).toFixed(2);  const grandTotal = +(subtotal + taxAmount).toFixed(2);  if (!customer || customer.length < 2) { showToast("Customer name required to convert to job", "error"); return; }  if (!address || address.length < 5) { showToast("Address required to convert to job", "error"); return; }  const payload = {    customer: customer, customer_name: customer,    phone: phone,    email: email,    address: address,    town: town, state: state, zip: zip,    species: species,    status: "Active",    notes: `ESTIMATE ISSUE: ${issue}\n\nESTIMATE SERVICE: ${estService} x ${qty} @ ${money(price)}`,    estimate: subtotal,    tax_rate: taxRate,    tax_amount: taxAmount,    grand_total: grandTotal  };  showLoading("Converting estimate t
+/**
+ * Wildlife Whisperer FieldOps — Application Entry Point
+ *
+ * Initializes the store, router, all services, and manages the component
+ * render loop. This is the central hub that wires everything together.
+ *
+ * Architecture:
+ *   - Component-based: each page is { render(), unmount(), afterRender() }
+ *   - Store-driven: render loop subscribes to state changes
+ *   - Router-driven: hash changes → store.page updates → re-render
+ *   - Lifecycle-safe: proper cleanup on every page transition
+ *
+ * @module main
+ * @version 3.0.0
+ */
 
-// === TIMER FUNCTIONS ===
-window.startJobTimer = async function(jobId) {
-  const now = new Date().toISOString();
-  showLoading("Starting timer...");
-  try {
-    const { error } = await supabase.from("jobs").update({ timer_start: now }).eq("id", jobId);
-    if (error) throw error;
-    selectedJob.timer_start = now;
-    showToast("Timer started");
-    render();
-  } catch (err) { showToast(err.message || "Timer failed", "error"); }
-  finally { hideLoading(); }
-};
+// ─────────────────────────────────────────────────
+// Imports
+// ─────────────────────────────────────────────────
 
-window.stopJobTimer = async function(jobId) {
-  if (!selectedJob.timer_start) { showToast("Timer not started", "warn"); return; }
-  const start = new Date(selectedJob.timer_start);
-  const now = new Date();
-  const mins = Math.ceil((now - start) / (1000 * 60));
-  const total = (selectedJob.timer_total || 0) + mins;
-  showLoading("Stopping timer...");
-  try {
-    const { error } = await supabase.from("jobs").update({ timer_start: null, timer_total: total }).eq("id", jobId);
-    if (error) throw error;
-    selectedJob.timer_start = null;
-    selectedJob.timer_total = total;
-    showToast("Timer stopped: +" + mins + " min");
-    render();
-  } catch (err) { showToast(err.message || "Timer failed", "error"); }
-  finally { hideLoading(); }
-};
+import { config, isFeatureAvailable, getBuildInfo } from './config.js';
+import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, closeModal, startSnapshots, stopSnapshots } from './state.js';
+import { router, registerRoutes } from './router.js';
+import { initErrorBoundary, asyncWrapper, retry, safeExecute, logError, safeJSONParse } from './errors.js';
+import {
+  E, money, tel, id, now, formatDate, formatPhone,
+  isValidPhone, validateJob, validateCustomer,
+  compressImage, generatePDF, deepClone,
+  debounce, throttle, groupBy, sortBy,
+  searchJobs, filterJobs, calculateEstimate, mergeArrays,
+} from './utils.js';
+import {
+  SPECIES, SERVICES, SPECIES_ICONS, SPECIES_HINTS,
+  STATUS_STYLES, PRIORITIES,
+  VISIT_TYPES, REPAIR_STATUSES, SEVERITIES,
+  PHOTO_TAGS, ESTIMATE_TEMPLATES,
+  BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY,
+} from './constants.js';
 
-// === PAYMENT FUNCTIONS ===
-window.addPayment = async function(jobId) {
-  const amount = Number(document.getElementById("paymentAmount")?.value || 0);
-  if (!amount || amount <= 0) { showToast("Enter a valid payment amount", "error"); return; }
-  const newDeposit = Number(selectedJob.deposit_paid || 0) + amount;
-  const newBalance = Number(selectedJob.grand_total || selectedJob.estimate || 0) - newDeposit;
-  showLoading("Recording payment...");
-  try {
-    const { error } = await supabase.from("jobs").update({ deposit_paid: newDeposit, balance_due: newBalance }).eq("id", jobId);
-    if (error) throw error;
-    await loadData();
-    selectedJob = jobs.find(j => j.id === jobId);
-    showToast("Payment recorded: " + money(amount));
-    render();
-  } catch (err) { showToast(err.message || "Payment failed", "error"); }
-  finally { hideLoading(); }
-};
+// ─────────────────────────────────────────────────
+// DOM Helpers (local to this module)
+// ─────────────────────────────────────────────────
 
-// === WARRANTY FUNCTIONS ===
-window.initSignatureCanvas = function() {
-  const canvas = document.getElementById("sigCanvas");
-  if (!canvas) return;
-  sigCtx = canvas.getContext("2d");
-  sigCtx.strokeStyle = "#000";
-  sigCtx.lineWidth = 2;
-  const getPos = (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+/** @returns {HTMLElement|null} */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+/**
+ * Create or update the toast element.
+ * @param {string} msg
+ * @param {'success'|'error'|'warn'} [type='success']
+ * @param {number} [duration=3000]
+ */
+function renderToast(msg, type = 'success', duration = 3000) {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.style.cssText =
+      'position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(10px);' +
+      'padding:12px 20px;border-radius:12px;font-size:14px;font-weight:500;z-index:10000;' +
+      'opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;' +
+      'box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;';
+    document.body.appendChild(t);
+  }
+  const styles = {
+    success: 'background:rgba(34,197,94,0.95);color:#fff;',
+    error: 'background:rgba(239,68,68,0.95);color:#fff;',
+    warn: 'background:rgba(251,191,36,0.95);color:#000;',
   };
-  const start = (e) => { sigDrawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
-  const move = (e) => { if (!sigDrawing) return; e.preventDefault(); const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); };
-  const end = () => { sigDrawing = false; sigCtx.closePath(); };
-  canvas.addEventListener("mousedown", start);
-  canvas.addEventListener("mousemove", move);
-  canvas.addEventListener("mouseup", end);
-  canvas.addEventListener("mouseleave", end);
-  canvas.addEventListener("touchstart", start, { passive: true });
-  canvas.addEventListener("touchmove", move, { passive: true });
-  canvas.addEventListener("touchend", end);
-};
-window.clearSignature = function() {
-  const canvas = document.getElementById("sigCanvas");
-  if (canvas && sigCtx) sigCtx.clearRect(0, 0, canvas.width, canvas.height);
-};
-window.saveSignature = async function(jobId) {
-  const canvas = document.getElementById("sigCanvas");
-  if (!canvas) { showToast("Canvas not found", "error"); return; }
-  const dataUrl = canvas.toDataURL("image/png");
-  showLoading("Saving signature...");
-  try {
-    const { error } = await supabase.from("photos").insert({
-      job_id: jobId, image_url: dataUrl, tag: "Customer signature", notes: "Signed estimate / job approval"
-    });
-    if (error) throw error;
-    await loadData();
-    showToast("Signature saved");
-    render();
-  } catch (err) { showToast(err.message || "Save failed", "error"); }
-  finally { hideLoading(); }
-};
+  t.style.cssText =
+    'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:12px 20px;' +
+    'border-radius:12px;font-size:14px;font-weight:500;z-index:10000;opacity:1;' +
+    'transition:opacity .3s,transform .3s;pointer-events:none;' +
+    'box-shadow:0 4px 12px rgba(0,0,0,0.3);font-family:Inter,sans-serif;' +
+    (styles[type] || styles.success);
+  t.textContent = msg;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, duration);
+}
 
-// === EXPENSE FUNCTIONS ===
-window.addExpense = async function(jobId) {
-  const desc = document.getElementById("expenseDesc")?.value?.trim();
-  const amount = Number(document.getElementById("expenseAmount")?.value || 0);
-  if (!desc || amount <= 0) { showToast("Enter description and amount", "error"); return; }
-  showLoading("Adding expense...");
-  try {
-    const { error } = await supabase.from("expenses").insert({ job_id: jobId, description: desc, amount: amount });
-    if (error) throw error;
-    await loadData();
-    showToast("Expense added");
-    render();
-  } catch (err) { showToast(err.message || "Failed to add expense", "error"); }
-  finally { hideLoading(); }
-};
-
-// === TEMPLATE FUNCTIONS ===
-window.applyTemplate = function() {
-  const template = document.getElementById("estTemplate")?.value;
-  if (!template) return;
-  const templates = {
-    raccoon_attic: { species: "Raccoon", issue: "Raccoon activity in attic. Entry point suspected near roofline/soffit. Need inspection, exclusion, and one-way door.", service: "Exclusion repair", price: 150, qty: 10 },
-    squirrel_soffit: { species: "Grey Squirrel", issue: "Squirrel chewing into soffit. Entry point visible. Need exclusion and repair.", service: "Soffit / fascia repair", price: 225, qty: 1 },
-    bat_exclusion: { species: "Bat", issue: "Bat droppings in attic. Need full bat exclusion, one-way doors, and guano cleanup.", service: "One-way set / one-way door", price: 225, qty: 3 },
-    groundhog_dig: { species: "Groundhog", issue: "Groundhog burrowing under shed/deck. Need trapping and exclusion.", service: "Inspection", price: 125, qty: 1 },
-    bird_vent: { species: "Bird", issue: "Bird nest in dryer vent. Need vent guard installation and cleanup.", service: "Gable vent screening", price: 175, qty: 1 },
-    skunk_under: { species: "Skunk", issue: "Skunk living under deck. Need trapping and deck exclusion.", service: "Foundation gap sealing", price: 95, qty: 1 }
-  };
-  const t = templates[template];
-  if (!t) return;
-  const sEl = document.getElementById("estSpecies");
-  if (sEl) sEl.value = t.species;
-  const iEl = document.getElementById("estIssue");
-  if (iEl) iEl.value = t.issue;
-  const svcEl = document.getElementById("estService");
-  if (svcEl) {
-    for (let i = 0; i < svcEl.options.length; i++) {
-      if (svcEl.options[i].text === t.service) { svcEl.selectedIndex = i; break; }
+/**
+ * Create or update the loading overlay.
+ * @param {boolean} show
+ * @param {string} [msg='Loading...']
+ */
+function renderLoading(show, msg = 'Loading...') {
+  let o = document.getElementById('loading-overlay');
+  if (!o) {
+    o = document.createElement('div');
+    o.id = 'loading-overlay';
+    o.style.cssText =
+      'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);' +
+      'display:none;align-items:center;justify-content:center;flex-direction:column;' +
+      'gap:12px;z-index:9998;color:#fff;font-size:14px;font-family:Inter,sans-serif;';
+    o.innerHTML =
+      '<div id="loading-spinner" style="width:40px;height:40px;border:4px solid rgba(255,255,255,0.2);' +
+      'border-top-color:#22c55e;border-radius:50%;animation:spin 1s linear infinite;"></div>' +
+      '<span id="loading-msg">Loading...</span>';
+    document.body.appendChild(o);
+    // Inject spinner keyframes if not already present
+    if (!document.getElementById('ww-spin-style')) {
+      const s = document.createElement('style');
+      s.id = 'ww-spin-style';
+      s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(s);
     }
   }
-  const pEl = document.getElementById("estPrice");
-  if (pEl) pEl.value = t.price;
-  const qEl = document.getElementById("estQty");
-  if (qEl) qEl.value = t.qty;
-  calcEstimate();
+  const msgEl = document.getElementById('loading-msg');
+  if (msgEl) msgEl.textContent = msg;
+  o.style.display = show ? 'flex' : 'none';
+}
+
+/**
+ * Create the app shell (nav, drawer, bottom bar, modals).
+ */
+function buildAppShell() {
+  const existing = document.getElementById('app-shell');
+  if (existing) return;
+
+  const shell = document.createElement('div');
+  shell.id = 'app-shell';
+  shell.innerHTML = `
+    <!-- Top Bar -->
+    <header class="app-bar">
+      <button id="menu-btn" class="icon-btn" aria-label="Menu">&#9776;</button>
+      <h1 id="page-label" class="page-title">Wildlife Whisperer</h1>
+      <div class="app-bar-actions">
+        <button id="search-btn" class="icon-btn" aria-label="Search">&#128269;</button>
+        <span id="sync-indicator" class="sync-badge idle"></span>
+      </div>
+    </header>
+
+    <!-- Drawer Navigation -->
+    <nav id="drawer" class="drawer" aria-hidden="true">
+      <div class="drawer-header">
+        <h2>🦝 Wildlife Whisperer</h2>
+        <button id="drawer-close" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="drawer-body">
+        ${DRAWER_PAGES.map(([route, icon, label]) =>
+          `<a class="drawer-link" data-route="${route}" href="${route === 'dashboard' ? '#/' : `#/${route}`}">${icon} ${E(label)}</a>`
+        ).join('')}
+      </div>
+      <div class="drawer-footer">
+        <small id="build-info"></small>
+      </div>
+    </nav>
+    <div id="drawer-backdrop" class="drawer-backdrop"></div>
+
+    <!-- Search Overlay -->
+    <div id="search-overlay" class="search-overlay" style="display:none;">
+      <div class="search-box">
+        <input id="global-search" type="text" placeholder="Search jobs, customers, addresses..." autocomplete="off">
+        <button id="search-close" class="icon-btn">&times;</button>
+      </div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main id="app" class="app-container"></main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+      ${BOTTOM_NAV.map(([route, icon, label], idx) =>
+        `<button data-route="${route}" data-idx="${idx}" aria-label="${E(label)}">
+          <span class="nav-icon">${icon}</span>
+          <span class="nav-label">${E(label)}</span>
+        </button>`
+      ).join('')}
+    </nav>
+  `;
+  document.body.appendChild(shell);
+
+  // Drawer toggle
+  $('#menu-btn')?.addEventListener('click', toggleDrawer);
+  $('#drawer-close')?.addEventListener('click', toggleDrawer);
+  $('#drawer-backdrop')?.addEventListener('click', toggleDrawer);
+
+  // Drawer navigation
+  $$('.drawer-link').forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const route = link.getAttribute('data-route');
+      if (route === 'dashboard') router.navigate('/');
+      else router.navigate(`/${route}`);
+      toggleDrawer();
+    });
+  });
+
+  // Search
+  $('#search-btn')?.addEventListener('click', openSearch);
+  $('#search-close')?.addEventListener('click', closeSearch);
+
+  // Bottom nav
+  $$('.bottom-nav button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const route = btn.getAttribute('data-route');
+      if (route === 'dashboard') router.navigate('/');
+      else router.navigate(`/${route}`);
+    });
+  });
+
+  // Build info
+  const buildEl = $('#build-info');
+  if (buildEl) buildEl.textContent = getBuildInfo();
+}
+
+/**
+ * Update bottom nav active state.
+ * @param {string} page
+ */
+function updateBottomNav(page) {
+  const map = { dashboard: 0, jobs: 1, gps: 2, ai: 3 };
+  const idx = map[page] ?? -1;
+  $$('.bottom-nav button').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+}
+
+/**
+ * Update page label in app bar.
+ * @param {string} page
+ */
+function updatePageLabel(page) {
+  const labels = {
+    dashboard: '🏠 Dashboard',
+    jobs: '🦝 Jobs',
+    'job-detail': '📂 Job Detail',
+    'job-form': '✏️ Edit Job',
+    customers: '👥 Customers',
+    'customer-form': '✏️ Edit Customer',
+    estimate: '💵 Estimator',
+    photos: '📸 Photos',
+    gps: '📍 GPS Map',
+    metrics: '📊 Metrics',
+    settings: '⚙️ Settings',
+    ai: '🧠 AI Assistant',
+  };
+  const el = $('#page-label');
+  if (el) el.textContent = labels[page] || 'Wildlife Whisperer';
+}
+
+/**
+ * Update sync indicator badge.
+ * @param {'idle'|'syncing'|'error'|'synced'} status
+ */
+function updateSyncIndicator(status) {
+  const el = $('#sync-indicator');
+  if (!el) return;
+  el.className = `sync-badge ${status}`;
+  el.textContent = status === 'syncing' ? '↻' : status === 'error' ? '✗' : status === 'synced' ? '✓' : '';
+}
+
+// ─────────────────────────────────────────────────
+// Search
+// ─────────────────────────────────────────────────
+
+/** @type {Function} */
+let searchUnsubscriber = null;
+
+function openSearch() {
+  const overlay = $('#search-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+  $('#global-search')?.focus();
+  store.setState({ searchQuery: '' });
+}
+
+function closeSearch() {
+  const overlay = $('#search-overlay');
+  if (overlay) overlay.style.display = 'none';
+  store.setState({ searchQuery: '' });
+}
+
+/** @type {Function} */
+const onSearchInput = debounce((q) => {
+  store.setState({ searchQuery: q });
+}, config.SEARCH_DEBOUNCE);
+
+// ─────────────────────────────────────────────────
+// Component Helpers
+// ─────────────────────────────────────────────────
+
+/**
+ * Generate option tags for a select element.
+ * @param {string[]} arr
+ * @param {string} [selected='']
+ * @returns {string} HTML string
+ */
+function O(arr, selected = '') {
+  return arr.map((x) => `<option value="${E(x)}" ${x === selected ? 'selected' : ''}>${E(x)}</option>`).join('');
+}
+
+/**
+ * Calculate job completeness score (0-100).
+ * @param {string} jobId
+ * @returns {number}
+ */
+function jobScore(jobId) {
+  const s = store.getState();
+  const hasVisits = s.visits.some((v) => v.jobId === jobId || v.job_id === jobId);
+  const hasPhotos = s.photos.some((p) => p.jobId === jobId || p.job_id === jobId);
+  const hasRepairs = s.repairs.some((r) => r.jobId === jobId || r.job_id === jobId);
+  const hasSig = s.signatures.some((sig) => sig.jobId === jobId || sig.job_id === jobId);
+  return Math.min(100,
+    (hasVisits ? 25 : 0) +
+    (hasPhotos ? 25 : 0) +
+    (hasRepairs ? 25 : 0) +
+    (hasSig ? 25 : 0)
+  );
+}
+
+/**
+ * Get species hint for AI suggestions.
+ * @param {string} species
+ * @returns {string}
+ */
+function hint(species) {
+  return SPECIES_HINTS[species] || 'Track behavior, seasonality, recurrence.';
+}
+
+/**
+ * Lazy-load images using IntersectionObserver.
+ * Call afterRender on pages with images.
+ */
+function initLazyImages() {
+  const imgs = $$('img.lazy');
+  if (!imgs.length) return () => {};
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const img = entry.target;
+        if (img.dataset.src) img.src = img.dataset.src;
+        img.classList.add('loaded');
+        img.classList.remove('lazy');
+        obs.unobserve(img);
+      }
+    });
+  });
+  imgs.forEach((img) => obs.observe(img));
+  return () => obs.disconnect();
+}
+
+/**
+ * Navigate to a Google Maps direction URL.
+ * @param {number|null} lat
+ * @param {number|null} lng
+ * @param {string} address
+ */
+function navigateToJob(lat, lng, address) {
+  if (!lat || !lng) {
+    if (address) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`, '_blank');
+      return;
+    }
+    showToast('No GPS data for this job.', 'warn');
+    return;
+  }
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank');
+}
+
+// ─────────────────────────────────────────────────
+// Page Components
+// ─────────────────────────────────────────────────
+
+/**
+ * Each component is an object with:
+ *   render(state): string — HTML string
+ *   unmount(): void — cleanup (optional)
+ *   afterRender(state): void — post-render init (optional)
+ */
+
+// ── Dashboard ────────────────────────────────────
+
+const Dashboard = {
+  /** @type {Function|null} */
+  _cleanup: null,
+
+  render(state) {
+    const openJobs = state.jobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
+    const totalEstimate = openJobs.reduce((sum, j) => sum + (j.grand_total || j.estimate || calculateEstimate(j.species, j.severity) || 0), 0);
+    const q = (state.searchQuery || '').toLowerCase();
+    const recentJobs = q
+      ? searchJobs(state.jobs, q).slice(0, 5)
+      : state.jobs.slice(0, 5);
+
+    const townCounts = groupBy(state.jobs, 'town');
+    const topTowns = Object.entries(townCounts)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 5);
+
+    return `
+      <div class="page dashboard-page">
+        <!-- Metrics Cards -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">${openJobs.length}</div>
+            <div class="metric-label">Open Jobs</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${money(totalEstimate)}</div>
+            <div class="metric-label">Pipeline Value</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${state.syncQueue.length}</div>
+            <div class="metric-label">Pending Sync</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${state.photos.length}</div>
+            <div class="metric-label">Photos</div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <button class="action-btn primary" data-action="new-job">➕ New Job</button>
+          <button class="action-btn" data-action="new-customer">👤 Add Customer</button>
+          <button class="action-btn" data-action="estimate">💵 Estimate</button>
+          <button class="action-btn" data-action="gps">📍 GPS Map</button>
+        </div>
+
+        <!-- Recent Jobs -->
+        <h2 class="section-title">${q ? 'Search Results' : 'Recent Jobs'}</h2>
+        <div class="job-list">
+          ${recentJobs.length ? recentJobs.map((j) => this._jobCard(j, state)).join('')
+            : '<div class="card empty">No jobs yet.</div>'}
+        </div>
+
+        <!-- Top Towns -->
+        ${topTowns.length ? `
+          <h2 class="section-title">Top Towns</h2>
+          <div class="town-grid">
+            ${topTowns.map(([town, jobs]) => `
+              <div class="town-card">
+                <b>${E(town || 'Unsorted')}</b>
+                <span class="badge">${jobs.length} jobs</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Persist Status -->
+        <div class="persist-status">
+          <small>Persistent memory active. Auto-snapshot every 30s.</small>
+        </div>
+      </div>
+    `;
+  },
+
+  _jobCard(j, state) {
+    const s = jobScore(j.id);
+    const icon = SPECIES_ICONS[j.species] || '🐾';
+    const sc = STATUS_STYLES[j.status] || 'active';
+    const vCount = state.visits.filter((v) => (v.jobId || v.job_id) === j.id).length;
+    const rCount = state.repairs.filter((r) => (r.jobId || r.job_id) === j.id).length;
+    const pCount = state.photos.filter((p) => (p.jobId || p.job_id) === j.id).length;
+    return `
+      <div class="card job-card" data-job-id="${E(j.id)}">
+        <div class="job-header">
+          <span class="species-icon">${icon}</span>
+          <h3 class="job-title">${E(j.title || j.species + ' job')}</h3>
+          <span class="status-pill ${sc}">${E(j.status)}</span>
+        </div>
+        <div class="job-meta">${E(j.customer)} · ${formatPhone(j.phone)}</div>
+        <div class="job-address">${E(j.address)}${j.town ? `, ${E(j.town)}` : ''}</div>
+        <div class="job-pills">
+          <span class="pill">${E(j.species)}</span>
+          <span class="pill">${vCount} visits</span>
+          <span class="pill">${rCount} repairs</span>
+          <span class="pill">${pCount} photos</span>
+          ${j.latitude || j.lat ? '<span class="pill">📍 GPS</span>' : ''}
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${s}%"></div></div>
+        <div class="job-footer">
+          <span class="tiny">Score ${s}% · Est ${money(j.grand_total || j.estimate || calculateEstimate(j.species))}</span>
+          <div class="job-actions">
+            <button class="btn-sm primary" data-action="open-job" data-id="${E(j.id)}">Open</button>
+            <button class="btn-sm" data-action="navigate" data-lat="${j.latitude || j.lat || ''}" data-lng="${j.longitude || j.lng || ''}" data-addr="${E(j.address)}">Navigate</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    this._cleanup = initLazyImages();
+
+    // Job card clicks
+    $$('[data-action="open-job"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate(`/jobs/${btn.dataset.id}`));
+    });
+
+    // Navigate buttons
+    $$('[data-action="navigate"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lat = parseFloat(btn.dataset.lat) || null;
+        const lng = parseFloat(btn.dataset.lng) || null;
+        navigateToJob(lat, lng, btn.dataset.addr || '');
+      });
+    });
+
+    // Quick action buttons
+    $$('[data-action="new-job"]').forEach((b) => {
+      b.addEventListener('click', () => router.navigate('/jobs/new'));
+    });
+    $$('[data-action="new-customer"]').forEach((b) => {
+      b.addEventListener('click', () => router.navigate('/customers/new'));
+    });
+    $$('[data-action="estimate"]').forEach((b) => {
+      b.addEventListener('click', () => router.navigate('/estimate'));
+    });
+    $$('[data-action="gps"]').forEach((b) => {
+      b.addEventListener('click', () => router.navigate('/gps'));
+    });
+
+    // Click on card header to open job
+    $$('.job-card').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return; // Don't trigger on button clicks
+        const id = card.dataset.jobId;
+        if (id) router.navigate(`/jobs/${id}`);
+      });
+    });
+  },
+
+  unmount() {
+    if (this._cleanup) { this._cleanup(); this._cleanup = null; }
+  },
 };
 
-// === QUICK PHOTO ===
-window.quickPhoto = async function(jobId) {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*";
-  input.capture = "environment";
+// ── Job List ─────────────────────────────────────
+
+const JobList = {
+  _cleanup: null,
+
+  render(state) {
+    const q = (state.searchQuery || '').toLowerCase();
+    let jobs = q ? searchJobs(state.jobs, q) : [...state.jobs];
+    jobs = filterJobs(jobs, state.filters);
+    jobs = sortBy(jobs, 'updated_at', 'desc');
+
+    return `
+      <div class="page job-list-page">
+        <div class="list-toolbar">
+          <input type="text" id="job-search" class="search-input" placeholder="Search jobs..."
+            value="${E(state.searchQuery)}" autocomplete="off">
+          <select id="filter-status" class="filter-select">
+            <option value="">All Statuses</option>
+            ${Object.keys(STATUS_STYLES).map((s) => `<option value="${E(s)}" ${state.filters.status === s ? 'selected' : ''}>${E(s)}</option>`).join('')}
+          </select>
+          <select id="filter-species" class="filter-select">
+            <option value="">All Species</option>
+            ${SPECIES.map((s) => `<option value="${E(s)}" ${state.filters.species === s ? 'selected' : ''}>${E(s)}</option>`).join('')}
+          </select>
+          <button class="btn primary" data-action="new-job">➕ New Job</button>
+        </div>
+        <div class="job-list">
+          ${jobs.length ? jobs.map((j) => this._jobCard(j, state)).join('')
+            : `<div class="card empty">${q ? 'No matching jobs.' : 'No jobs yet.'}</div>`}
+        </div>
+      </div>
+    `;
+  },
+
+  _jobCard(j, state) {
+    const s = jobScore(j.id);
+    const icon = SPECIES_ICONS[j.species] || '🐾';
+    const sc = STATUS_STYLES[j.status] || 'active';
+    return `
+      <div class="card job-card" data-job-id="${E(j.id)}">
+        <div class="job-header">
+          <span class="species-icon">${icon}</span>
+          <h3 class="job-title">${E(j.title || j.species + ' job')}</h3>
+          <span class="status-pill ${sc}">${E(j.status)}</span>
+        </div>
+        <div class="job-meta">${E(j.customer)} · ${formatPhone(j.phone)}</div>
+        <div class="job-address">${E(j.address)}${j.town ? `, ${E(j.town)}` : ''}</div>
+        <div class="job-pills">
+          <span class="pill">${E(j.species)}</span>
+          <span class="pill">${E(j.priority || 'Normal')}</span>
+          ${j.latitude || j.lat ? '<span class="pill">📍 GPS</span>' : ''}
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${s}%"></div></div>
+        <div class="job-footer">
+          <span class="tiny">Score ${s}% · Est ${money(j.grand_total || j.estimate || 0)}</span>
+          <div class="job-actions">
+            <button class="btn-sm primary" data-action="open-job" data-id="${E(j.id)}">Open</button>
+            <button class="btn-sm" data-action="edit-job" data-id="${E(j.id)}">Edit</button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    this._cleanup = initLazyImages();
+
+    // Search
+    const searchEl = $('#job-search');
+    if (searchEl) {
+      searchEl.addEventListener('input', (e) => onSearchInput(e.target.value));
+    }
+
+    // Filters
+    $('#filter-status')?.addEventListener('change', (e) => {
+      store.setState({ filters: { ...state.filters, status: e.target.value } });
+    });
+    $('#filter-species')?.addEventListener('change', (e) => {
+      store.setState({ filters: { ...state.filters, species: e.target.value } });
+    });
+
+    // Buttons
+    $$('[data-action="open-job"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate(`/jobs/${btn.dataset.id}`));
+    });
+    $$('[data-action="edit-job"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate(`/jobs/${btn.dataset.id}/edit`));
+    });
+    $$('[data-action="new-job"]').forEach((b) => {
+      b.addEventListener('click', () => router.navigate('/jobs/new'));
+    });
+
+    $$('.job-card').forEach((card) => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const id = card.dataset.jobId;
+        if (id) router.navigate(`/jobs/${id}`);
+      });
+    });
+  },
+
+  unmount() {
+    if (this._cleanup) { this._cleanup(); this._cleanup = null; }
+  },
+};
+
+// ── Job Detail ───────────────────────────────────
+
+const JobDetail = {
+  _cleanup: null,
+  _timerInterval: null,
+
+  render(state) {
+    const jobId = state.selectedJobId;
+    if (!jobId) return `<div class="page"><div class="card empty">No job selected.</div></div>`;
+
+    const job = state.jobs.find((j) => j.id === jobId);
+    if (!job) return `<div class="page"><div class="card empty">Job not found.</div></div>`;
+
+    const icon = SPECIES_ICONS[job.species] || '🐾';
+    const sc = STATUS_STYLES[job.status] || 'active';
+    const s = jobScore(jobId);
+    const jobVisits = state.visits.filter((v) => (v.jobId || v.job_id) === jobId);
+    const jobRepairs = state.repairs.filter((r) => (r.jobId || r.job_id) === jobId);
+    const jobPhotos = state.photos.filter((p) => (p.jobId || p.job_id) === jobId);
+    const jobServices = state.services.filter((sv) => (sv.jobId || sv.job_id) === jobId);
+
+    return `
+      <div class="page job-detail-page">
+        <!-- Header Card -->
+        <div class="card detail-header">
+          <div class="job-header">
+            <span class="species-icon large">${icon}</span>
+            <div class="detail-title-block">
+              <h2>${E(job.title || job.species + ' job')}</h2>
+              <span class="status-pill ${sc}">${E(job.status)}</span>
+              <span class="priority-pill ${PRIORITY_STYLES[job.priority] || 'normal'}">${E(job.priority || 'Normal')}</span>
+            </div>
+          </div>
+          <div class="detail-meta">
+            <div><strong>${E(job.customer)}</strong> · <a href="${tel(job.phone)}" class="phone-link">${formatPhone(job.phone)}</a></div>
+            <div class="tiny">${E(job.address)}${job.town ? `, ${E(job.town)}` : ''}</div>
+            ${job.email ? `<div class="tiny">${E(job.email)}</div>` : ''}
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${s}%"></div></div>
+          <div class="tiny">Score ${s}%</div>
+        </div>
+
+        <!-- Financials -->
+        <div class="card">
+          <h3>💰 Financials</h3>
+          <div class="financial-grid">
+            <div><label>Estimate</label><div class="fin-val">${money(job.estimate)}</div></div>
+            <div><label>Subtotal</label><div class="fin-val">${money(job.subtotal)}</div></div>
+            <div><label>Tax</label><div class="fin-val">${money(job.tax_amount)}</div></div>
+            <div><label>Grand Total</label><div class="fin-val bold">${money(job.grand_total)}</div></div>
+            <div><label>Deposit</label><div class="fin-val">${money(job.deposit_paid)}</div></div>
+            <div><label>Balance Due</label><div class="fin-val ${(job.balance_due || 0) > 0 ? 'warn' : ''}">${money(job.balance_due)}</div></div>
+          </div>
+          ${(job.balance_due || 0) > 0 ? `
+            <div class="payment-row">
+              <input type="number" id="payment-amount" placeholder="Payment amount" min="0" step="0.01">
+              <button class="btn primary" data-action="add-payment" data-id="${E(job.id)}">💳 Add Payment</button>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Timer -->
+        <div class="card">
+          <h3>⏱️ Timer</h3>
+          <div class="timer-display" id="timer-display">
+            ${job.timer_start ? '⏱️ Running...' : `Total: ${job.timer_total || 0} min`}
+          </div>
+          <div class="timer-actions">
+            ${!job.timer_start
+              ? `<button class="btn primary" data-action="timer-start" data-id="${E(job.id)}">▶️ Start</button>`
+              : `<button class="btn warn" data-action="timer-stop" data-id="${E(job.id)}">⏹️ Stop (+${Math.ceil((Date.now() - new Date(job.timer_start)) / 60000)} min)</button>`
+            }
+          </div>
+        </div>
+
+        <!-- Scope & Notes -->
+        <div class="card">
+          <h3>📝 Scope & Notes</h3>
+          <p>${E(job.scope) || '<em>No scope defined.</em>'}</p>
+          ${job.notes ? `<div class="notes-box"><strong>Field Notes:</strong><p>${E(job.notes)}</p></div>` : ''}
+          ${job.ai_notes ? `<div class="notes-box ai"><strong>AI Notes:</strong><p>${E(job.ai_notes)}</p></div>` : ''}
+          <div class="warranty-line">Warranty: ${E(job.warranty || 'Not set')}</div>
+        </div>
+
+        <!-- Assigned -->
+        <div class="card">
+          <h3>👤 Assignment</h3>
+          <div class="detail-row">
+            <span>Tech: ${E(job.assigned_tech || 'Unassigned')}</span>
+          </div>
+        </div>
+
+        <!-- Services -->
+        ${jobServices.length ? `
+          <div class="card">
+            <h3>🔧 Services (${jobServices.length})</h3>
+            ${jobServices.map((sv) => `
+              <div class="service-line">
+                <span>${E(sv.service || sv.name)}</span>
+                <span>${sv.qty || 1} x ${money(sv.unit_price || sv.price)} = ${money(sv.total || (sv.qty || 1) * (sv.unit_price || sv.price || 0))}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
+        <!-- Visits -->
+        <h3 class="section-title">📝 Visits (${jobVisits.length})</h3>
+        ${jobVisits.length ? jobVisits.map((v) => `
+          <div class="card visit-card">
+            <b>${E(v.type)}</b>
+            <div class="tiny">${E(v.date || v.created_at)} · Animals: ${v.animals || 0}</div>
+            <div>${E(v.note)}</div>
+          </div>
+        `).join('') : '<div class="card empty">No visits yet.</div>'}
+
+        <!-- Repairs -->
+        <h3 class="section-title">🔨 Repairs (${jobRepairs.length})</h3>
+        ${jobRepairs.length ? jobRepairs.map((r) => `
+          <div class="card repair-card">
+            <b>${E(r.location)}</b>
+            <span class="pill">${E(r.status)}</span>
+            <span class="pill">${E(r.severity)}</span>
+            <div class="tiny">${E(r.materials || '')}</div>
+            <div>${E(r.note)}</div>
+          </div>
+        `).join('') : '<div class="card empty">No repairs yet.</div>'}
+
+        <!-- Photos -->
+        <h3 class="section-title">📸 Photos (${jobPhotos.length})</h3>
+        ${jobPhotos.length ? jobPhotos.map((p) => `
+          <div class="card photo-card">
+            <img class="photo lazy" data-src="${E(p.image_url || p.data)}" alt="${E(p.tag || 'Photo')}" loading="lazy">
+            <div class="photo-meta">
+              <b>${E(p.tag || 'Photo')}</b>
+              <div class="tiny">${E(p.notes || '')} · ${formatDate(p.created_at || p.date)}</div>
+            </div>
+          </div>
+        `).join('') : '<div class="card empty">No photos yet.</div>'}
+
+        <!-- Detail Map -->
+        ${job.latitude || job.lat ? `
+          <h3 class="section-title">📍 Location</h3>
+          <div id="detail-map" class="detail-map"></div>
+        ` : ''}
+
+        <!-- Actions -->
+        <div class="detail-actions">
+          <button class="btn primary" data-action="edit-job" data-id="${E(job.id)}">✏️ Edit Job</button>
+          <button class="btn" data-action="generate-pdf" data-id="${E(job.id)}">📄 PDF Report</button>
+          <button class="btn" data-action="add-calendar" data-id="${E(job.id)}">📅 Calendar</button>
+          <button class="btn" data-action="quick-photo" data-id="${E(job.id)}">📸 Quick Photo</button>
+          <button class="btn" data-action="navigate" data-lat="${job.latitude || job.lat || ''}" data-lng="${job.longitude || job.lng || ''}" data-addr="${E(job.address)}">🗺️ Navigate</button>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    this._cleanup = initLazyImages();
+
+    // Timer display
+    const jobId = state.selectedJobId;
+    const job = state.jobs.find((j) => j.id === jobId);
+    if (job?.timer_start) {
+      this._timerInterval = setInterval(() => {
+        const display = $('#timer-display');
+        if (display) {
+          const mins = Math.ceil((Date.now() - new Date(job.timer_start)) / 60000);
+          display.textContent = `⏱️ Running... (+${mins} min)`;
+        }
+      }, 30000);
+    }
+
+    // Detail map
+    if (job?.latitude || job?.lat) {
+      setTimeout(() => this._initDetailMap(job), 100);
+    }
+
+    // Event listeners
+    $$('[data-action="edit-job"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate(`/jobs/${btn.dataset.id}/edit`));
+    });
+    $$('[data-action="add-payment"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleAddPayment(btn.dataset.id));
+    });
+    $$('[data-action="timer-start"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleTimerStart(btn.dataset.id));
+    });
+    $$('[data-action="timer-stop"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleTimerStop(btn.dataset.id));
+    });
+    $$('[data-action="generate-pdf"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleGeneratePDF(btn.dataset.id));
+    });
+    $$('[data-action="navigate"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lat = parseFloat(btn.dataset.lat) || null;
+        const lng = parseFloat(btn.dataset.lng) || null;
+        navigateToJob(lat, lng, btn.dataset.addr || '');
+      });
+    });
+    $$('[data-action="quick-photo"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleQuickPhoto(btn.dataset.id));
+    });
+    $$('[data-action="add-calendar"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleAddToCalendar(btn.dataset.id));
+    });
+  },
+
+  _initDetailMap(job) {
+    if (!window.google?.maps) return;
+    const container = $('#detail-map');
+    if (!container) return;
+    const lat = parseFloat(job.latitude || job.lat);
+    const lng = parseFloat(job.longitude || job.lng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    const map = new google.maps.Map(container, {
+      zoom: config.DEFAULT_MAP_ZOOM,
+      center: { lat, lng },
+    });
+    new google.maps.Marker({ position: { lat, lng }, map, title: job.customer });
+  },
+
+  unmount() {
+    if (this._cleanup) { this._cleanup(); this._cleanup = null; }
+    if (this._timerInterval) { clearInterval(this._timerInterval); this._timerInterval = null; }
+  },
+};
+
+// ── Job Form ─────────────────────────────────────
+
+const JobForm = {
+  _listeners: [],
+
+  render(state) {
+    const jobId = state.selectedJobId;
+    const isEdit = Boolean(jobId);
+    const job = isEdit ? state.jobs.find((j) => j.id === jobId) : null;
+
+    return `
+      <div class="page job-form-page">
+        <h2>${isEdit ? '✏️ Edit Job' : '➕ New Job'}</h2>
+        <form id="job-form" class="card form-card">
+          <div class="form-row">
+            <label>Customer Name *</label>
+            <input type="text" id="form-customer" value="${E(job?.customer || '')}" required placeholder="Full name">
+          </div>
+          <div class="form-row">
+            <label>Phone</label>
+            <input type="tel" id="form-phone" value="${E(job?.phone || '')}" placeholder="(555) 555-5555">
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="form-email" value="${E(job?.email || '')}" placeholder="customer@email.com">
+          </div>
+          <div class="form-row">
+            <label>Address *</label>
+            <input type="text" id="form-address" value="${E(job?.address || '')}" required placeholder="123 Main St">
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>Town</label>
+              <input type="text" id="form-town" value="${E(job?.town || '')}" placeholder="City/Town">
+            </div>
+            <div>
+              <label>State</label>
+              <input type="text" id="form-state" value="${E(job?.state || 'NY')}" placeholder="NY">
+            </div>
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>ZIP</label>
+              <input type="text" id="form-zip" value="${E(job?.zip || '')}" placeholder="12345">
+            </div>
+            <div>
+              <label>Species</label>
+              <select id="form-species">${O(SPECIES, job?.species || 'Raccoon')}</select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Title</label>
+            <input type="text" id="form-title" value="${E(job?.title || '')}" placeholder="e.g. Attic raccoon removal">
+          </div>
+          <div class="form-row">
+            <label>Status</label>
+            <select id="form-status">
+              ${Object.keys(STATUS_STYLES).map((s) => `<option value="${E(s)}" ${(job?.status || 'Active') === s ? 'selected' : ''}>${E(s)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Priority</label>
+            <select id="form-priority">${O(PRIORITY_LEVELS, job?.priority || 'Normal')}</select>
+          </div>
+          <div class="form-row">
+            <label>Assigned Tech</label>
+            <input type="text" id="form-tech" value="${E(job?.assigned_tech || '')}" placeholder="Technician name">
+          </div>
+          <div class="form-row">
+            <label>Scope</label>
+            <textarea id="form-scope" rows="3" placeholder="Describe the work scope...">${E(job?.scope || '')}</textarea>
+          </div>
+          <div class="form-row">
+            <label>Notes</label>
+            <textarea id="form-notes" rows="2" placeholder="Private notes...">${E(job?.notes || '')}</textarea>
+          </div>
+          <div class="form-row">
+            <label>Warranty</label>
+            <input type="text" id="form-warranty" value="${E(job?.warranty || 'Not set')}">
+          </div>
+          <div class="form-row">
+            <label>Estimate ($)</label>
+            <input type="number" id="form-estimate" value="${job?.estimate || ''}" min="0" step="0.01" placeholder="Auto-calculated if blank">
+          </div>
+          <div class="form-row">
+            <label>Tax Rate</label>
+            <input type="number" id="form-tax-rate" value="${(job?.tax_rate ?? config.DEFAULT_TAX_RATE) * 100}" min="0" max="20" step="0.001">%
+          </div>
+
+          <!-- GPS Capture -->
+          <div class="form-row gps-row">
+            <button type="button" class="btn" data-action="capture-gps">📍 Capture GPS</button>
+            <span id="gps-status">${state.pendingGPS ? `Captured: ${state.pendingGPS.lat}, ${state.pendingGPS.lng}` : 'No GPS captured'}</span>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn primary">${isEdit ? '💾 Update Job' : '➕ Create Job'}</button>
+            <button type="button" class="btn" data-action="cancel-form">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    const form = $('#job-form');
+    if (form) {
+      const onSubmit = (e) => {
+        e.preventDefault();
+        handleSaveJob(state.selectedJobId);
+      };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+
+    $$('[data-action="cancel-form"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (state.previousPage) router.back();
+        else router.navigate('/jobs');
+      });
+    });
+
+    $$('[data-action="capture-gps"]').forEach((btn) => {
+      btn.addEventListener('click', handleCaptureGPS);
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach((fn) => fn());
+    this._listeners = [];
+  },
+};
+
+// ── Customer List ────────────────────────────────
+
+const CustomerList = {
+  render(state) {
+    const q = (state.searchQuery || '').toLowerCase();
+    let customers = [...state.customers];
+    if (q) {
+      customers = customers.filter((c) =>
+        `${c.name} ${c.address} ${c.phone} ${c.town}`.toLowerCase().includes(q)
+      );
+    }
+
+    return `
+      <div class="page customer-list-page">
+        <div class="list-toolbar">
+          <input type="text" id="customer-search" class="search-input" placeholder="Search customers..." value="${E(state.searchQuery)}">
+          <button class="btn primary" data-action="new-customer">➕ Add Customer</button>
+        </div>
+        ${customers.length ? customers.map((c) => `
+          <div class="card customer-card" data-customer-id="${E(c.id)}">
+            <h4>${E(c.name)}</h4>
+            <div class="tiny">${formatPhone(c.phone)} · ${E(c.email || '')}</div>
+            <div class="tiny">${E(c.address)}${c.town ? `, ${E(c.town)}` : ''}</div>
+            ${c.notes ? `<div class="tiny">${E(c.notes)}</div>` : ''}
+          </div>
+        `).join('') : '<div class="card empty">No customers yet.</div>'}
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    $('#customer-search')?.addEventListener('input', (e) => onSearchInput(e.target.value));
+
+    $$('[data-action="new-customer"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate('/customers/new'));
+    });
+
+    $$('.customer-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.customerId;
+        if (id) router.navigate(`/customers/${id}`);
+      });
+    });
+  },
+
+  unmount() {},
+};
+
+// ── Customer Form ────────────────────────────────
+
+const CustomerForm = {
+  _listeners: [],
+
+  render(state) {
+    const customerId = state.selectedCustomerId;
+    const isEdit = Boolean(customerId);
+    const customer = isEdit ? state.customers.find((c) => c.id === customerId) : null;
+
+    return `
+      <div class="page customer-form-page">
+        <h2>${isEdit ? '✏️ Edit Customer' : '➕ New Customer'}</h2>
+        <form id="customer-form" class="card form-card">
+          <div class="form-row">
+            <label>Name *</label>
+            <input type="text" id="cform-name" value="${E(customer?.name || '')}" required>
+          </div>
+          <div class="form-row">
+            <label>Phone</label>
+            <input type="tel" id="cform-phone" value="${E(customer?.phone || '')}">
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input type="email" id="cform-email" value="${E(customer?.email || '')}">
+          </div>
+          <div class="form-row">
+            <label>Address</label>
+            <input type="text" id="cform-address" value="${E(customer?.address || '')}">
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>Town</label>
+              <input type="text" id="cform-town" value="${E(customer?.town || '')}">
+            </div>
+            <div>
+              <label>State</label>
+              <input type="text" id="cform-state" value="${E(customer?.state || 'NY')}">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>ZIP</label>
+            <input type="text" id="cform-zip" value="${E(customer?.zip || '')}">
+          </div>
+          <div class="form-row">
+            <label>Notes</label>
+            <textarea id="cform-notes" rows="3">${E(customer?.notes || '')}</textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">${isEdit ? '💾 Update' : '➕ Create'}</button>
+            <button type="button" class="btn" data-action="cancel-form">Cancel</button>
+          </div>
+        </form>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    const form = $('#customer-form');
+    if (form) {
+      const onSubmit = (e) => {
+        e.preventDefault();
+        handleSaveCustomer(state.selectedCustomerId);
+      };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+    $$('[data-action="cancel-form"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate('/customers'));
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach((fn) => fn());
+    this._listeners = [];
+  },
+};
+
+// ── Estimate Calculator ──────────────────────────
+
+const EstimateCalc = {
+  render(state) {
+    return `
+      <div class="page estimate-page">
+        <h2>💵 Estimate Calculator</h2>
+        <div class="card">
+          <div class="form-row">
+            <label>Template</label>
+            <select id="est-template">
+              <option value="">— Select template —</option>
+              ${Object.entries(ESTIMATE_TEMPLATES).map(([k, t]) => `<option value="${E(k)}">${E(t.species)} — ${E(t.service)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Species</label>
+            <select id="est-species">${O(SPECIES, 'Raccoon')}</select>
+          </div>
+          <div class="form-row">
+            <label>Issue Description</label>
+            <textarea id="est-issue" rows="2" placeholder="Describe the issue..."></textarea>
+          </div>
+          <div class="form-row">
+            <label>Service</label>
+            <select id="est-service">
+              <option value="">— Select service —</option>
+              ${SERVICES.map((s) => `<option value="${E(s.name)}" data-price="${s.price}">${E(s.name)} — ${money(s.price)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>Unit Price ($)</label>
+              <input type="number" id="est-price" min="0" step="0.01">
+            </div>
+            <div>
+              <label>Quantity</label>
+              <input type="number" id="est-qty" value="1" min="1">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Severity</label>
+            <select id="est-severity">${O(SEVERITY_LEVELS, 'Medium')}</select>
+          </div>
+          <div class="form-row">
+            <label>Tax Rate</label>
+            <input type="number" id="est-tax" value="${config.DEFAULT_TAX_RATE * 100}" min="0" max="20" step="0.001">%
+          </div>
+          <button class="btn primary" data-action="calc-estimate">🧮 Calculate</button>
+          <button class="btn" data-action="email-estimate">📧 Email</button>
+          <button class="btn" data-action="convert-job">➕ Convert to Job</button>
+          <pre id="estimate-output" class="estimate-output"></pre>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    // Template selector
+    $('#est-template')?.addEventListener('change', (e) => {
+      const t = ESTIMATE_TEMPLATES[e.target.value];
+      if (!t) return;
+      $('#est-species').value = t.species;
+      $('#est-issue').value = t.issue;
+      // Match service by name
+      const svcSelect = $('#est-service');
+      for (let i = 0; i < svcSelect.options.length; i++) {
+        if (svcSelect.options[i].value === t.service) { svcSelect.selectedIndex = i; break; }
+      }
+      $('#est-price').value = t.price;
+      $('#est-qty').value = t.qty;
+    });
+
+    // Auto-fill price when service changes
+    $('#est-service')?.addEventListener('change', (e) => {
+      const opt = e.target.selectedOptions[0];
+      if (opt?.dataset?.price) $('#est-price').value = opt.dataset.price;
+    });
+
+    $$('[data-action="calc-estimate"]').forEach((btn) => {
+      btn.addEventListener('click', handleCalcEstimate);
+    });
+    $$('[data-action="email-estimate"]').forEach((btn) => {
+      btn.addEventListener('click', handleEmailEstimate);
+    });
+    $$('[data-action="convert-job"]').forEach((btn) => {
+      btn.addEventListener('click', handleConvertToJob);
+    });
+  },
+
+  unmount() {},
+};
+
+// ── Photo Gallery ────────────────────────────────
+
+const PhotoGallery = {
+  render(state) {
+    const q = (state.searchQuery || '').toLowerCase();
+    let photos = [...state.photos];
+    if (q) {
+      photos = photos.filter((p) =>
+        (p.tag || '').toLowerCase().includes(q) ||
+        (p.notes || '').toLowerCase().includes(q)
+      );
+    }
+
+    return `
+      <div class="page photos-page">
+        <div class="list-toolbar">
+          <input type="text" id="photo-search" class="search-input" placeholder="Search photos..." value="${E(state.searchQuery)}">
+        </div>
+        ${photos.length ? `
+          <div class="photo-gallery">
+            ${photos.map((p) => `
+              <div class="photo-item">
+                <img class="photo lazy" data-src="${E(p.image_url || p.data)}" alt="${E(p.tag || 'Photo')}" loading="lazy">
+                <div class="photo-overlay">
+                  <span class="photo-tag">${E(p.tag || '')}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<div class="card empty">No photos yet.</div>'}
+      </div>
+    `;
+  },
+
+  afterRender() {
+    this._cleanup = initLazyImages();
+    $('#photo-search')?.addEventListener('input', (e) => onSearchInput(e.target.value));
+  },
+
+  unmount() {
+    if (this._cleanup) { this._cleanup(); this._cleanup = null; }
+  },
+};
+
+// ── GPS Map ──────────────────────────────────────
+
+const GPSMap = {
+  _map: null,
+  _markers: [],
+
+  render(state) {
+    return `
+      <div class="page gps-page">
+        <div class="gps-toolbar">
+          <button class="btn primary" data-action="capture-gps">📍 My Location</button>
+          <button class="btn" data-action="refresh-map">🔄 Refresh</button>
+        </div>
+        <div id="map-container" class="map-container">
+          <div class="card empty">Loading map...</div>
+        </div>
+        <div id="gps-status" class="gps-status"></div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    // Initialize map
+    setTimeout(() => this._initMap(state), 200);
+
+    $$('[data-action="capture-gps"]').forEach((btn) => {
+      btn.addEventListener('click', handleCaptureGPS);
+    });
+    $$('[data-action="refresh-map"]').forEach((btn) => {
+      btn.addEventListener('click', () => this._refreshMap(state));
+    });
+  },
+
+  _initMap(state) {
+    if (!window.google?.maps) {
+      const container = $('#map-container');
+      if (container) container.innerHTML = '<div class="card empty">Google Maps not configured.</div>';
+      return;
+    }
+    const container = $('#map-container');
+    if (!container) return;
+
+    this._map = new google.maps.Map(container, {
+      zoom: config.DEFAULT_MAP_ZOOM,
+      center: config.DEFAULT_MAP_CENTER,
+    });
+
+    this._refreshMap(state);
+  },
+
+  _refreshMap(state) {
+    if (!this._map) return;
+    const jobs = state.jobs.filter((j) => (j.latitude || j.lat) && (j.longitude || j.lng));
+    if (!jobs.length) {
+      const container = $('#map-container');
+      if (container && !this._map) container.innerHTML = '<div class="card empty">No GPS jobs yet.</div>';
+      return;
+    }
+
+    // Clear markers
+    this._markers.forEach((m) => m.setMap(null));
+    this._markers = [];
+
+    const bounds = new google.maps.LatLngBounds();
+    jobs.forEach((j) => {
+      const pos = {
+        lat: parseFloat(j.latitude || j.lat),
+        lng: parseFloat(j.longitude || j.lng),
+      };
+      const marker = new google.maps.Marker({
+        position: pos,
+        map: this._map,
+        title: `${E(j.species)} — ${E(j.customer)}`,
+        animation: google.maps.Animation.DROP,
+      });
+      marker.addListener('click', () => router.navigate(`/jobs/${j.id}`));
+      this._markers.push(marker);
+      bounds.extend(pos);
+    });
+
+    if (this._markers.length > 1) this._map.fitBounds(bounds);
+    else if (this._markers.length === 1) {
+      this._map.setCenter(this._markers[0].getPosition());
+      this._map.setZoom(15);
+    }
+  },
+
+  unmount() {
+    this._markers.forEach((m) => m.setMap(null));
+    this._markers = [];
+    this._map = null;
+  },
+};
+
+// ── Metrics ──────────────────────────────────────
+
+const MetricsPage = {
+  render(state) {
+    const openJobs = state.jobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
+    const closedJobs = state.jobs.filter((j) => j.status === 'Closed');
+    const totalRevenue = closedJobs.reduce((sum, j) => sum + (j.grand_total || j.estimate || 0), 0);
+    const avgJobValue = closedJobs.length ? totalRevenue / closedJobs.length : 0;
+
+    const bySpecies = groupBy(state.jobs, 'species');
+    const speciesRanking = Object.entries(bySpecies)
+      .sort((a, b) => b[1].length - a[1].length);
+
+    const byTown = groupBy(state.jobs, 'town');
+    const townRanking = Object.entries(byTown)
+      .sort((a, b) => b[1].length - a[1].length)
+      .slice(0, 10);
+
+    const byStatus = groupBy(state.jobs, 'status');
+
+    return `
+      <div class="page metrics-page">
+        <h2>📊 Business Metrics</h2>
+        <div class="metrics-grid four-col">
+          <div class="metric-card"><div class="metric-value">${state.jobs.length}</div><div class="metric-label">Total Jobs</div></div>
+          <div class="metric-card"><div class="metric-value">${openJobs.length}</div><div class="metric-label">Open</div></div>
+          <div class="metric-card"><div class="metric-value">${money(totalRevenue)}</div><div class="metric-label">Revenue</div></div>
+          <div class="metric-card"><div class="metric-value">${money(avgJobValue)}</div><div class="metric-label">Avg Job</div></div>
+        </div>
+
+        <h3 class="section-title">By Species</h3>
+        ${speciesRanking.length ? speciesRanking.map(([sp, jobs]) => `
+          <div class="card metric-row">
+            <span>${SPECIES_ICONS[sp] || '🐾'} ${E(sp)}</span>
+            <span class="metric-bar"><span class="metric-fill" style="width:${Math.min(100, (jobs.length / state.jobs.length) * 100)}%"></span></span>
+            <span class="badge">${jobs.length}</span>
+          </div>
+        `).join('') : '<div class="card empty">No data.</div>'}
+
+        <h3 class="section-title">By Town</h3>
+        ${townRanking.length ? townRanking.map(([town, jobs]) => `
+          <div class="card metric-row">
+            <span>${E(town || 'Unsorted')}</span>
+            <span class="metric-bar"><span class="metric-fill" style="width:${Math.min(100, (jobs.length / state.jobs.length) * 100)}%"></span></span>
+            <span class="badge">${jobs.length}</span>
+          </div>
+        `).join('') : '<div class="card empty">No data.</div>'}
+
+        <h3 class="section-title">By Status</h3>
+        ${Object.entries(byStatus).map(([st, jobs]) => `
+          <div class="card metric-row">
+            <span class="status-pill ${STATUS_STYLES[st] || 'active'}">${E(st)}</span>
+            <span class="badge">${jobs.length}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  afterRender() {},
+  unmount() {},
+};
+
+// ── Settings ─────────────────────────────────────
+
+const SettingsPage = {
+  render(state) {
+    const syncUrl = localStorage.getItem(`${STORAGE_KEY}_syncUrl`) || '';
+    const lastSave = localStorage.getItem(`${STORAGE_KEY}_last`);
+    const theme = state.theme;
+
+    return `
+      <div class="page settings-page">
+        <h2>⚙️ Settings</h2>
+
+        <div class="card">
+          <h3>🎨 Appearance</h3>
+          <div class="form-row">
+            <label>Theme</label>
+            <select id="theme-select">
+              <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark</option>
+              <option value="light" ${theme === 'light' ? 'selected' : ''}>Light</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>☁️ Sync</h3>
+          <div class="form-row">
+            <label>Sync Endpoint URL</label>
+            <input type="url" id="sync-url" value="${E(syncUrl)}" placeholder="https://your-endpoint.com/sync">
+          </div>
+          <div class="form-actions">
+            <button class="btn primary" data-action="save-sync">💾 Save Endpoint</button>
+            <button class="btn" data-action="sync-now">↻ Sync Now</button>
+          </div>
+          <div id="sync-log" class="sync-log"></div>
+        </div>
+
+        <div class="card">
+          <h3>💾 Data</h3>
+          <div class="form-actions">
+            <button class="btn" data-action="export-data">⬇️ Export JSON</button>
+            <button class="btn warn" data-action="recover-data">♻️ Recover Snapshot</button>
+            <button class="btn danger" data-action="wipe-data">🗑️ Wipe All Data</button>
+          </div>
+          <div class="form-row">
+            <label>Import JSON</label>
+            <textarea id="import-box" rows="4" placeholder="Paste exported JSON here..."></textarea>
+          </div>
+          <button class="btn primary" data-action="import-data">⬆️ Import</button>
+        </div>
+
+        <div class="card">
+          <h3>ℹ️ About</h3>
+          <div class="about-text">
+            <p><strong>Wildlife Whisperer FieldOps</strong> v${config.APP_VERSION}</p>
+            <p>${getBuildInfo()}</p>
+            <p>Last saved: ${lastSave ? new Date(lastSave).toLocaleString() : 'never'}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender() {
+    $('#theme-select')?.addEventListener('change', (e) => {
+      store.setState({ theme: e.target.value });
+      localStorage.setItem('ww_theme', e.target.value);
+      document.body.setAttribute('data-theme', e.target.value);
+    });
+
+    $$('[data-action="save-sync"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const url = $('#sync-url')?.value?.trim();
+        if (url) localStorage.setItem(`${STORAGE_KEY}_syncUrl`, url);
+        showToast('Endpoint saved');
+      });
+    });
+    $$('[data-action="sync-now"]').forEach((btn) => {
+      btn.addEventListener('click', handleSyncNow);
+    });
+    $$('[data-action="export-data"]').forEach((btn) => {
+      btn.addEventListener('click', handleExportData);
+    });
+    $$('[data-action="import-data"]').forEach((btn) => {
+      btn.addEventListener('click', handleImportData);
+    });
+    $$('[data-action="recover-data"]').forEach((btn) => {
+      btn.addEventListener('click', handleRecoverData);
+    });
+    $$('[data-action="wipe-data"]').forEach((btn) => {
+      btn.addEventListener('click', handleWipeData);
+    });
+  },
+
+  unmount() {},
+};
+
+// ── AI Assistant ─────────────────────────────────
+
+const AIModal = {
+  render(state) {
+    return `
+      <div class="page ai-page">
+        <h2>🧠 AI Assistant</h2>
+        <div class="card">
+          <div class="form-row">
+            <label>Species</label>
+            <select id="ai-species">${O(SPECIES, 'Raccoon')}</select>
+          </div>
+          <div class="form-row">
+            <label>Season</label>
+            <select id="ai-season">
+              <option>Spring</option><option>Summer</option><option>Fall</option><option>Winter</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Observations</label>
+            <textarea id="ai-obs" rows="4" placeholder="Describe what you see/hear..."></textarea>
+          </div>
+          <button class="btn primary" data-action="ai-suggest">💡 Get Suggestions</button>
+          <button class="btn" data-action="ai-dictate">🎤 Dictate</button>
+          <pre id="ai-output" class="ai-output">${E(state.aiResponse)}</pre>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender() {
+    $$('[data-action="ai-suggest"]').forEach((btn) => {
+      btn.addEventListener('click', handleAISuggest);
+    });
+    $$('[data-action="ai-dictate"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const el = $('#ai-obs');
+        if (el) handleDictate(el);
+      });
+    });
+  },
+
+  unmount() {},
+};
+
+// ─────────────────────────────────────────────────
+// Page Registry
+// ─────────────────────────────────────────────────
+
+/** @type {Record<string, {render: Function, afterRender?: Function, unmount?: Function}>} */
+const pages = {
+  dashboard: Dashboard,
+  jobs: JobList,
+  'job-detail': JobDetail,
+  'job-form': JobForm,
+  customers: CustomerList,
+  'customer-form': CustomerForm,
+  estimate: EstimateCalc,
+  photos: PhotoGallery,
+  gps: GPSMap,
+  metrics: MetricsPage,
+  settings: SettingsPage,
+  ai: AIModal,
+};
+
+// ═══════════════════════════════════════════════════
+// Action Handlers
+// ═══════════════════════════════════════════════════
+
+/** @param {string|null} jobId */
+function handleSaveJob(jobId) {
+  const customer = $('#form-customer')?.value?.trim();
+  const phone = $('#form-phone')?.value?.trim();
+  const email = $('#form-email')?.value?.trim();
+  const address = $('#form-address')?.value?.trim();
+  const town = $('#form-town')?.value?.trim();
+  const state_val = $('#form-state')?.value?.trim();
+  const zip = $('#form-zip')?.value?.trim();
+  const species = $('#form-species')?.value;
+  const title = $('#form-title')?.value?.trim();
+  const status = $('#form-status')?.value;
+  const priority = $('#form-priority')?.value;
+  const tech = $('#form-tech')?.value?.trim();
+  const scope = $('#form-scope')?.value?.trim();
+  const notes = $('#form-notes')?.value?.trim();
+  const warranty = $('#form-warranty')?.value?.trim() || 'Not set';
+  const estimate = parseFloat($('#form-estimate')?.value) || 0;
+  const taxRate = parseFloat($('#form-tax-rate')?.value) / 100 || config.DEFAULT_TAX_RATE;
+
+  const s = store.getState();
+  const pendingGPS = s.pendingGPS;
+
+  const payload = {
+    customer,
+    phone,
+    email,
+    address,
+    town: town || 'Unsorted',
+    state: state_val || 'NY',
+    zip,
+    species,
+    title: title || `${species} job`,
+    status: status || 'Active',
+    priority: priority || 'Normal',
+    assigned_tech: tech,
+    scope,
+    notes,
+    warranty,
+    estimate,
+    tax_rate: taxRate,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (pendingGPS) {
+    payload.latitude = String(pendingGPS.lat);
+    payload.longitude = String(pendingGPS.lng);
+    payload.accuracy = pendingGPS.accuracy;
+  }
+
+  const errs = validateJob(payload);
+  if (errs.length) {
+    showToast(errs.join('; '), 'error', 5000);
+    return;
+  }
+
+  if (jobId) {
+    // Update
+    store.setState((st) => ({
+      ...st,
+      jobs: st.jobs.map((j) => (j.id === jobId ? { ...j, ...payload } : j)),
+      pendingGPS: null,
+    }));
+    showToast('Job updated');
+    router.navigate(`/jobs/${jobId}`);
+  } else {
+    // Create
+    const newJob = {
+      id: id(),
+      created_at: new Date().toISOString(),
+      ...payload,
+    };
+    store.setState((st) => ({
+      ...st,
+      jobs: [newJob, ...st.jobs],
+      pendingGPS: null,
+      syncQueue: [...st.syncQueue, { id: id(), action: 'job:create', jobId: newJob.id, at: new Date().toISOString() }],
+    }));
+    showToast('Job created');
+    router.navigate(`/jobs/${newJob.id}`);
+  }
+}
+
+/** @param {string|null} customerId */
+function handleSaveCustomer(customerId) {
+  const name = $('#cform-name')?.value?.trim();
+  const phone = $('#cform-phone')?.value?.trim();
+  const email = $('#cform-email')?.value?.trim();
+  const address = $('#cform-address')?.value?.trim();
+  const town = $('#cform-town')?.value?.trim();
+  const state_val = $('#cform-state')?.value?.trim();
+  const zip = $('#cform-zip')?.value?.trim();
+  const notes = $('#cform-notes')?.value?.trim();
+
+  const payload = {
+    name,
+    phone,
+    email,
+    address,
+    town,
+    state: state_val || 'NY',
+    zip,
+    notes,
+    updated_at: new Date().toISOString(),
+  };
+
+  const errs = validateCustomer(payload);
+  if (errs.length) {
+    showToast(errs.join('; '), 'error', 5000);
+    return;
+  }
+
+  if (customerId) {
+    store.setState((st) => ({
+      ...st,
+      customers: st.customers.map((c) => (c.id === customerId ? { ...c, ...payload } : c)),
+    }));
+    showToast('Customer updated');
+    router.navigate('/customers');
+  } else {
+    const newCustomer = { id: id(), created_at: new Date().toISOString(), ...payload };
+    store.setState((st) => ({
+      ...st,
+      customers: [newCustomer, ...st.customers],
+    }));
+    showToast('Customer created');
+    router.navigate('/customers');
+  }
+}
+
+/** @param {string} jobId */
+function handleAddPayment(jobId) {
+  const amount = parseFloat($('#payment-amount')?.value || 0);
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+
+  store.setState((st) => ({
+    ...st,
+    jobs: st.jobs.map((j) => {
+      if (j.id !== jobId) return j;
+      const newDeposit = (j.deposit_paid || 0) + amount;
+      const newBalance = (j.grand_total || j.estimate || 0) - newDeposit;
+      return { ...j, deposit_paid: newDeposit, balance_due: Math.max(0, newBalance), updated_at: new Date().toISOString() };
+    }),
+  }));
+  showToast(`Payment recorded: ${money(amount)}`);
+}
+
+/** @param {string} jobId */
+function handleTimerStart(jobId) {
+  const now = new Date().toISOString();
+  store.setState((st) => ({
+    ...st,
+    jobs: st.jobs.map((j) => j.id === jobId ? { ...j, timer_start: now, updated_at: now } : j),
+  }));
+  showToast('Timer started');
+}
+
+/** @param {string} jobId */
+function handleTimerStop(jobId) {
+  const st = store.getState();
+  const job = st.jobs.find((j) => j.id === jobId);
+  if (!job?.timer_start) { showToast('Timer not started', 'warn'); return; }
+
+  const start = new Date(job.timer_start);
+  const now = new Date();
+  const mins = Math.ceil((now - start) / (1000 * 60));
+  const total = (job.timer_total || 0) + mins;
+
+  store.setState((s) => ({
+    ...s,
+    jobs: s.jobs.map((j) =>
+      j.id === jobId ? { ...j, timer_start: null, timer_total: total, updated_at: now.toISOString() } : j
+    ),
+  }));
+  showToast(`Timer stopped: +${mins} min`);
+}
+
+/** @param {string} jobId */
+function handleGeneratePDF(jobId) {
+  const st = store.getState();
+  const job = st.jobs.find((j) => j.id === jobId);
+  if (!job) { showToast('Job not found', 'error'); return; }
+  const jobServices = st.services.filter((s) => (s.jobId || s.job_id) === jobId);
+  const jobPhotos = st.photos.filter((p) => (p.jobId || p.job_id) === jobId);
+  try {
+    const dataUrl = generatePDF(job, jobServices, jobPhotos);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `job-${String(job.customer).replace(/[^a-z0-9]/gi, '_')}.pdf`;
+    a.click();
+    showToast('PDF generated');
+  } catch (err) {
+    logError(err, 'PDF generation');
+    showToast('PDF generation failed', 'error');
+  }
+}
+
+/** @param {string} jobId */
+function handleQuickPhoto(jobId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
   input.onchange = async () => {
-    const file = input.files[0];
+    const file = input.files?.[0];
     if (!file) return;
-    showLoading("Uploading quick photo...");
+    renderLoading(true, 'Compressing...');
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const compressed = await compressImage(reader.result, 1200, 0.7);
-        const { error } = await supabase.from("photos").insert({
-          job_id: jobId, image_url: compressed, tag: "Entry point", notes: "Quick photo capture"
-        });
-        if (error) throw error;
-        await loadData();
-        showToast("Quick photo saved as Entry Point");
-        render();
-      } catch (err) { showToast(err.message || "Upload failed", "error"); }
-      finally { hideLoading(); }
+        const compressed = await compressImage(reader.result, config.IMAGE_MAX_WIDTH, config.IMAGE_QUALITY);
+        store.setState((st) => ({
+          ...st,
+          photos: [{
+            id: id(),
+            job_id: jobId,
+            image_url: compressed,
+            tag: 'Quick Capture',
+            notes: 'Quick photo capture',
+            created_at: new Date().toISOString(),
+          }, ...st.photos],
+        }));
+        showToast('Photo saved');
+      } catch (err) {
+        logError(err, 'quick photo');
+        showToast('Photo save failed', 'error');
+      } finally {
+        renderLoading(false);
+      }
     };
     reader.readAsDataURL(file);
   };
   input.click();
-};
-o job...");  try {    const { data, error } = await supabase.from("jobs").insert(payload).select();    if (error) throw error;    const jobId = data[0].id;    if (estService && qty > 0 && price > 0) {      await supabase.from("services").insert({        job_id: jobId,        service: estService,        qty: qty,        unit_price: price,        total: subtotal      });    }    showToast("Estimate converted to job!");    await loadData();    go("jobs");  } catch (err) {    showToast(err.message || "Failed to convert estimate", "error");  } finally {    hideLoading();  }};window.generateJobPDF = function () {  if (!selectedJob) return showToast("No job selected.", "warn");  const doc = new jsPDF();  doc.setFontSize(18);  doc.text("Wildlife Whisperer LLC", 20, 20);  doc.setFontSize(14);  doc.text("Job Report", 20, 30);  doc.setFontSize(11);  const jobServices = services.filter(s => s.job_id === selectedJob.id);  const totalServices = jobServices.reduce((sum, s) => sum + Number(s.total || 0), 0);  let y = 45;  const addLine = (label, value) => {    doc.setFont(undefined, "bold");    doc.text(label + ":", 20, y);    doc.setFont(undefined, "normal");    const lines = doc.splitTextToSize(String(value || "N/A"), 120);    doc.text(lines, 70, y);    y += 6 * lines.length;    if (y > 270) { doc.addPage(); y = 20; }  };  addLine("Customer", selectedJob.customer);  addLine("Address", selectedJob.address);  addLine("Phone", selectedJob.phone);  addLine("Species", selectedJob.species);  addLine("Status", selectedJob.status);  addLine("Town", selectedJob.town);  addLine("Assigned Tech", selectedJob.assigned_tech);  addLine("Estimate", money(selectedJob.estimate));  addLine("Tax", money(selectedJob.tax_amount));  addLine("Total", money(selectedJob.grand_total));  addLine("Services Total", money(totalServices));  addLine("Notes", selectedJob.notes);  doc.save(`job-${selectedJob.customer.replace(/[^a-z0-9]/gi, "_")}.pdf`);};function techsPage() {  shell(`    <div class="card">      <h2>Add Tech</h2>      <input id="techName" placeholder="Name">      <input id="techPhone" placeholder="Phone">      <input id="techRole" placeholder="Role">      <button class="action" onclick="addTech()">Save Tech</button>    </div>    ${techs.map(t => `      <div class="card">        <strong>${esc(t.name)}</strong>        <div class="tiny">${formatPhone(t.phone) || esc(t.phone || "")} · ${esc(t.role || "")}</div>      </div>    `).join("")}  `);}window.addTech = async function () {  const payload = {    name: document.getElementById("techName").value.trim(),    phone: document.getElementById("techPhone").value.trim(),    role: document.getElementById("techRole").value.trim()  };  const errors = validateTech(payload);  if (errors.length) { showToast(errors.join("; "), "error", 5000); return; }  showLoading("Saving tech…");  try {    const { error } = await supabase.from("techs").insert(payload);    if (error) throw error;    await loadData();    go("techs");    showToast("Tech added");  } catch (err) {    showToast(err.message || "Failed to add tech", "error");  } finally {    hideLoading();  }};function aiPage() {  shell(`    <div class="card">      <h2>🧠 Kimi AI Field Assistant</h2>      <select id="aiMode">        <option value="field_plan">Field Plan</option>        <option value="job_notes">Job Notes</option>        <option value="estimate">Estimate Guidance</option>        <option value="customer_message">Customer Message</option>        <option value="invoice_notes">Invoice Notes</option>        <option value="risk_check">Risk / Safety Check</option>      </select>      <select id="aiSpecies">${SPECIES.map(s => `<option>${s}</option>`).join("")}</select>      <textarea id="aiObs" rows="6" placeholder="Example: raccoon entry near soffit, attic droppings, customer hears noise at night..."></textarea>      <button class="action" onclick="aiSuggest()">Generate Kimi AI Plan</button>      <textarea id="aiOut" rows="14" placeholder="AI output appears here..."></textarea>    </div>  `);}window.aiSuggest = async function () {  const mode = document.getElementById("aiMode")?.value || "field_plan";  const species = document.getElementById("aiSpecies")?.value || selectedJob?.species || "";  const observation = document.getElementById("aiObs")?.value || selectedJob?.notes || "";  const jobServices = selectedJob ? services.filter(s => s.job_id === selectedJob.id) : [];  showLoading("Running Kimi AI assistant…");  try {    const result = await runFieldAI(supabase, {      mode,      species,      observation,      job: selectedJob || { species, notes: observation },      services: jobServices,      businessContext: "Wildlife Whisperer nuisance wildlife removal field app. Prioritize inspection notes, exclusion planning, estimate clarity, customer communication, safety reminders, and professional documentation."    });    const formatted = formatFieldAIResult(result);    const out = document.getElementById("aiOut");    if (out) out.value = formatted;    if (selectedJob?.id) {      await supabase.from("jobs").update({        ai_notes: formatted,        ai_customer_message: result.customer_message || null,        ai_invoice_notes: result.invoice_notes || null,        ai_last_run_at: new Date().toISOString()      }).eq("id", selectedJob.id);      await supabase.from("ai_runs").insert({        job_id: selectedJob.id,        mode,        input: { species, observation, services: jobServices },        output: result,        provider: "kimi_moonshot"      });    }    showToast("Kimi AI assistant complete");  } catch (err) {    console.error(err);    showToast(err.message || "Kimi AI assistant failed", "error", 6000);  } finally {    hideLoading();  }};window.saveGps = async function (jobId) {  showLoading("Getting GPS…");  try {    const pos = await getCurrentPosition();    const { error } = await supabase.from("jobs").update({ latitude: pos.latitude, longitude: pos.longitude }).eq("id", jobId);    if (error) throw error;    showToast("GPS saved to job");    await loadData();  } catch (err) {    showToast(err.message || "GPS error", "error");  } finally {    hideLoading();  }};/* ─── EXPORT / IMPORT ─── */window.exportData = function () {  const data = { jobs, techs, services, inspections, photos, exportedAt: new Date().toISOString() };  const a = document.createElement("a");  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));  a.download = `wildlife-fieldops-backup-${new Date().toISOString().slice(0,10)}.json`;  a.click();};window.importDataPrompt = function () {  const raw = prompt("Paste JSON backup data:");  if (!raw) return;  importData(raw);};window.importData = async function (raw) {  showLoading("Importing…");  try {    const data = JSON.parse(raw);    if (!data.jobs) { showToast("Invalid format: missing jobs array.", "error"); return; }    if (data.jobs?.length) {      const { error } = await supabase.from("jobs").upsert(data.jobs);      if (error) console.error("Jobs import error:", error);    }    if (data.techs?.length) {      const { error } = await supabase.from("techs").upsert(data.techs);      if (error) console.error("Techs import error:", error);    }    if (data.services?.length) {      const { error } = await supabase.from("services").upsert(data.services);      if (error) console.error("Services import error:", error);    }    if (data.inspections?.length) {      const { error } = await supabase.from("inspections").upsert(data.inspections);      if (error) console.error("Inspections import error:", error);    }    if (data.photos?.length) {      const { error } = await supabase.from("photos").upsert(data.photos);      if (error) console.error("Photos import error:", error);    }    showToast("Import complete — reloading data…");    await loadData();  } catch (e) {    showToast("Import failed: " + e.message, "error");  } finally {    hideLoading();  }};function metricsPage() {  const activeJobs = jobs.filter(j => j.status !== "Closed");  const closedJobs = jobs.filter(j => j.status === "Closed");  const totalRevenue = jobs.reduce((sum, j) => sum + Number(j.grand_total || 0), 0);  const totalExpensesAll = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);  const netProfit = totalRevenue - totalExpensesAll;  const speciesCounts = {};  jobs.forEach(j => { if (j.species) speciesCounts[j.species] = (speciesCounts[j.species] || 0) + 1; });  const maxSpeciesCount = Math.max(...Object.values(speciesCounts), 1);  const statusCounts = {};  jobs.forEach(j => { statusCounts[j.status || "Active"] = (statusCounts[j.status || "Active"] || 0) + 1; });  const techRevenue = {};  techs.forEach(t => techRevenue[t.name] = 0);  jobs.forEach(j => { if (j.assigned_tech && techRevenue.hasOwnProperty(j.assigned_tech)) techRevenue[j.assigned_tech] += Number(j.grand_total || 0); });  const maxTechRevenue = Math.max(...Object.values(techRevenue), 1);  const townCounts = {};  jobs.forEach(j => { if (j.town) townCounts[j.town] = (townCounts[j.town] || 0) + 1; });  const maxTownCount = Math.max(...Object.values(townCounts), 1);  shell(`    <div class="card">      <h2>📊 Business Metrics</h2>      <div class="grid">        <div class="card"><div class="stat">${activeJobs.length}</div><div class="tiny">Active Jobs</div></div>        <div class="card"><div class="stat">${closedJobs.length}</div><div class="tiny">Closed Jobs</div></div>        <div class="card"><div class="stat">${jobs.length}</div><div class="tiny">Total Jobs</div></div>        <div class="card"><div class="stat">${money(totalRevenue)}</div><div class="tiny">Total Revenue</div></div>      </div>    </div>    <div class="card">      <h3>Jobs by Species</h3>      ${Object.entries(speciesCounts).sort((a, b) => b[1] - a[1]).map(([species, count]) => `        <div style="margin:8px 0;">          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">            <span>${esc(species)}</span>            <span>${count}</span>          </div>          <div class="prog"><div class="bar" style="width:${(count / maxSpeciesCount * 100)}%"></div></div>        </div>      `).join("") || '<div class="tiny">No species data.</div>'}    </div>    <div class="card">      <h3>Jobs by Status</h3>      ${Object.entries(statusCounts).map(([status, count]) => `        <div style="margin:8px 0;">          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">            <span>${esc(status)}</span>            <span>${count}</span>          </div>          <div class="prog"><div class="bar" style="width:${jobs.length ? (count / jobs.length * 100) : 0}%"></div></div>        </div>      `).join("") || '<div class="tiny">No status data.</div>'}    </div>    <div class="card">      <h3>Tech Revenue</h3>      ${Object.entries(techRevenue).sort((a, b) => b[1] - a[1]).map(([name, revenue]) => `        <div style="margin:8px 0;">          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">            <span>${esc(name)}</span>            <span>${money(revenue)}</span>          </div>          <div class="prog"><div class="bar" style="width:${(revenue / maxTechRevenue * 100)}%"></div></div>        </div>      `).join("") || '<div class="tiny">No tech data.</div>'}    </div>    <div class="card">      <h3>Jobs by Town</h3>      ${Object.entries(townCounts).sort((a, b) => b[1] - a[1]).map(([town, count]) => `        <div style="margin:8px 0;">          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">            <span>${esc(town)}</span>            <span>${count}</span>          </div>          <div class="prog"><div class="bar" style="width:${(count / maxTownCount * 100)}%"></div></div>        </div>      `).join("") || '<div class="tiny">No town data.</div>'}    </div>  `);}/* ─── RENDER ─── */function render() {  nav();  if (screen === "dashboard") dashboard();  if (screen === "jobs") jobsPage();  if (screen === "detail") detailPage();  if (screen === "new") newJobPage();  if (screen === "estimate") estimatePage();  if (screen === "techs") techsPage();  if (screen === "metrics") metricsPage();  if (screen === "ai") aiPage();}/* ─── INIT ─── */function hideSplash() {  const sp = document.getElementById("splash");  if (sp) {    sp.classList.add("hidden");    setTimeout(() => sp.remove(), 600);  }}initTheme();loadGoogleMaps();loadGoogleCalendarAPI();loadData();setTimeout(hideSplash, 1500);window.closeModal = closeModal;/* ─── SERVICE WORKER UPDATE ─── */if ("serviceWorker" in navigator) {  navigator.serviceWorker.register("sw.js").then(reg => {    reg.addEventListener("updatefound", () => {      const newWorker = reg.installing;      newWorker.addEventListener("statechange", () => {        if (newWorker.state === "installed" && navigator.serviceWorker.controller) {          showToast("App update available — reloading…", "success");          setTimeout(() => location.reload(), 1500);        }      });    });  }).catch(() => {});}
+}
+
+/** @param {string} jobId */
+function handleAddToCalendar(jobId) {
+  const st = store.getState();
+  const job = st.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+
+  const subject = encodeURIComponent('Wildlife Whisperer LLC Job');
+  const body = encodeURIComponent(
+    `Customer: ${job.customer}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.scope || ''}`
+  );
+  const location = encodeURIComponent(job.address);
+  const start = new Date();
+  const end = new Date(start.getTime() + 3600000);
+  const fmt = (d) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${subject}&details=${body}&location=${location}&dates=${fmt(start)}/${fmt(end)}`;
+  window.open(url, '_blank');
+  showToast('Opening Google Calendar...');
+}
+
+function handleCalcEstimate() {
+  const species = $('#est-species')?.value;
+  const severity = $('#est-severity')?.value;
+  const service = $('#est-service')?.value;
+  const price = parseFloat($('#est-price')?.value) || 0;
+  const qty = parseInt($('#est-qty')?.value) || 1;
+  const taxRate = parseFloat($('#est-tax')?.value) / 100 || config.DEFAULT_TAX_RATE;
+  const issue = $('#est-issue')?.value?.trim();
+
+  const base = calculateEstimate(species, severity);
+  const svcTotal = price * qty;
+  const subtotal = Math.max(base, svcTotal);
+  const tax = Math.round(subtotal * taxRate * 100) / 100;
+  const grandTotal = subtotal + tax;
+
+  const output = [
+    '═══════════════════════════════════════',
+    `  WILDLIFE WHISPERER ESTIMATE`,
+    '═══════════════════════════════════════',
+    `Species:     ${species}`,
+    `Severity:    ${severity}`,
+    `Service:     ${service || 'N/A'}`,
+    `Issue:       ${issue || 'N/A'}`,
+    '',
+    `Base/Calc:   ${money(subtotal)}`,
+    `Tax (${(taxRate * 100).toFixed(3)}%): ${money(tax)}`,
+    `───────────────────────────────────────`,
+    `TOTAL:       ${money(grandTotal)}`,
+    '',
+    'Includes inspection/travel, exclusion',
+    'complexity, and profit buffer.',
+  ].join('\n');
+
+  $('#estimate-output').textContent = output;
+  return { species, issue, service, price, qty, subtotal, tax, grandTotal };
+}
+
+function handleEmailEstimate() {
+  const out = $('#estimate-output')?.textContent;
+  if (!out) { handleCalcEstimate(); }
+  const subject = encodeURIComponent('Wildlife Whisperer LLC Estimate');
+  const body = encodeURIComponent($('#estimate-output')?.textContent || '');
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+function handleConvertToJob() {
+  const est = handleCalcEstimate();
+  if (!est) return;
+  const { species, issue, service, price, qty, subtotal } = est;
+
+  const job = {
+    id: id(),
+    customer: 'TBD — From Estimate',
+    phone: '',
+    address: '',
+    town: '',
+    species,
+    title: `${species} — ${issue?.slice(0, 40) || service || 'New job'}`,
+    scope: issue || '',
+    status: 'Active',
+    priority: 'Normal',
+    estimate: subtotal,
+    tax_rate: config.DEFAULT_TAX_RATE,
+    tax_amount: 0,
+    grand_total: subtotal,
+    deposit_paid: 0,
+    balance_due: subtotal,
+    warranty: 'Not set',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  store.setState((st) => ({
+    ...st,
+    jobs: [job, ...st.jobs],
+    services: service && price > 0 ? [{
+      id: id(),
+      job_id: job.id,
+      service,
+      qty,
+      unit_price: price,
+      total: subtotal,
+      created_at: new Date().toISOString(),
+    }, ...st.services] : st.services,
+    selectedJobId: job.id,
+  }));
+
+  showToast('Estimate converted to job!');
+  router.navigate(`/jobs/${job.id}`);
+}
+
+function handleCaptureGPS() {
+  if (!('geolocation' in navigator)) {
+    showToast('GPS not supported', 'warn');
+    return;
+  }
+  showToast('Capturing GPS...', 'success', 2000);
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const gps = {
+        lat: +pos.coords.latitude.toFixed(6),
+        lng: +pos.coords.longitude.toFixed(6),
+        accuracy: Math.round(pos.coords.accuracy),
+      };
+      store.setState({ pendingGPS: gps });
+      showToast(`GPS: ${gps.lat}, ${gps.lng} (±${gps.accuracy}m)`);
+    },
+    (err) => {
+      showToast(`GPS error: ${err.message}`, 'error');
+    },
+    { enableHighAccuracy: true, timeout: config.GPS_TIMEOUT }
+  );
+}
+
+function handleAISuggest() {
+  const species = $('#ai-species')?.value;
+  const season = $('#ai-season')?.value;
+  const obs = ($('#ai-obs')?.value || '').toLowerCase();
+
+  const tips = [
+    `Species: ${species}`,
+    `Season: ${season}`,
+    `Hint: ${hint(species)}`,
+  ];
+
+  if (obs.includes('night')) tips.push('Night activity points toward flying squirrel, bat, raccoon, or mice depending on sound.');
+  if (obs.includes('soffit') || obs.includes('fascia')) tips.push('Inspect soffit returns, fascia corners, roof-to-wall joints.');
+  if (obs.includes('attic')) tips.push('Check insulation trails, nesting zones, rub marks, urine staining, secondary exits.');
+  if (obs.includes('chew') || obs.includes('gnaw')) tips.push('Look for entry gaps >1/4 inch; squirrels and rodents require different sealing.');
+  if (obs.includes('droppings') || obs.includes('guano')) tips.push('Fresh droppings indicate active infestation; note color/consistency for species ID.');
+
+  const output = `— ${tips.join('\n— ')}`;
+  store.setState({ aiResponse: output });
+}
+
+/** @param {HTMLTextAreaElement} el */
+function handleDictate(el) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('Speech recognition not supported. Try Chrome.', 'warn'); return; }
+
+  const recog = new SR();
+  recog.lang = 'en-US';
+  recog.continuous = true;
+  recog.interimResults = true;
+  recog.onresult = (e) => {
+    const transcript = e.results[e.results.length - 1][0].transcript;
+    el.value += (el.value ? ' ' : '') + transcript;
+    showToast('Dictating...', 'success', 1500);
+  };
+  recog.onerror = (e) => {
+    showToast(`Dictation error: ${e.error}`, 'error');
+  };
+  recog.start();
+  showToast('Dictation started', 'success', 2000);
+}
+
+// ── Settings Handlers ────────────────────────────
+
+async function handleSyncNow() {
+  const url = localStorage.getItem(`${STORAGE_KEY}_syncUrl`);
+  if (!url) { showToast('Add sync endpoint first', 'warn'); return; }
+
+  store.setState({ syncStatus: 'syncing' });
+  updateSyncIndicator('syncing');
+  renderLoading(true, 'Syncing...');
+
+  try {
+    const st = store.getState();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device: 'wildlife-fieldops-v3',
+        db: {
+          jobs: st.jobs,
+          visits: st.visits,
+          repairs: st.repairs,
+          photos: st.photos,
+          signatures: st.signatures,
+        },
+        queue: st.syncQueue,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+
+    const text = await res.text();
+    const logEl = $('#sync-log');
+    if (logEl) logEl.textContent = `Sync: HTTP ${res.status}\n${text.slice(0, 500)}`;
+
+    if (res.ok) {
+      const serverData = safeJSONParse(text, null);
+      if (serverData?.db) {
+        store.setState((s) => ({
+          ...s,
+          jobs: mergeArrays(s.jobs, serverData.db.jobs || [], 'id'),
+          visits: mergeArrays(s.visits, serverData.db.visits || [], 'id'),
+          repairs: mergeArrays(s.repairs, serverData.db.repairs || [], 'id'),
+          photos: mergeArrays(s.photos, serverData.db.photos || [], 'id'),
+          signatures: mergeArrays(s.signatures, serverData.db.signatures || [], 'id'),
+          syncQueue: [],
+        }));
+      }
+      store.setState({ syncStatus: 'synced', lastSyncAt: new Date().toISOString() });
+      updateSyncIndicator('synced');
+      showToast('Sync complete');
+      setTimeout(() => { store.setState({ syncStatus: 'idle' }); updateSyncIndicator('idle'); }, 3000);
+    } else {
+      store.setState({ syncStatus: 'error' });
+      updateSyncIndicator('error');
+      showToast(`Sync failed: ${res.status}`, 'error');
+    }
+  } catch (err) {
+    store.setState({ syncStatus: 'error' });
+    updateSyncIndicator('error');
+    logError(err, 'sync');
+    showToast(`Sync error: ${err.message}`, 'error');
+  } finally {
+    renderLoading(false);
+  }
+}
+
+function handleExportData() {
+  try {
+    const st = store.getState();
+    const payload = {
+      jobs: st.jobs,
+      customers: st.customers,
+      visits: st.visits,
+      repairs: st.repairs,
+      photos: st.photos,
+      signatures: st.signatures,
+      services: st.services,
+      expenses: st.expenses,
+      exportedAt: new Date().toISOString(),
+      version: config.APP_VERSION,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `wildlife-fieldops-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Export downloaded');
+  } catch (err) {
+    logError(err, 'export');
+    showToast('Export failed', 'error');
+  }
+}
+
+function handleImportData() {
+  try {
+    const raw = $('#import-box')?.value;
+    if (!raw) { showToast('Paste JSON first', 'warn'); return; }
+    const data = JSON.parse(raw);
+    if (!data.jobs || !Array.isArray(data.jobs)) {
+      showToast('Invalid format: missing jobs array', 'error');
+      return;
+    }
+    store.setState((st) => ({
+      ...st,
+      jobs: data.jobs || st.jobs,
+      customers: data.customers || st.customers,
+      visits: data.visits || st.visits,
+      repairs: data.repairs || st.repairs,
+      photos: data.photos || st.photos,
+      signatures: data.signatures || st.signatures,
+      services: data.services || st.services,
+      expenses: data.expenses || st.expenses,
+    }));
+    showToast('Import successful');
+  } catch (err) {
+    logError(err, 'import');
+    showToast('Import failed: invalid JSON', 'error');
+  }
+}
+
+function handleRecoverData() {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY}_bak`);
+    if (!raw) { showToast('No snapshot found', 'warn'); return; }
+    const snap = JSON.parse(raw);
+    if (!snap.db) { showToast('Invalid snapshot', 'error'); return; }
+    if (confirm(`Recover snapshot from ${new Date(snap.saved).toLocaleString()}?`)) {
+      store.setState((st) => ({
+        ...st,
+        jobs: snap.db.jobs || st.jobs,
+        customers: snap.db.customers || st.customers,
+        visits: snap.db.visits || st.visits,
+        repairs: snap.db.repairs || st.repairs,
+        photos: snap.db.photos || st.photos,
+        signatures: snap.db.signatures || st.signatures,
+      }));
+      showToast('Recovered from snapshot');
+    }
+  } catch (err) {
+    logError(err, 'recover');
+    showToast('Recovery failed', 'error');
+  }
+}
+
+function handleWipeData() {
+  if (!confirm('⚠️ Delete ALL data? This cannot be undone!')) return;
+  if (!confirm('Really? All jobs, customers, photos, everything?')) return;
+  store.setState((st) => ({
+    ...st,
+    jobs: [],
+    customers: [],
+    visits: [],
+    repairs: [],
+    photos: [],
+    signatures: [],
+    services: [],
+    expenses: [],
+    syncQueue: [],
+  }));
+  showToast('All data wiped');
+}
+
+// ═══════════════════════════════════════════════════
+// Main Render Loop
+// ═══════════════════════════════════════════════════
+
+/** @type {Function|null} Current page unmount function */
+let currentUnmount = null;
+
+/**
+ * Main render function. Subscribes to store changes
+ * and renders the active page component.
+ */
+function renderApp() {
+  store.subscribe((state) => {
+    const pageKey = state.page;
+    const page = pages[pageKey];
+    const appEl = $('#app');
+    if (!appEl) return;
+
+    // ── Unmount previous page ──
+    if (currentUnmount) {
+      try { currentUnmount(); } catch (e) { console.error('Unmount error:', e); }
+      currentUnmount = null;
+    }
+
+    // ── Render new page ──
+    if (page) {
+      appEl.innerHTML = page.render(state);
+
+      // ── Update shell UI ──
+      updateBottomNav(pageKey);
+      updatePageLabel(pageKey);
+      updateSyncIndicator(state.syncStatus);
+
+      // ── Post-render initialization ──
+      if (page.afterRender) {
+        // Use requestAnimationFrame for DOM to settle
+        requestAnimationFrame(() => {
+          try { page.afterRender(state); } catch (e) { console.error('afterRender error:', e); }
+        });
+      }
+
+      // ── Store unmount reference ──
+      currentUnmount = page.unmount ? () => page.unmount() : null;
+    } else {
+      appEl.innerHTML = `<div class="page"><div class="card empty">Page "${E(pageKey)}" not found.</div></div>`;
+    }
+
+    // ── Sync drawer state ──
+    const drawer = $('#drawer');
+    const backdrop = $('#drawer-backdrop');
+    if (drawer) {
+      drawer.classList.toggle('open', state.drawerOpen);
+      drawer.setAttribute('aria-hidden', String(!state.drawerOpen));
+    }
+    if (backdrop) backdrop.classList.toggle('open', state.drawerOpen);
+
+    // ── Toast ──
+    if (state.toast) {
+      renderToast(state.toast.message, state.toast.type, state.toast.duration);
+    }
+
+    // ── Loading ──
+    renderLoading(state.loading);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Online/Offline Detection
+// ═══════════════════════════════════════════════════
+
+/** @type {Function|null} Cleanup for connectivity listeners */
+let connectivityCleanup = null;
+
+function initConnectivity() {
+  const onOnline = () => {
+    store.setState({ isOnline: true });
+    showToast('Back online', 'success', 2000);
+    // Trigger sync
+    handleSyncNow();
+  };
+  const onOffline = () => {
+    store.setState({ isOnline: false });
+    showToast('Offline mode', 'warn', 3000);
+  };
+
+  window.addEventListener('online', onOnline);
+  window.addEventListener('offline', onOffline);
+
+  connectivityCleanup = () => {
+    window.removeEventListener('online', onOnline);
+    window.removeEventListener('offline', onOffline);
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// Keyboard Shortcuts
+// ═══════════════════════════════════════════════════
+
+/** @type {Function|null} Cleanup for keyboard listener */
+let keyboardCleanup = null;
+
+function initKeyboardShortcuts() {
+  const onKey = (e) => {
+    // Ctrl+/ or Cmd+/ → open search
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      e.preventDefault();
+      openSearch();
+      return;
+    }
+
+    // Escape → close search or modal or drawer
+    if (e.key === 'Escape') {
+      const searchOverlay = $('#search-overlay');
+      if (searchOverlay?.style.display !== 'none') {
+        closeSearch();
+        return;
+      }
+      const st = store.getState();
+      if (st.drawerOpen) { toggleDrawer(); return; }
+      if (st.activeModal) { closeModal(); return; }
+    }
+  };
+
+  document.addEventListener('keydown', onKey);
+  keyboardCleanup = () => document.removeEventListener('keydown', onKey);
+}
+
+// ═══════════════════════════════════════════════════
+// Service Worker Registration
+// ═══════════════════════════════════════════════════
+
+/** @type {ServiceWorkerRegistration|null} */
+let swRegistration = null;
+
+async function initServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    swRegistration = reg;
+    console.log('[SW] Registered:', reg.scope);
+
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker?.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showToast('Update available — reloading', 'success');
+          setTimeout(() => location.reload(), 1500);
+        }
+      });
+    });
+  } catch (err) {
+    console.warn('[SW] Registration failed:', err);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Splash Screen
+// ═══════════════════════════════════════════════════
+
+function initSplashScreen() {
+  const splash = document.getElementById('splash-screen');
+  if (!splash) return;
+
+  // Fade out after a short delay
+  splash.style.transition = 'opacity 0.5s ease';
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      splash.style.opacity = '0';
+      setTimeout(() => {
+        splash.style.display = 'none';
+      }, 500);
+    }, 800);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Google Maps Loader
+// ═══════════════════════════════════════════════════
+
+/** @type {boolean} */
+let googleMapsLoaded = false;
+
+function loadGoogleMaps() {
+  if (googleMapsLoaded) return;
+  if (!config.hasGoogleMaps) return;
+  if (window.google?.maps) {
+    googleMapsLoaded = true;
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${config.GOOGLE_MAPS_API_KEY}&libraries=places`;
+  script.async = true;
+  script.defer = true;
+  script.onload = () => { googleMapsLoaded = true; };
+  script.onerror = () => console.warn('[Google Maps] Failed to load');
+  document.head.appendChild(script);
+}
+
+// ═══════════════════════════════════════════════════
+// Periodic Sync
+// ═══════════════════════════════════════════════════
+
+/** @type {number|null} */
+let syncTimerId = null;
+
+function startPeriodicSync() {
+  if (syncTimerId) clearInterval(syncTimerId);
+  syncTimerId = setInterval(() => {
+    const st = store.getState();
+    if (st.isOnline && st.syncQueue.length > 0) {
+      handleSyncNow();
+    }
+  }, config.SYNC_INTERVAL);
+}
+
+function stopPeriodicSync() {
+  if (syncTimerId) { clearInterval(syncTimerId); syncTimerId = null; }
+}
+
+// ═══════════════════════════════════════════════════
+// App Initialization
+// ═══════════════════════════════════════════════════
+
+/** @type {Function[]} Cleanup functions to run on unload */
+const cleanupFns = [];
+
+/**
+ * Initialize the application.
+ * Call once when DOM is ready.
+ */
+export function initApp() {
+  // ── 1. Error boundary ──
+  const cleanupErrors = initErrorBoundary();
+  cleanupFns.push(cleanupErrors);
+
+  // ── 2. Build app shell ──
+  buildAppShell();
+
+  // ── 3. Apply theme ──
+  const theme = store.getState().theme;
+  document.body.setAttribute('data-theme', theme);
+
+  // ── 4. Register routes ──
+  registerRoutes();
+
+  // ── 5. Start render loop ──
+  renderApp();
+
+  // ── 6. Init connectivity ──
+  initConnectivity();
+
+  // ── 7. Keyboard shortcuts ──
+  initKeyboardShortcuts();
+
+  // ── 8. Service worker ──
+  initServiceWorker();
+
+  // ── 9. Google Maps ──
+  loadGoogleMaps();
+
+  // ── 10. Start periodic snapshots ──
+  const stopSnap = startSnapshots(config.SNAPSHOT_INTERVAL);
+  cleanupFns.push(stopSnap);
+
+  // ── 11. Start periodic sync ──
+  startPeriodicSync();
+
+  // ── 12. Splash screen ──
+  initSplashScreen();
+
+  // ── 13. Resolve initial route ──
+  router.resolve();
+
+  console.log(`[FieldOps v${config.APP_VERSION}] Initialized`);
+}
+
+/**
+ * Tear down the application. Call on logout / app destroy.
+ */
+export function destroyApp() {
+  // Unmount current page
+  if (currentUnmount) {
+    try { currentUnmount(); } catch (e) { /* ignore */ }
+    currentUnmount = null;
+  }
+
+  // Run all cleanup functions
+  cleanupFns.forEach((fn) => { try { fn(); } catch (e) { /* ignore */ } });
+  cleanupFns.length = 0;
+
+  // Stop timers
+  stopPeriodicSync();
+  stopSnapshots();
+
+  // Remove router
+  router.destroy();
+
+  // Connectivity
+  if (connectivityCleanup) { connectivityCleanup(); connectivityCleanup = null; }
+
+  // Keyboard
+  if (keyboardCleanup) { keyboardCleanup(); keyboardCleanup = null; }
+
+  console.log('[FieldOps] Destroyed');
+}
+
+// ═══════════════════════════════════════════════════
+// Auto-initialize on DOM ready
+// ═══════════════════════════════════════════════════
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+// ═══════════════════════════════════════════════════
+// Exports (for testing / external access)
+// ═══════════════════════════════════════════════════
+
+export { pages };
