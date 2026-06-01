@@ -161,6 +161,9 @@ create table if not exists public.sync_events (
 
 alter table public.jobs add column if not exists estimate numeric(12,2) not null default 0;
 alter table public.jobs add column if not exists customer text;
+alter table public.jobs add column if not exists customer_name text;
+alter table public.jobs add column if not exists state text;
+alter table public.jobs add column if not exists zip text;
 alter table public.jobs add column if not exists phone text;
 alter table public.jobs add column if not exists email text;
 alter table public.jobs add column if not exists address text;
@@ -180,6 +183,23 @@ alter table public.jobs add column if not exists scheduled_start timestamptz;
 alter table public.jobs add column if not exists scheduled_end timestamptz;
 alter table public.jobs add column if not exists completed_at timestamptz;
 alter table public.jobs add column if not exists updated_at timestamptz not null default now();
+
+-- New feature columns (payment, priority, reminders, timer, expenses)
+alter table public.jobs add column if not exists priority text default 'normal';
+alter table public.jobs add column if not exists deposit_paid numeric(12,2) not null default 0;
+alter table public.jobs add column if not exists balance_due numeric(12,2) not null default 0;
+alter table public.jobs add column if not exists reminder_date date;
+alter table public.jobs add column if not exists timer_start timestamptz;
+alter table public.jobs add column if not exists timer_total numeric default 0;
+
+create table if not exists public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  job_id uuid not null references public.jobs(id) on delete cascade,
+  description text not null,
+  amount numeric(12,2) not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
 alter table public.techs add column if not exists active boolean not null default true;
 alter table public.techs add column if not exists notes text;
@@ -212,6 +232,7 @@ create index if not exists idx_photos_job_id on public.photos(job_id);
 create index if not exists idx_pdf_documents_job_id on public.pdf_documents(job_id);
 create index if not exists idx_appointments_job_id on public.appointments(job_id);
 create index if not exists idx_appointments_starts_at on public.appointments(starts_at);
+create index if not exists idx_expenses_job_id on public.expenses(job_id);
 
 -- =========================
 -- Updated-at triggers
@@ -250,6 +271,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists set_appointments_updated_at on public.appointments;
 create trigger set_appointments_updated_at
 before update on public.appointments
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_expenses_updated_at on public.expenses;
+create trigger set_expenses_updated_at
+before update on public.expenses
 for each row execute function public.set_updated_at();
 
 -- =========================
@@ -322,6 +348,12 @@ begin
 exception when duplicate_object then null;
 end $$;
 
+do $$
+begin
+  alter publication supabase_realtime add table public.expenses;
+exception when duplicate_object then null;
+end $$;
+
 -- =========================
 -- RLS
 -- Current app uses the anon client without login screens.
@@ -337,6 +369,7 @@ alter table public.photos enable row level security;
 alter table public.pdf_documents enable row level security;
 alter table public.appointments enable row level security;
 alter table public.sync_events enable row level security;
+alter table public.expenses enable row level security;
 
 drop policy if exists "anon_select_techs" on public.techs;
 drop policy if exists "anon_insert_techs" on public.techs;
@@ -409,3 +442,12 @@ create policy "anon_select_sync_events" on public.sync_events for select to anon
 create policy "anon_insert_sync_events" on public.sync_events for insert to anon with check (true);
 create policy "anon_update_sync_events" on public.sync_events for update to anon using (true) with check (true);
 create policy "anon_delete_sync_events" on public.sync_events for delete to anon using (true);
+
+drop policy if exists "anon_select_expenses" on public.expenses;
+drop policy if exists "anon_insert_expenses" on public.expenses;
+drop policy if exists "anon_update_expenses" on public.expenses;
+drop policy if exists "anon_delete_expenses" on public.expenses;
+create policy "anon_select_expenses" on public.expenses for select to anon using (true);
+create policy "anon_insert_expenses" on public.expenses for insert to anon with check (true);
+create policy "anon_update_expenses" on public.expenses for update to anon using (true) with check (true);
+create policy "anon_delete_expenses" on public.expenses for delete to anon using (true);
