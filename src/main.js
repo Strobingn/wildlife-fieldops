@@ -34,6 +34,7 @@ import {
   STATUS_STYLES, PRIORITIES,
   VISIT_TYPES, REPAIR_STATUSES, SEVERITIES,
   PHOTO_TAGS, ESTIMATE_TEMPLATES,
+  BASE_PRICES, SEVERITY_MULTIPLIERS,
   BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY,
 } from './constants.js';
 
@@ -1174,9 +1175,16 @@ const EstimateCalc = {
             <label>Tax Rate</label>
             <input type="number" id="est-tax" value="${config.DEFAULT_TAX_RATE * 100}" min="0" max="20" step="0.001">%
           </div>
-          <button class="btn primary" data-action="calc-estimate">🧮 Calculate</button>
-          <button class="btn" data-action="email-estimate">📧 Email</button>
-          <button class="btn" data-action="convert-job">➕ Convert to Job</button>
+          <div class="estimate-total-bar" id="est-total-bar" style="display:none;">
+            <div class="total-label">Grand Total</div>
+            <div class="total-value" id="est-total-val">$0.00</div>
+            <div class="total-breakdown" id="est-total-breakdown">Subtotal $0.00 + Tax $0.00</div>
+          </div>
+          <div style="margin-top:var(--space-md);display:flex;gap:var(--space-sm);flex-wrap:wrap;">
+            <button class="btn primary" data-action="calc-estimate">🧮 Calculate Full Breakdown</button>
+            <button class="btn" data-action="email-estimate">📧 Email</button>
+            <button class="btn" data-action="convert-job">➕ Convert to Job</button>
+          </div>
           <pre id="estimate-output" class="estimate-output"></pre>
         </div>
       </div>
@@ -1203,7 +1211,16 @@ const EstimateCalc = {
     $('#est-service')?.addEventListener('change', (e) => {
       const opt = e.target.selectedOptions[0];
       if (opt?.dataset?.price) $('#est-price').value = opt.dataset.price;
+      updateEstimateTotal();
     });
+
+    // Live total on every input change
+    const estInputs = ['est-species','est-severity','est-price','est-qty','est-tax','est-service'];
+    estInputs.forEach(id => {
+      $('#'+id)?.addEventListener('input', updateEstimateTotal);
+      $('#'+id)?.addEventListener('change', updateEstimateTotal);
+    });
+    updateEstimateTotal(); // Initial calc
 
     $$('[data-action="calc-estimate"]').forEach((btn) => {
       btn.addEventListener('click', handleCalcEstimate);
@@ -1838,6 +1855,29 @@ function handleAddToCalendar(jobId) {
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${subject}&details=${body}&location=${location}&dates=${fmt(start)}/${fmt(end)}`;
   window.open(url, '_blank');
   showToast('Opening Google Calendar...');
+}
+
+function updateEstimateTotal() {
+  const species = $('#est-species')?.value || 'General';
+  const severity = $('#est-severity')?.value || 'Medium';
+  const price = parseFloat($('#est-price')?.value || '0');
+  const qty = parseFloat($('#est-qty')?.value || '1');
+  const taxRate = parseFloat($('#est-tax')?.value || '8.875') / 100;
+
+  const basePrice = BASE_PRICES[species] || 500;
+  const mult = SEVERITY_MULTIPLIERS[severity] || 1.35;
+  const subtotal = (basePrice * mult) + (price * qty);
+  const tax = subtotal * taxRate;
+  const total = subtotal + tax;
+
+  const totalBar = $('#est-total-bar');
+  const totalVal = $('#est-total-val');
+  const totalBreak = $('#est-total-breakdown');
+  if (totalBar && totalVal && totalBreak) {
+    totalBar.style.display = '';
+    totalVal.textContent = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    totalBreak.textContent = `Subtotal $${subtotal.toFixed(2)} + Tax $${tax.toFixed(2)} @ ${(taxRate*100).toFixed(3)}%`;
+  }
 }
 
 function handleCalcEstimate() {
