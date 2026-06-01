@@ -44,7 +44,7 @@ const STATUS_COLORS = {
 
 function formatCurrency(amount) {
   const num = parseFloat(amount) || 0;
-  return '$' + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `$${num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
 function formatDate(dateStr) {
@@ -423,8 +423,8 @@ export function generateEstimatePDF(job, estimate = {}) {
   const total = Math.round((subtotal + tax) * 100) / 100;
 
   const pricingRows = [
-    ['Base Service Fee (species: ' + (job.species || 'General') + ')', formatCurrency(basePrice)],
-    ['Complexity Adjustment (' + (estimate.severity || 'Medium') + ')', 'x ' + multiplier.toFixed(2)],
+    [`Base Service Fee (species: ${job.species || 'General'})`, formatCurrency(basePrice)],
+    [`Complexity Adjustment (${estimate.severity || 'Medium'})`, `x ${multiplier.toFixed(2)}`],
     ['', ''],
     ['Subtotal', formatCurrency(subtotal)],
   ];
@@ -582,7 +582,7 @@ export function generateInvoicePDF(job, options = {}) {
   const dueDate = options.dueDate ? formatDate(options.dueDate) : formatDate(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000));
 
   let y = addPageHeader(doc, 'INVOICE', `Invoice #: ${invoiceNumber}`);
-  let pageNum = 1;
+  const pageNum = 1;
 
   // ─── Invoice Meta ────────────────────────────────────────────────────────
   doc.setFontSize(10);
@@ -743,7 +743,7 @@ export function generateInvoicePDF(job, options = {}) {
     'Payment is due within 15 days of invoice date.',
     'Accepted payment methods: Check, Cash, Credit Card, ACH Transfer.',
     'Make checks payable to: Wildlife Whisperer LLC',
-    'Credit card payments: Call (555) 123-4567 or pay online at ' + COMPANY.website,
+    `Credit card payments: Call (555) 123-4567 or pay online at ${COMPANY.website}`,
     'Late payments subject to 1.5% monthly service charge.',
   ];
 

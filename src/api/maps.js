@@ -93,7 +93,7 @@ export async function loadGoogleMaps(loadPlaces = true) {
     }
 
     // Create callback
-    const callbackName = '_onGoogleMapsLoaded_' + Date.now();
+    const callbackName = `_onGoogleMapsLoaded_${Date.now()}`;
     window[callbackName] = () => {
       _scriptLoaded = true;
       delete window[callbackName];

@@ -205,7 +205,7 @@ export const AIModal = {
     const season = this._season;
     const hints = SPECIES_HINTS[species] || "Track behavior, seasonality, and recurrence.";
 
-    let tips = [];
+    const tips = [];
 
     // Species-specific tips
     tips.push(`<b>Species Profile — ${species}</b>`);
@@ -300,6 +300,6 @@ export const AIModal = {
       ],
     };
 
-    return (tips[season] || tips["Spring"]).map((t) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);">${t}</div>`).join("");
+    return (tips[season] || tips.Spring).map((t) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);">${t}</div>`).join("");
   },
 };

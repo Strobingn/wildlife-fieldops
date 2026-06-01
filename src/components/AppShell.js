@@ -77,7 +77,7 @@ export const AppShell = {
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           ${pendingCount > 0 ? `<span class="pill warn">${pendingCount} pending</span>` : ""}
-          <span id="syncTime" class="tiny" style="margin-top:0;">${state.lastSync ? "Synced " + this._timeAgo(state.lastSync) : "Not synced"}</span>
+          <span id="syncTime" class="tiny" style="margin-top:0;">${state.lastSync ? `Synced ${this._timeAgo(state.lastSync)}` : 'Not synced'}</span>
         </div>
       </div>
 

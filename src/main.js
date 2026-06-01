@@ -665,7 +665,7 @@ const JobDetail = {
             <div class="detail-title-block">
               <h2>${E(job.title || job.species + ' job')}</h2>
               <span class="status-pill ${sc}">${E(job.status)}</span>
-              <span class="priority-pill ${PRIORITY_STYLES[job.priority] || 'normal'}">${E(job.priority || 'Normal')}</span>
+              <span class="priority-pill ${job.priority?.toLowerCase() || 'normal'}">${E(job.priority || 'Normal')}</span>
             </div>
           </div>
           <div class="detail-meta">
@@ -927,7 +927,7 @@ const JobForm = {
           </div>
           <div class="form-row">
             <label>Priority</label>
-            <select id="form-priority">${O(PRIORITY_LEVELS, job?.priority || 'Normal')}</select>
+            <select id="form-priority">${O(PRIORITIES, job?.priority || 'Normal')}</select>
           </div>
           <div class="form-row">
             <label>Assigned Tech</label>
@@ -1166,7 +1166,7 @@ const EstimateCalc = {
           </div>
           <div class="form-row">
             <label>Severity</label>
-            <select id="est-severity">${O(SEVERITY_LEVELS, 'Medium')}</select>
+            <select id="est-severity">${O(SEVERITIES, 'Medium')}</select>
           </div>
           <div class="form-row">
             <label>Tax Rate</label>
