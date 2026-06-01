@@ -2,331 +2,62 @@ name: Build Android APK
 
 on:
   push:
-    branches: [main, release/*]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+    branches: [main, v3-rebuild]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
-
-env:
-  NODE_VERSION: '22'
-  JAVA_VERSION: '21'
-  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
   lint:
-    name: Lint & Type Check
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          node-version: '22'
+      - run: npm install
+      - run: npm run lint --if-present
 
-      - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-      - name: Run ESLint
-        run: npm run lint --if-present
-
-      - name: Check Code Formatting
-        run: npm run format:check --if-present
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
+  build:
+    name: Build APK
     needs: lint
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-      - name: Run Unit Tests
-        run: npm test --if-present
-
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: |
-            coverage/
-            junit.xml
-        continue-on-error: true
-
-  build-web:
-    name: Build Web App
     runs-on: ubuntu-latest
-    needs: [lint, test]
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-      - name: Set Environment Variables
-        run: |
-          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> .env
-          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
-          echo "VITE_GOOGLE_MAPS_API_KEY=${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}" >> .env
-          echo "VITE_OPENWEATHER_API_KEY=${{ secrets.VITE_OPENWEATHER_API_KEY }}" >> .env
-          echo "VITE_GOOGLE_API_KEY=${{ secrets.VITE_GOOGLE_API_KEY }}" >> .env
-          echo "VITE_GOOGLE_CALENDAR_CLIENT_ID=${{ secrets.VITE_GOOGLE_CALENDAR_CLIENT_ID }}" >> .env
-
-      - name: Build Vite App
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-          VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
-
-      - name: Verify Build Output
-        run: |
-          if [ ! -d "dist" ]; then
-            echo "Error: dist directory not found"
-            exit 1
-          fi
-          if [ ! -f "dist/index.html" ]; then
-            echo "Error: index.html not found in dist"
-            exit 1
-          fi
-          echo "Build output verified:"
-          ls -la dist/
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-build
-          path: dist/
-          retention-days: 7
-
-  build-android:
-    name: Build Android APK
-    runs-on: ubuntu-latest
-    needs: build-web
-    outputs:
-      version-code: ${{ steps.version.outputs.version-code }}
-      version-name: ${{ steps.version.outputs.version-name }}
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: ${{ env.JAVA_DISTRIBUTION }}
-          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          java-version: '21'
 
-      - name: Verify Java
-        run: |
-          java -version
-          javac -version
-
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          node-version: '22'
 
-      - name: Install Dependencies
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      - name: Install dependencies
+        run: npm install
 
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: web-build
-          path: dist/
+      - name: Build web app
+        run: npm run build
 
-      - name: Generate Version Code
-        id: version
-        run: |
-          # Generate version code from git tag or commit count
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then
-            VERSION_NAME=${GITHUB_REF#refs/tags/v}
-          else
-            VERSION_NAME=$(node -p "require('./package.json').version")
-          fi
-
-          # Version code: YYMMDDNNN (date + build number)
-          BUILD_NUMBER=${{ github.run_number }}
-          VERSION_CODE=$(date +%y%m%d)$(printf "%03d" $BUILD_NUMBER)
-
-          echo "version-code=$VERSION_CODE" >> $GITHUB_OUTPUT
-          echo "version-name=$VERSION_NAME" >> $GITHUB_OUTPUT
-
-          echo "Version Code: $VERSION_CODE"
-          echo "Version Name: $VERSION_NAME"
-
-          # Update Android version in build.gradle if exists
-          if [ -f "android/app/build.gradle" ]; then
-            sed -i "s/versionCode .*/versionCode $VERSION_CODE/" android/app/build.gradle
-            sed -i "s/versionName \".*\"/versionName \"$VERSION_NAME\"/" android/app/build.gradle
-          fi
-
-      - name: Verify Capacitor CLI
-        run: npx cap --version
-
-      - name: Add Android Platform If Missing
+      - name: Add Android platform
         run: |
           if [ ! -d "android" ]; then
             npx cap add android
           fi
 
-      - name: Generate Android Assets
-        run: |
-          # Ensure icon.png exists (fallback to logo.png)
-          if [ ! -f "assets/icon.png" ] && [ -f "assets/logo.png" ]; then
-            echo "icon.png not found, using logo.png as fallback"
-            cp assets/logo.png assets/icon.png
-          fi
-
-          if [ -f "assets/icon.png" ] && [ -f "assets/splash.png" ]; then
-            npx capacitor-assets generate --android
-          else
-            echo "Missing assets/icon.png or assets/splash.png"
-            exit 1
-          fi
-
-      - name: Sync Capacitor Android
+      - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 11076708
-          accept-android-licenses: true
-
-      - name: Build Debug APK
-        if: github.event.inputs.build_type != 'release' && !startsWith(github.ref, 'refs/tags/v')
+      - name: Build APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug
 
-      - name: Build Release APK
-        if: github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/v')
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEYSTORE_ALIAS_PASSWORD: ${{ secrets.KEYSTORE_ALIAS_PASSWORD }}
-
-      - name: Sign Release APK
-        if: github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/v')
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: android/app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.SIGNING_KEY_BASE64 }}
-          alias: ${{ secrets.KEYSTORE_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEYSTORE_ALIAS_PASSWORD }}
-        continue-on-error: true
-
-      - name: Print SHA Fingerprints
-        continue-on-error: true
-        run: |
-          if [ -f "$HOME/.android/debug.keystore" ]; then
-            echo "=== Debug Keystore SHA ==="
-            keytool -list -v \
-              -keystore ~/.android/debug.keystore \
-              -alias androiddebugkey \
-              -storepass android \
-              -keypass android 2>/dev/null | grep -E "SHA1:|SHA256:" || true
-          fi
-          if [ -f "wildlife-whisperer.keystore" ]; then
-            echo "=== Release Keystore SHA ==="
-            keytool -list -v \
-              -keystore wildlife-whisperer.keystore \
-              -alias wildlife-whisperer \
-              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" 2>/dev/null | grep -E "SHA1:|SHA256:" || true
-          fi
-
-      - name: Upload Debug APK Artifact
-        if: github.event.inputs.build_type != 'release' && !startsWith(github.ref, 'refs/tags/v')
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: wildlife-fieldops-debug-apk
+          name: wildlife-fieldops-apk
           path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 14
-
-      - name: Upload Release APK Artifact
-        if: github.event.inputs.build_type == 'release' || startsWith(github.ref, 'refs/tags/v')
-        uses: actions/upload-artifact@v4
-        with:
-          name: wildlife-fieldops-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 30
-
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v1
-        with:
-          files: android/app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
-          name: "FieldOps v${{ steps.version.outputs.version-name }}"
-          body: |
-            ## Wildlife Whisperer FieldOps v${{ steps.version.outputs.version-name }}
-
-            ### Build Info
-            - **Version Code**: ${{ steps.version.outputs.version-code }}
-            - **Version Name**: ${{ steps.version.outputs.version-name }}
-            - **Build Date**: ${{ github.event.repository.updated_at }}
-            - **Commit**: ${{ github.sha }}
-
-            ### Installation
-            Download the APK and install on your Android device.
-            You may need to enable "Install from unknown sources" in your device settings.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-status:
-    name: Update Build Status
-    runs-on: ubuntu-latest
-    needs: build-android
-    if: always()
-    steps:
-      - name: Generate Build Status Badge
-        run: |
-          if [ "${{ needs.build-android.result }}" == "success" ]; then
-            COLOR="success"
-            STATUS="passing"
-          else
-            COLOR="critical"
-            STATUS="failed"
-          fi
-          echo "Build status: $STATUS"
