@@ -50,7 +50,7 @@ function validateJobData(data) {
   if (!data.address || data.address.trim().length < 5) {
     errors.push('Address is required (min 5 characters)');
   }
-  if (data.phone && !/^\+?[\d\s\-\(\)]{10,15}$/.test(data.phone.replace(/\s/g, ''))) {
+  if (data.phone && !/^\+?[\d\s\-()]{10,15}$/.test(data.phone.replace(/\s/g, ''))) {
     errors.push('Invalid phone number format');
   }
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {

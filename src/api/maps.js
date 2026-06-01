@@ -10,14 +10,13 @@ import { KEYS } from '../config.js';
 
 const GOOGLE_MAPS_API_KEY = KEYS.GOOGLE_MAPS;
 const SCRIPT_ID = 'google-maps-script';
-const PLACES_SCRIPT_ID = 'google-places-script';
 const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 }; // NYC default
 const DEFAULT_ZOOM = 12;
 
 // ─── Module State ────────────────────────────────────────────────────────────
 
 let scriptLoading = false;
-let scriptLoaded = false;
+let _scriptLoaded = false;
 let loadCallbacks = [];
 const activeMaps = new Map();
 const activeMarkers = new Map();
@@ -67,7 +66,7 @@ export async function loadGoogleMaps(loadPlaces = true) {
 
   // Already loaded
   if (window.google?.maps) {
-    scriptLoaded = true;
+    _scriptLoaded = true;
     return true;
   }
 
@@ -86,7 +85,7 @@ export async function loadGoogleMaps(loadPlaces = true) {
       const checkLoaded = setInterval(() => {
         if (window.google?.maps) {
           clearInterval(checkLoaded);
-          scriptLoaded = true;
+          _scriptLoaded = true;
           resolve(true);
         }
       }, 100);
@@ -96,7 +95,7 @@ export async function loadGoogleMaps(loadPlaces = true) {
     // Create callback
     const callbackName = '_onGoogleMapsLoaded_' + Date.now();
     window[callbackName] = () => {
-      scriptLoaded = true;
+      _scriptLoaded = true;
       delete window[callbackName];
       loadCallbacks.forEach((cb) => cb(true));
       loadCallbacks = [];

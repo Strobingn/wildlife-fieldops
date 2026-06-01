@@ -5,7 +5,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { KEYS } from '../config.js';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 

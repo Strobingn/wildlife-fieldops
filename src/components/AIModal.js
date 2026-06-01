@@ -19,7 +19,7 @@ export const AIModal = {
   _season: "Spring",
   _observations: "",
 
-  render(state) {
+  render(_state) {
     const currentMonth = new Date().getMonth();
     const currentSeason = currentMonth < 2 ? "Winter" : currentMonth < 5 ? "Spring" : currentMonth < 8 ? "Summer" : "Fall";
     if (!this._season) this._season = currentSeason;

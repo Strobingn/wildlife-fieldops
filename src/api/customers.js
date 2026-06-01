@@ -40,7 +40,7 @@ function validateCustomerData(data, isUpdate = false) {
   if (!isUpdate && (!data.name || data.name.trim().length < 2)) {
     errors.push('Customer name is required (min 2 characters)');
   }
-  if (data.phone && !/^\+?[\d\s\-\(\)]{10,15}$/.test(data.phone.replace(/\s/g, ''))) {
+  if (data.phone && !/^\+?[\d\s\-()]{10,15}$/.test(data.phone.replace(/\s/g, ''))) {
     errors.push('Invalid phone number format');
   }
   if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
