@@ -35,7 +35,7 @@ export default [
       'dot-notation': 'warn',
       'object-shorthand': 'warn',
       'prefer-arrow-callback': 'warn',
-      'prefer-template': 'warn',
+      'prefer-template': 'off',
     },
     linterOptions: {
       reportUnusedDisableDirectives: false,
