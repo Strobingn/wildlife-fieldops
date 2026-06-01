@@ -474,6 +474,144 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
+   Page Layout
+   --------------------------------------------------------------------------- */
+.page {
+  padding: var(--content-padding);
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Dashboard Metrics Grid
+   --------------------------------------------------------------------------- */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+@media (min-width: 640px) {
+  .metrics-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+  }
+}
+
+.metric-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  text-align: center;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  opacity: 0.6;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: var(--border-hover);
+}
+
+.metric-value {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: var(--space-xs);
+}
+
+.metric-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ---------------------------------------------------------------------------
+   Section Titles
+   --------------------------------------------------------------------------- */
+.section-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text);
+  margin: var(--space-lg) 0 var(--space-sm);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------------------
+   Town Grid
+   --------------------------------------------------------------------------- */
+.town-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+@media (min-width: 640px) {
+  .town-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.town-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: var(--transition);
+}
+
+.town-card:hover {
+  border-color: var(--border-hover);
+  transform: translateX(4px);
+}
+
+.town-card b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Empty State
+   --------------------------------------------------------------------------- */
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: var(--space-xl) var(--space-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   Persist Status (hidden in production)
+   --------------------------------------------------------------------------- */
+.persist-status {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
    Typography
    --------------------------------------------------------------------------- */
 h1, h2, h3, h4, h5, h6 {

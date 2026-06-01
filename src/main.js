@@ -407,10 +407,22 @@ const Dashboard = {
 
         <!-- Quick Actions -->
         <div class="quick-actions">
-          <button class="action-btn primary" data-action="new-job">➕ New Job</button>
-          <button class="action-btn" data-action="new-customer">👤 Add Customer</button>
-          <button class="action-btn" data-action="estimate">💵 Estimate</button>
-          <button class="action-btn" data-action="gps">📍 GPS Map</button>
+          <button class="quick-action" data-action="new-job">
+            <span>➕</span>
+            <span>New Job</span>
+          </button>
+          <button class="quick-action" data-action="new-customer">
+            <span>👤</span>
+            <span>Add Customer</span>
+          </button>
+          <button class="quick-action" data-action="estimate">
+            <span>💵</span>
+            <span>Estimate</span>
+          </button>
+          <button class="quick-action" data-action="gps">
+            <span>📍</span>
+            <span>GPS Map</span>
+          </button>
         </div>
 
         <!-- Recent Jobs -->
@@ -433,10 +445,7 @@ const Dashboard = {
           </div>
         ` : ''}
 
-        <!-- Persist Status -->
-        <div class="persist-status">
-          <small>Persistent memory active. Auto-snapshot every 30s.</small>
-        </div>
+
       </div>
     `;
   },
