@@ -33,7 +33,7 @@ export default [
       'no-trailing-spaces': 'off',
       'eqeqeq': 'off',
       'curly': 'off',
-      'dot-notation': 'offf',
+      'dot-notation': 'off',
       'object-shorthand': 'off',
       'prefer-arrow-callback': 'off',
       'no-console': 'off',
@@ -62,5 +62,4 @@ export default [
       'no-unused-vars': 'off',
     },
   },
-
 ];
