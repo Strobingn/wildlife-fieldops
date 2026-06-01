@@ -120,56 +120,49 @@ function buildAppShell() {
 
   const shell = document.createElement('div');
   shell.id = 'app-shell';
-  shell.innerHTML = `
-    <!-- Top Bar -->
-    <header class="app-bar">
-      <button id="menu-btn" class="icon-btn" aria-label="Menu">&#9776;</button>
-      <h1 id="page-label" class="page-title">Wildlife Whisperer</h1>
-      <div class="app-bar-actions">
-        <button id="search-btn" class="icon-btn" aria-label="Search">&#128269;</button>
-        <span id="sync-indicator" class="sync-badge idle"></span>
+  try {
+    shell.innerHTML = `
+      <header class="app-bar">
+        <button id="menu-btn" class="icon-btn" aria-label="Menu">&#9776;</button>
+        <h1 id="page-label" class="page-title">Wildlife Whisperer</h1>
+        <div class="app-bar-actions">
+          <button id="search-btn" class="icon-btn" aria-label="Search">&#128269;</button>
+          <span id="sync-indicator" class="sync-badge idle"></span>
+        </div>
+      </header>
+      <nav id="drawer" class="drawer" aria-hidden="true">
+        <div class="drawer-header">
+          <h2>🦝 Wildlife Whisperer</h2>
+          <button id="drawer-close" class="icon-btn" aria-label="Close">&times;</button>
+        </div>
+        <div class="drawer-body">
+          ${DRAWER_PAGES.map((p) =>
+            `<a class="drawer-link" data-route="${p.id}" href="${p.id === 'dashboard' ? '#/' : `#/${p.id}`}">${p.label}</a>`
+          ).join('')}
+        </div>
+        <div class="drawer-footer"><small id="build-info"></small></div>
+      </nav>
+      <div id="drawer-backdrop" class="drawer-backdrop"></div>
+      <div id="search-overlay" class="search-overlay" style="display:none;">
+        <div class="search-box">
+          <input id="global-search" type="text" placeholder="Search jobs, customers, addresses..." autocomplete="off">
+          <button id="search-close" class="icon-btn">&times;</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
       </div>
-    </header>
-
-    <!-- Drawer Navigation -->
-    <nav id="drawer" class="drawer" aria-hidden="true">
-      <div class="drawer-header">
-        <h2>🦝 Wildlife Whisperer</h2>
-        <button id="drawer-close" class="icon-btn" aria-label="Close">&times;</button>
-      </div>
-      <div class="drawer-body">
-        ${DRAWER_PAGES.map(([route, icon, label]) =>
-          `<a class="drawer-link" data-route="${route}" href="${route === 'dashboard' ? '#/' : `#/${route}`}">${icon} ${E(label)}</a>`
+      <main id="app" class="app-container"></main>
+      <nav class="bottom-nav">
+        ${BOTTOM_NAV.map((item, idx) =>
+          `<button data-route="${item.id}" data-idx="${idx}" aria-label="${E(item.label)}">
+            <span class="nav-icon">${item.icon}</span>
+            <span class="nav-label">${E(item.label)}</span>
+          </button>`
         ).join('')}
-      </div>
-      <div class="drawer-footer">
-        <small id="build-info"></small>
-      </div>
-    </nav>
-    <div id="drawer-backdrop" class="drawer-backdrop"></div>
-
-    <!-- Search Overlay -->
-    <div id="search-overlay" class="search-overlay" style="display:none;">
-      <div class="search-box">
-        <input id="global-search" type="text" placeholder="Search jobs, customers, addresses..." autocomplete="off">
-        <button id="search-close" class="icon-btn">&times;</button>
-      </div>
-      <div id="search-results" class="search-results"></div>
-    </div>
-
-    <!-- Main Content Area -->
-    <main id="app" class="app-container"></main>
-
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-      ${BOTTOM_NAV.map(([route, icon, label], idx) =>
-        `<button data-route="${route}" data-idx="${idx}" aria-label="${E(label)}">
-          <span class="nav-icon">${icon}</span>
-          <span class="nav-label">${E(label)}</span>
-        </button>`
-      ).join('')}
-    </nav>
-  `;
+      </nav>
+    `;
+  } catch (e) {
+    console.error('[AppShell] Failed to build:', e.message);
+  }
   document.body.appendChild(shell);
 
   // Drawer toggle
@@ -2316,7 +2309,7 @@ async function initServiceWorker() {
 // ═══════════════════════════════════════════════════
 
 function initSplashScreen() {
-  const splash = document.getElementById('splash-screen');
+  const splash = document.getElementById('splash');
   if (!splash) return;
 
   // Fade out after a short delay
@@ -2388,46 +2381,33 @@ const cleanupFns = [];
  * Call once when DOM is ready.
  */
 export function initApp() {
-  // ── 1. Error boundary ──
   const cleanupErrors = initErrorBoundary();
   cleanupFns.push(cleanupErrors);
 
-  // ── 2. Build app shell ──
   buildAppShell();
 
-  // ── 3. Apply theme ──
   const theme = store.getState().theme;
   document.body.setAttribute('data-theme', theme);
 
-  // ── 4. Register routes ──
   registerRoutes();
 
-  // ── 5. Start render loop ──
   renderApp();
 
-  // ── 6. Init connectivity ──
   initConnectivity();
 
-  // ── 7. Keyboard shortcuts ──
   initKeyboardShortcuts();
 
-  // ── 8. Service worker ──
   initServiceWorker();
 
-  // ── 9. Google Maps ──
   loadGoogleMaps();
 
-  // ── 10. Start periodic snapshots ──
   const stopSnap = startSnapshots(config.SNAPSHOT_INTERVAL);
   cleanupFns.push(stopSnap);
 
-  // ── 11. Start periodic sync ──
   startPeriodicSync();
 
-  // ── 12. Splash screen ──
   initSplashScreen();
 
-  // ── 13. Resolve initial route ──
   router.resolve();
 
   console.log(`[FieldOps v${config.APP_VERSION}] Initialized`);
