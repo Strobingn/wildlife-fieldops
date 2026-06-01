@@ -22,11 +22,9 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      // Only ERROR-level rules that catch real bugs:
       'no-undef': 'error',
       'no-var': 'error',
       'no-unused-private-class-members': 'error',
-      // All style preferences turned OFF (we have 85+ harmless ones):
       'no-unused-vars': 'off',
       'prefer-const': 'off',
       'prefer-template': 'off',
