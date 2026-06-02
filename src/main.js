@@ -28,6 +28,7 @@ import {
   compressImage, generatePDF, deepClone,
   debounce, throttle, groupBy, sortBy,
   searchJobs, filterJobs, calculateEstimate, mergeArrays,
+  formatDateShort,
 } from './utils.js';
 import {
   SPECIES, SERVICES, SPECIES_ICONS, SPECIES_HINTS,
@@ -936,6 +937,16 @@ const JobForm = {
             <label>Assigned Tech</label>
             <input type="text" id="form-tech" value="${E(job?.assigned_tech || '')}" placeholder="Technician name">
           </div>
+          <div class="form-row two-col">
+            <div>
+              <label>📅 Schedule Date</label>
+              <input type="date" id="form-scheduled-start" value="${job?.scheduled_start ? new Date(job.scheduled_start).toISOString().slice(0,10) : ''}">
+            </div>
+            <div>
+              <label>🕐 Schedule Time</label>
+              <input type="time" id="form-scheduled-time" value="${job?.scheduled_start ? new Date(job.scheduled_start).toTimeString().slice(0,5) : ''}">
+            </div>
+          </div>
           <div class="form-row">
             <label>Scope</label>
             <textarea id="form-scope" rows="3" placeholder="Describe the work scope...">${E(job?.scope || '')}</textarea>
@@ -1593,6 +1604,117 @@ const AIModal = {
 // ─────────────────────────────────────────────────
 
 /** @type {Record<string, {render: Function, afterRender?: Function, unmount?: Function}>} */
+// ═══════════════════════════════════════════════════
+// Schedule / Calendar Page
+// ═══════════════════════════════════════════════════
+
+const SchedulePage = {
+  render(state) {
+    const jobs = state.jobs || [];
+    const now = new Date();
+    const year = state.scheduleYear || now.getFullYear();
+    const month = state.scheduleMonth !== undefined ? state.scheduleMonth : now.getMonth();
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+
+    // Get scheduled jobs for this month
+    const scheduledJobs = jobs.filter(j => {
+      if (!j.scheduled_start) return false;
+      const d = new Date(j.scheduled_start);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    const jobsByDay = {};
+    scheduledJobs.forEach(j => {
+      const d = new Date(j.scheduled_start);
+      const day = d.getDate();
+      if (!jobsByDay[day]) jobsByDay[day] = [];
+      jobsByDay[day].push(j);
+    });
+
+    let calendarHTML = '';
+    for (let i = 0; i < startDayOfWeek; i++) {
+      calendarHTML += '<div class="cal-day cal-empty"></div>';
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+      const dayJobs = jobsByDay[day] || [];
+      const dots = dayJobs.map(j => {
+        const color = j.status === 'Active' ? '#22c55e' : j.status === 'Scheduled' ? '#eab308' : '#6b7280';
+        return `<span class="cal-dot" style="background:${color}" title="${E(j.customer || 'Job')}"></span>`;
+      }).join('');
+      calendarHTML += `
+        <div class="cal-day ${isToday ? 'cal-today' : ''} ${dayJobs.length ? 'cal-has-jobs' : ''}" data-day="${day}">
+          <span class="cal-day-num">${day}</span>
+          <div class="cal-dots">${dots}</div>
+          ${dayJobs.length ? `<span class="cal-count">${dayJobs.length}</span>` : ''}
+        </div>`;
+    }
+
+    // Upcoming jobs list
+    const upcoming = [...scheduledJobs]
+      .filter(j => new Date(j.scheduled_start) >= now)
+      .sort((a, b) => new Date(a.scheduled_start) - new Date(b.scheduled_start))
+      .slice(0, 10);
+
+    return `
+      <div class="page">
+        <h1 class="section-title">📅 Schedule</h1>
+        <div class="cal-header">
+          <button class="icon-btn" data-cal="prev" aria-label="Previous month">◀</button>
+          <h2>${monthNames[month]} ${year}</h2>
+          <button class="icon-btn" data-cal="next" aria-label="Next month">▶</button>
+        </div>
+        <div class="cal-grid">
+          ${dayNames.map(d => `<div class="cal-day-name">${d}</div>`).join('')}
+          ${calendarHTML}
+        </div>
+        <h2 class="section-title">Upcoming Inspections</h2>
+        <div class="card-flat">
+          ${upcoming.length ? upcoming.map(j => `
+            <div class="job-row" data-id="${j.id}">
+              <span class="job-row-date">${formatDateShort(j.scheduled_start)}</span>
+              <span class="job-row-title">${SPECIES_ICONS[j.species] || '🔧'} ${E(j.customer || 'Unknown')}</span>
+              <span class="status-badge ${(j.status || '').toLowerCase().replace(/\s+/g, '-')}">${E(j.status || 'Active')}</span>
+            </div>
+          `).join('') : '<p class="empty">No upcoming inspections scheduled.</p>'}
+        </div>
+      </div>`;
+  },
+
+  afterRender(state) {
+    $$('[data-cal]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dir = btn.dataset.cal;
+        const s = store.getState();
+        let m = s.scheduleMonth !== undefined ? s.scheduleMonth : new Date().getMonth();
+        let y = s.scheduleYear || new Date().getFullYear();
+        if (dir === 'prev') { m--; if (m < 0) { m = 11; y--; } }
+        if (dir === 'next') { m++; if (m > 11) { m = 0; y++; } }
+        store.setState({ scheduleMonth: m, scheduleYear: y });
+      });
+    });
+    $$('.cal-day.cal-has-jobs').forEach(day => {
+      day.addEventListener('click', () => {
+        const d = parseInt(day.dataset.day);
+        const s = store.getState();
+        const y = s.scheduleYear || new Date().getFullYear();
+        const m = s.scheduleMonth !== undefined ? s.scheduleMonth : new Date().getMonth();
+        const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        navigateTo('jobs', { filterDate: dateStr });
+      });
+    });
+    $$('.job-row[data-id]').forEach(row => {
+      row.addEventListener('click', () => navigateTo('job-detail', row.dataset.id));
+    });
+  },
+};
+
 const pages = {
   dashboard: Dashboard,
   jobs: JobList,
@@ -1603,6 +1725,7 @@ const pages = {
   estimate: EstimateCalc,
   photos: PhotoGallery,
   gps: GPSMap,
+  schedule: SchedulePage,
   metrics: MetricsPage,
   settings: SettingsPage,
   ai: AIModal,
@@ -1626,6 +1749,9 @@ function handleSaveJob(jobId) {
   const status = $('#form-status')?.value;
   const priority = $('#form-priority')?.value;
   const tech = $('#form-tech')?.value?.trim();
+  const dateVal = $('#form-scheduled-start')?.value;
+  const timeVal = $('#form-scheduled-time')?.value || '09:00';
+  const scheduledStart = dateVal ? new Date(`${dateVal}T${timeVal}`).toISOString() : null;
   const scope = $('#form-scope')?.value?.trim();
   const notes = $('#form-notes')?.value?.trim();
   const warranty = $('#form-warranty')?.value?.trim() || 'Not set';
@@ -1648,6 +1774,7 @@ function handleSaveJob(jobId) {
     status: status || 'Active',
     priority: priority || 'Normal',
     assigned_tech: tech,
+    scheduled_start: scheduledStart,
     scope,
     notes,
     warranty,

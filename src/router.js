@@ -301,6 +301,7 @@ export function registerRoutes() {
     .add('/gps', () => navigateTo('gps'))
     .add('/metrics', () => navigateTo('metrics'))
     .add('/settings', () => navigateTo('settings'))
+    .add('/schedule', () => navigateTo('schedule'))
     .add('/ai', () => navigateTo('ai'))
     .setFallback(() => navigateTo('dashboard'));
 }

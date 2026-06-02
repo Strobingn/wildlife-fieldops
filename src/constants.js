@@ -183,6 +183,7 @@ export const PAGES = [
 export const DRAWER_PAGES = [
   { id: "dashboard", label: "🏠 Dashboard" },
   { id: "jobs", label: "🦝 Jobs" },
+  { id: "schedule", label: "📅 Schedule" },
   { id: "gps", label: "📍 GPS Map" },
   { id: "estimate", label: "💵 Estimator" },
   { id: "ai", label: "🧠 AI Assistant" },
@@ -196,8 +197,8 @@ export const DRAWER_PAGES = [
 export const BOTTOM_NAV = [
   { id: "dashboard", icon: "🏠", label: "Home" },
   { id: "jobs", icon: "🦝", label: "Jobs" },
+  { id: "schedule", icon: "📅", label: "Schedule" },
   { id: "gps", icon: "📍", label: "GPS" },
-  { id: "ai", icon: "🧠", label: "AI" },
   { id: "metrics", icon: "📊", label: "Metrics" }
 ];
 
