@@ -207,7 +207,7 @@ function buildAppShell() {
  * @param {string} page
  */
 function updateBottomNav(page) {
-  const map = { dashboard: 0, jobs: 1, gps: 2, ai: 3 };
+  const map = { dashboard: 0, jobs: 1, inspections: 2, schedule: 3, gps: 4 };
   const idx = map[page] ?? -1;
   $$('.bottom-nav button').forEach((b, i) => {
     b.classList.toggle('active', i === idx);
@@ -224,8 +224,11 @@ function updatePageLabel(page) {
     jobs: '🦝 Jobs',
     'job-detail': '📂 Job Detail',
     'job-form': '✏️ Edit Job',
+    inspections: '🔍 Inspections',
+    'inspection-form': '🔍 New/Edit Inspection',
     customers: '👥 Customers',
     'customer-form': '✏️ Edit Customer',
+    schedule: '📅 Schedule',
     estimate: '💵 Estimator',
     photos: '📸 Photos',
     gps: '📍 GPS Map',
@@ -1983,7 +1986,6 @@ function handleSaveInspection(inspectionId) {
     const idx = inspections.findIndex(i => i.id === inspection.id);
     if (idx >= 0) { inspections[idx] = inspection; }
     else { inspections.push(inspection); }
-    snapshotQueue.push({ action: 'save', type: 'inspection', id: inspection.id, data: inspection });
     return { inspections, selectedInspectionId: null };
   });
 
@@ -2029,12 +2031,11 @@ function handleConvertInspection(inspection) {
     const inspections = (prev.inspections || []).map(i =>
       i.id === inspection.id ? { ...i, status: 'Converted' } : i
     );
-    snapshotQueue.push({ action: 'save', type: 'job', id: job.id, data: job });
     return { jobs, inspections, selectedJobId: job.id };
   });
 
   showToast(`Converted inspection for ${inspection.customer} to a job`, 'success');
-  navigateTo('job-detail', job.id);
+  navigateTo('job-detail', { selectedJobId: job.id });
 }
 
 function handleSaveJob(jobId) {
@@ -2411,12 +2412,113 @@ function handleConvertToJob() {
   router.navigate(`/jobs/${job.id}`);
 }
 
+/**
+ * Show a help dialog when GPS permission is denied.
+ * Explains how to enable location permissions on Android/web.
+ */
+function showGPSHelp() {
+  const existing = document.getElementById('gps-help-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'gps-help-modal';
+  modal.innerHTML = `
+    <div class="modal-backdrop" style="display:flex;z-index:10001;">
+      <div class="modal-content" style="max-width:380px;width:90%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:18px;">📍 Location Access</h3>
+          <button class="icon-btn" data-close="gps-help" style="font-size:22px;">&times;</button>
+        </div>
+        <div style="font-size:14px;line-height:1.6;color:var(--text);opacity:0.9;">
+          <p style="margin:0 0 10px 0;"><strong>Why this happens:</strong></p>
+          <p style="margin:0 0 12px 0;">Your browser or device blocked location access. Here's how to fix it:</p>
+          <ol style="margin:0 0 14px 18px;padding:0;">
+            <li style="margin-bottom:6px;"><strong>Android Chrome:</strong> Tap the lock icon in the address bar → Site settings → Location → Allow.</li>
+            <li style="margin-bottom:6px;"><strong>App:</strong> Go to Android Settings → Apps → Wildlife Whisperer → Permissions → Location → Allow all the time.</li>
+            <li style="margin-bottom:6px;"><strong>Clear denial:</strong> You may need to clear the site's data and reload the page.</li>
+          </ol>
+          <p style="margin:0 0 10px 0;">Or you can enter coordinates manually below.</p>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn primary" data-close="gps-help" style="flex:1;">Got it</button>
+          <button class="btn" data-action="manual-gps" style="flex:1;">Enter Manually</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  $$('[data-close="gps-help"]').forEach(el => el.addEventListener('click', () => modal.remove()));
+  $$('[data-action="manual-gps"]', modal).forEach(el => el.addEventListener('click', () => {
+    modal.remove();
+    openManualGPS();
+  }));
+}
+
+/**
+ * Open a dialog for manual GPS coordinate entry.
+ */
+function openManualGPS() {
+  const existing = document.getElementById('manual-gps-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'manual-gps-modal';
+  modal.innerHTML = `
+    <div class="modal-backdrop" style="display:flex;z-index:10001;">
+      <div class="modal-content" style="max-width:360px;width:90%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="margin:0;font-size:18px;">📍 Enter Coordinates</h3>
+          <button class="icon-btn" data-close="manual-gps" style="font-size:22px;">&times;</button>
+        </div>
+        <div style="font-size:14px;">
+          <div class="form-row">
+            <label>Latitude (e.g. 40.7128)</label>
+            <input type="number" id="manual-lat" step="any" placeholder="40.7128" style="width:100%;">
+          </div>
+          <div class="form-row">
+            <label>Longitude (e.g. -74.0060)</label>
+            <input type="number" id="manual-lng" step="any" placeholder="-74.0060" style="width:100%;">
+          </div>
+          <p style="font-size:12px;color:var(--text);opacity:0.6;margin:4px 0 12px;">
+            Find coordinates on Google Maps: long-press a spot → the numbers at the bottom.
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" data-action="save-manual-gps" style="flex:1;">Save Coordinates</button>
+          <button class="btn" data-close="manual-gps" style="flex:1;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  $$('[data-close="manual-gps"]').forEach(el => el.addEventListener('click', () => modal.remove()));
+  $$('[data-action="save-manual-gps"]', modal).forEach(el => el.addEventListener('click', () => {
+    const lat = parseFloat($('#manual-lat')?.value);
+    const lng = parseFloat($('#manual-lng')?.value);
+    if (!lat || !lng || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      showToast('Enter valid latitude (-90 to 90) and longitude (-180 to 180)', 'error');
+      return;
+    }
+    const gps = { lat: +lat.toFixed(6), lng: +lng.toFixed(6), accuracy: 0 };
+    store.setState({ pendingGPS: gps });
+    modal.remove();
+    showToast(`GPS saved: ${gps.lat}, ${gps.lng}`);
+  }));
+}
+
+/**
+ * Capture GPS with proper error handling, retry logic, and fallback.
+ */
 function handleCaptureGPS() {
   if (!('geolocation' in navigator)) {
-    showToast('GPS not supported', 'warn');
+    showToast('GPS not supported on this device', 'warn');
+    openManualGPS();
     return;
   }
-  showToast('Capturing GPS...', 'success', 2000);
+
+  showToast('Getting location...', 'success', 2000);
+
+  // First try: high accuracy
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const gps = {
@@ -2425,12 +2527,44 @@ function handleCaptureGPS() {
         accuracy: Math.round(pos.coords.accuracy),
       };
       store.setState({ pendingGPS: gps });
-      showToast(`GPS: ${gps.lat}, ${gps.lng} (±${gps.accuracy}m)`);
+      showToast(`GPS: ${gps.lat}, ${gps.lng} (\u00b1${gps.accuracy}m)`);
     },
     (err) => {
-      showToast(`GPS error: ${err.message}`, 'error');
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        showToast('Location permission denied', 'error');
+        showGPSHelp();
+      } else if (err.code === 2) {
+        // POSITION_UNAVAILABLE
+        showToast('GPS signal unavailable. Try again outdoors.', 'warn');
+        // Offer manual entry after a short delay
+        setTimeout(openManualGPS, 800);
+      } else if (err.code === 3) {
+        // TIMEOUT
+        showToast('GPS timed out. Retrying with low accuracy...', 'warn');
+        // Retry with low accuracy
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const gps = {
+              lat: +pos.coords.latitude.toFixed(6),
+              lng: +pos.coords.longitude.toFixed(6),
+              accuracy: Math.round(pos.coords.accuracy),
+            };
+            store.setState({ pendingGPS: gps });
+            showToast(`GPS: ${gps.lat}, ${gps.lng} (\u00b1${gps.accuracy}m)`);
+          },
+          (err2) => {
+            showToast('GPS unavailable. Enter coordinates manually.', 'error');
+            openManualGPS();
+          },
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+        );
+      } else {
+        showToast(`GPS error: ${err.message}`, 'error');
+        openManualGPS();
+      }
     },
-    { enableHighAccuracy: true, timeout: config.GPS_TIMEOUT }
+    { enableHighAccuracy: true, timeout: config.GPS_TIMEOUT, maximumAge: 0 }
   );
 }
 

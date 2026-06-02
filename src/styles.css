@@ -1443,6 +1443,31 @@ button.action.green {
   text-decoration: line-through;
 }
 
+/* ── Inspection status variants ─────────────────────── */
+.status-badge.pending,
+.status-pill.pending {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+.status-badge.scheduled,
+.status-pill.scheduled {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.status-badge.completed,
+.status-pill.completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.status-badge.cancelled,
+.status-pill.cancelled {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 /* ---------------------------------------------------------------------------
    Job Components
    --------------------------------------------------------------------------- */
@@ -2126,6 +2151,37 @@ a:focus-visible {
   color: var(--text);
 }
 
+/* Modal content variant (used by dynamic modals) */
+.modal-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.25s ease;
+}
+
+/* ---------------------------------------------------------------------------
+   GPS Status Display
+   --------------------------------------------------------------------------- */
+.gps-status {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  text-align: center;
+}
+
+.gps-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
 /* ---------------------------------------------------------------------------
    Ripple Effect
    --------------------------------------------------------------------------- */
@@ -2353,6 +2409,11 @@ a:focus-visible {
   to {
     opacity: 1;
   }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInUp {
