@@ -357,63 +357,8 @@ body {
 }
 
 /* ---------------------------------------------------------------------------
-   Menu / Drawer
+   Menu / Drawer (single source of truth — uses transform, not left)
    --------------------------------------------------------------------------- */
-.menu,
-.drawer {
-  position: fixed;
-  top: 0;
-  left: -290px;
-  width: 270px;
-  height: 100vh;
-  height: 100dvh;
-  background: var(--card2);
-  border-right: 1px solid var(--border);
-  z-index: 2000;
-  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  padding: var(--space-xl) var(--content-padding) 30px;
-  scrollbar-width: thin;
-}
-
-.menu.open,
-.drawer.open {
-  left: 0;
-}
-
-.menu button,
-.drawer button {
-  width: 100%;
-  margin-bottom: 10px;
-  border-radius: var(--radius);
-  padding: var(--space-md);
-  text-align: left;
-  font-size: var(--text-md);
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
-  font-family: var(--font-sans);
-  transition: var(--transition);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.menu button:hover,
-.drawer button:hover,
-.menu button:focus-visible,
-.drawer button:focus-visible {
-  background: rgba(128, 128, 128, 0.1);
-  transform: translateX(4px);
-  border-color: var(--border-hover);
-}
-
-.menu button:active,
-.drawer button:active {
-  transform: translateX(2px) scale(0.98);
-}
 
 /* ---------------------------------------------------------------------------
    Layout Containers
