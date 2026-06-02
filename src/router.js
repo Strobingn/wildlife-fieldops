@@ -303,5 +303,9 @@ export function registerRoutes() {
     .add('/settings', () => navigateTo('settings'))
     .add('/schedule', () => navigateTo('schedule'))
     .add('/ai', () => navigateTo('ai'))
+    .add('/inspections', () => navigateTo('inspections'))
+    .add('/inspections/new', () => navigateTo('inspection-form'))
+    .add('/inspections/:id', (params) => navigateTo('inspection-form', { selectedInspectionId: params.id }))
+    .add('/inspections/:id/edit', (params) => navigateTo('inspection-form', { selectedInspectionId: params.id }))
     .setFallback(() => navigateTo('dashboard'));
 }

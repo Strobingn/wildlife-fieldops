@@ -102,6 +102,7 @@ function buildInitialState() {
   return {
     // ── Collections ──
     jobs: [],
+    inspections: [],
     customers: [],
     photos: [],
     services: [],
@@ -113,6 +114,7 @@ function buildInitialState() {
 
     // ── Selection ──
     selectedJobId: null,
+    selectedInspectionId: null,
     selectedCustomerId: null,
 
     // ── Auth / User ──
@@ -175,6 +177,7 @@ function loadPersistedState() {
     const parsed = JSON.parse(raw);
     return {
       jobs: parsed.jobs ?? [],
+      inspections: parsed.inspections ?? [],
       customers: parsed.customers ?? [],
       visits: parsed.visits ?? [],
       repairs: parsed.repairs ?? [],
@@ -220,6 +223,7 @@ export function persistState() {
       const s = store.getState();
       const payload = {
         jobs: s.jobs,
+        inspections: s.inspections,
         customers: s.customers,
         visits: s.visits,
         repairs: s.repairs,
@@ -262,6 +266,7 @@ export function saveSnapshot() {
       saved: new Date().toISOString(),
       db: {
         jobs: s.jobs,
+        inspections: s.inspections,
         customers: s.customers,
         visits: s.visits,
         repairs: s.repairs,

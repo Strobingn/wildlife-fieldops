@@ -33,6 +33,7 @@ import {
 import {
   SPECIES, SERVICES, SPECIES_ICONS, SPECIES_HINTS,
   STATUS_STYLES, PRIORITIES,
+  INSPECTION_STATUSES, INSPECTION_STATUS_STYLES,
   VISIT_TYPES, REPAIR_STATUSES, SEVERITIES,
   PHOTO_TAGS, ESTIMATE_TEMPLATES,
   BASE_PRICES, SEVERITY_MULTIPLIERS,
@@ -1138,6 +1139,186 @@ const CustomerForm = {
   },
 };
 
+// ═══════════════════════════════════════════════════
+// Inspections List
+// ═══════════════════════════════════════════════════
+
+const InspectionList = {
+  _listeners: [],
+
+  render(state) {
+    const inspections = state.inspections || [];
+    const search = (state.searchQuery || '').toLowerCase();
+    const filtered = search
+      ? inspections.filter(i =>
+          (i.customer || '').toLowerCase().includes(search) ||
+          (i.address || '').toLowerCase().includes(search) ||
+          (i.phone || '').toLowerCase().includes(search) ||
+          (i.species || '').toLowerCase().includes(search)
+        )
+      : inspections;
+
+    const byStatus = {};
+    INSPECTION_STATUSES.forEach(s => byStatus[s] = []);
+    filtered.forEach(i => {
+      const s = i.status || 'Pending';
+      if (!byStatus[s]) byStatus[s] = [];
+      byStatus[s].push(i);
+    });
+
+    return `
+      <div class="page">
+        <h1 class="section-title">🔍 Inspections</h1>
+        <div class="list-toolbar">
+          <input type="text" class="search-input" id="inspect-search" placeholder="Search inspections..." value="${E(search)}">
+          <button class="btn primary" data-action="new-inspection">➕ New Inspection</button>
+        </div>
+        ${INSPECTION_STATUSES.map(status => {
+          const items = byStatus[status] || [];
+          if (!items.length) return '';
+          return `
+            <h3 class="section-subtitle">${E(status)} (${items.length})</h3>
+            <div class="card-flat">
+              ${items.map(i => `
+                <div class="job-row" data-id="${i.id}" data-type="inspection">
+                  <span class="job-row-date">${i.scheduled_start ? formatDateShort(i.scheduled_start) : 'No date'}</span>
+                  <span class="job-row-title">${SPECIES_ICONS[i.species] || '🔍'} ${E(i.customer || 'Unknown')}</span>
+                  <span class="status-badge ${(INSPECTION_STATUS_STYLES[i.status] || 'pending').replace(/\s+/g, '-')}">${E(i.status || 'Pending')}</span>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }).join('')}
+        ${!filtered.length ? '<p class="empty">No inspections yet. Tap "New Inspection" to schedule one.</p>' : ''}
+      </div>`;
+  },
+
+  afterRender(state) {
+    const searchEl = $('#inspect-search');
+    if (searchEl) {
+      const onInput = debounce(() => store.setState({ searchQuery: searchEl.value }), 250);
+      searchEl.addEventListener('input', onInput);
+      this._listeners.push(() => searchEl.removeEventListener('input', onInput));
+    }
+    $$('[data-action="new-inspection"]').forEach(btn => {
+      const fn = () => navigateTo('inspection-form');
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+    $$('.job-row[data-type="inspection"]').forEach(row => {
+      const fn = () => navigateTo('inspection-form', { selectedInspectionId: row.dataset.id });
+      row.addEventListener('click', fn);
+      this._listeners.push(() => row.removeEventListener('click', fn));
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach(fn => fn());
+    this._listeners = [];
+  },
+};
+
+// ═══════════════════════════════════════════════════
+// Inspection Form
+// ═══════════════════════════════════════════════════
+
+const InspectionForm = {
+  _listeners: [],
+
+  render(state) {
+    const inspectionId = state.selectedInspectionId;
+    const isEdit = Boolean(inspectionId);
+    const inspections = state.inspections || [];
+    const inspection = isEdit ? inspections.find(i => i.id === inspectionId) : null;
+
+    return `
+      <div class="page">
+        <h1 class="section-title">${isEdit ? '✏️ Edit Inspection' : '🔍 New Inspection'}</h1>
+        <form id="inspection-form" class="card form-card">
+          <div class="form-row">
+            <label>Customer Name *</label>
+            <input type="text" id="iform-customer" value="${E(inspection?.customer || '')}" required placeholder="Customer name">
+          </div>
+          <div class="form-row">
+            <label>Phone</label>
+            <input type="tel" id="iform-phone" value="${E(inspection?.phone || '')}" placeholder="(555) 555-5555">
+          </div>
+          <div class="form-row">
+            <label>Address</label>
+            <input type="text" id="iform-address" value="${E(inspection?.address || '')}" placeholder="123 Main St">
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>Town</label>
+              <input type="text" id="iform-town" value="${E(inspection?.town || '')}">
+            </div>
+            <div>
+              <label>State</label>
+              <input type="text" id="iform-state" value="${E(inspection?.state || 'NY')}">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Species</label>
+            <select id="iform-species">${O(SPECIES, inspection?.species || '')}</select>
+          </div>
+          <div class="form-row two-col">
+            <div>
+              <label>📅 Inspection Date</label>
+              <input type="date" id="iform-date" value="${inspection?.scheduled_start ? new Date(inspection.scheduled_start).toISOString().slice(0,10) : ''}">
+            </div>
+            <div>
+              <label>🕐 Time</label>
+              <input type="time" id="iform-time" value="${inspection?.scheduled_start ? new Date(inspection.scheduled_start).toTimeString().slice(0,5) : '09:00'}">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Status</label>
+            <select id="iform-status">${O(INSPECTION_STATUSES, inspection?.status || 'Pending')}</select>
+          </div>
+          <div class="form-row">
+            <label>Notes</label>
+            <textarea id="iform-notes" rows="3" placeholder="What the customer reported, access instructions, etc.">${E(inspection?.notes || '')}</textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">${isEdit ? '💾 Update' : '➕ Schedule Inspection'}</button>
+            ${isEdit ? '<button type="button" class="btn" data-action="convert-inspection">🦝 Convert to Job</button>' : ''}
+            <button type="button" class="btn" data-action="cancel-inspection">Cancel</button>
+          </div>
+        </form>
+      </div>`;
+  },
+
+  afterRender(state) {
+    const form = $('#inspection-form');
+    if (form) {
+      const onSubmit = (e) => {
+        e.preventDefault();
+        handleSaveInspection(state.selectedInspectionId);
+      };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+    $$('[data-action="cancel-inspection"]').forEach(btn => {
+      const fn = () => navigateTo('inspections');
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+    $$('[data-action="convert-inspection"]').forEach(btn => {
+      const fn = () => {
+        const inspection = (state.inspections || []).find(i => i.id === state.selectedInspectionId);
+        if (inspection) handleConvertInspection(inspection);
+      };
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach(fn => fn());
+    this._listeners = [];
+  },
+};
+
 // ── Estimate Calculator ──────────────────────────
 
 const EstimateCalc = {
@@ -1611,6 +1792,7 @@ const AIModal = {
 const SchedulePage = {
   render(state) {
     const jobs = state.jobs || [];
+    const inspections = state.inspections || [];
     const now = new Date();
     const year = state.scheduleYear || now.getFullYear();
     const month = state.scheduleMonth !== undefined ? state.scheduleMonth : now.getMonth();
@@ -1629,12 +1811,26 @@ const SchedulePage = {
       return d.getFullYear() === year && d.getMonth() === month;
     });
 
-    const jobsByDay = {};
+    // Get scheduled inspections for this month
+    const scheduledInspections = inspections.filter(i => {
+      if (!i.scheduled_start) return false;
+      const d = new Date(i.scheduled_start);
+      return d.getFullYear() === year && d.getMonth() === month;
+    });
+
+    // Combine by day
+    const itemsByDay = {};
     scheduledJobs.forEach(j => {
       const d = new Date(j.scheduled_start);
       const day = d.getDate();
-      if (!jobsByDay[day]) jobsByDay[day] = [];
-      jobsByDay[day].push(j);
+      if (!itemsByDay[day]) itemsByDay[day] = { jobs: [], inspections: [] };
+      itemsByDay[day].jobs.push(j);
+    });
+    scheduledInspections.forEach(i => {
+      const d = new Date(i.scheduled_start);
+      const day = d.getDate();
+      if (!itemsByDay[day]) itemsByDay[day] = { jobs: [], inspections: [] };
+      itemsByDay[day].inspections.push(i);
     });
 
     let calendarHTML = '';
@@ -1643,22 +1839,35 @@ const SchedulePage = {
     }
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
-      const dayJobs = jobsByDay[day] || [];
-      const dots = dayJobs.map(j => {
+      const dayItems = itemsByDay[day] || { jobs: [], inspections: [] };
+      const totalItems = dayItems.jobs.length + dayItems.inspections.length;
+      const dots = [];
+      // Job dots (green/yellow)
+      dayItems.jobs.forEach(j => {
         const color = j.status === 'Active' ? '#22c55e' : j.status === 'Scheduled' ? '#eab308' : '#6b7280';
-        return `<span class="cal-dot" style="background:${color}" title="${E(j.customer || 'Job')}"></span>`;
-      }).join('');
+        dots.push(`<span class="cal-dot" style="background:${color}" title="Job: ${E(j.customer || 'Unknown')}"></span>`);
+      });
+      // Inspection dots (blue)
+      dayItems.inspections.forEach(i => {
+        const color = i.status === 'Pending' ? '#3b82f6' : i.status === 'Scheduled' ? '#8b5cf6' : i.status === 'Completed' ? '#10b981' : '#6b7280';
+        dots.push(`<span class="cal-dot" style="background:${color}" title="Inspection: ${E(i.customer || 'Unknown')}"></span>`);
+      });
       calendarHTML += `
-        <div class="cal-day ${isToday ? 'cal-today' : ''} ${dayJobs.length ? 'cal-has-jobs' : ''}" data-day="${day}">
+        <div class="cal-day ${isToday ? 'cal-today' : ''} ${totalItems ? 'cal-has-items' : ''}" data-day="${day}">
           <span class="cal-day-num">${day}</span>
-          <div class="cal-dots">${dots}</div>
-          ${dayJobs.length ? `<span class="cal-count">${dayJobs.length}</span>` : ''}
+          <div class="cal-dots">${dots.join('')}</div>
+          ${totalItems ? `<span class="cal-count">${totalItems}</span>` : ''}
         </div>`;
     }
 
-    // Upcoming jobs list
-    const upcoming = [...scheduledJobs]
+    // Upcoming items list (both jobs + inspections)
+    const upcomingJobs = scheduledJobs
       .filter(j => new Date(j.scheduled_start) >= now)
+      .map(j => ({ ...j, itemType: 'job' }));
+    const upcomingInspections = scheduledInspections
+      .filter(i => new Date(i.scheduled_start) >= now)
+      .map(i => ({ ...i, itemType: 'inspection' }));
+    const upcoming = [...upcomingJobs, ...upcomingInspections]
       .sort((a, b) => new Date(a.scheduled_start) - new Date(b.scheduled_start))
       .slice(0, 10);
 
@@ -1674,15 +1883,19 @@ const SchedulePage = {
           ${dayNames.map(d => `<div class="cal-day-name">${d}</div>`).join('')}
           ${calendarHTML}
         </div>
-        <h2 class="section-title">Upcoming Inspections</h2>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;margin:16px 0;font-size:12px;">
+          <span><span class="cal-dot" style="background:#22c55e;display:inline-block;"></span> Job</span>
+          <span><span class="cal-dot" style="background:#3b82f6;display:inline-block;"></span> Inspection</span>
+        </div>
+        <h2 class="section-title">📋 Upcoming</h2>
         <div class="card-flat">
-          ${upcoming.length ? upcoming.map(j => `
-            <div class="job-row" data-id="${j.id}">
-              <span class="job-row-date">${formatDateShort(j.scheduled_start)}</span>
-              <span class="job-row-title">${SPECIES_ICONS[j.species] || '🔧'} ${E(j.customer || 'Unknown')}</span>
-              <span class="status-badge ${(j.status || '').toLowerCase().replace(/\s+/g, '-')}">${E(j.status || 'Active')}</span>
+          ${upcoming.length ? upcoming.map(item => `
+            <div class="job-row" data-id="${item.id}" data-type="${item.itemType}">
+              <span class="job-row-date">${formatDateShort(item.scheduled_start)}</span>
+              <span class="job-row-title">${item.itemType === 'inspection' ? '🔍' : (SPECIES_ICONS[item.species] || '🔧')} ${E(item.customer || 'Unknown')}</span>
+              <span class="status-badge ${(item.status || '').toLowerCase().replace(/\s+/g, '-')}">${item.itemType === 'inspection' ? 'INSP: ' : ''}${E(item.status || 'Active')}</span>
             </div>
-          `).join('') : '<p class="empty">No upcoming inspections scheduled.</p>'}
+          `).join('') : '<p class="empty">No upcoming items scheduled.</p>'}
         </div>
       </div>`;
   },
@@ -1699,18 +1912,22 @@ const SchedulePage = {
         store.setState({ scheduleMonth: m, scheduleYear: y });
       });
     });
-    $$('.cal-day.cal-has-jobs').forEach(day => {
+    $$('.cal-day.cal-has-items').forEach(day => {
       day.addEventListener('click', () => {
         const d = parseInt(day.dataset.day);
         const s = store.getState();
         const y = s.scheduleYear || new Date().getFullYear();
         const m = s.scheduleMonth !== undefined ? s.scheduleMonth : new Date().getMonth();
         const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        navigateTo('jobs', { filterDate: dateStr });
+        navigateTo('schedule', { scheduleFilterDate: dateStr });
       });
     });
     $$('.job-row[data-id]').forEach(row => {
-      row.addEventListener('click', () => navigateTo('job-detail', row.dataset.id));
+      row.addEventListener('click', () => {
+        const type = row.dataset.type;
+        if (type === 'inspection') navigateTo('inspection-form', { selectedInspectionId: row.dataset.id });
+        else navigateTo('job-detail', { selectedJobId: row.dataset.id });
+      });
     });
   },
 };
@@ -1722,6 +1939,8 @@ const pages = {
   'job-form': JobForm,
   customers: CustomerList,
   'customer-form': CustomerForm,
+  inspections: InspectionList,
+  'inspection-form': InspectionForm,
   estimate: EstimateCalc,
   photos: PhotoGallery,
   gps: GPSMap,
@@ -1736,6 +1955,88 @@ const pages = {
 // ═══════════════════════════════════════════════════
 
 /** @param {string|null} jobId */
+function handleSaveInspection(inspectionId) {
+  const customer = $('#iform-customer')?.value?.trim();
+  if (!customer) { showToast('Customer name is required', 'error'); return; }
+
+  const dateVal = $('#iform-date')?.value;
+  const timeVal = $('#iform-time')?.value || '09:00';
+  const scheduledStart = dateVal ? new Date(`${dateVal}T${timeVal}`).toISOString() : null;
+
+  const inspection = {
+    id: inspectionId || id(),
+    customer,
+    phone: $('#iform-phone')?.value?.trim() || '',
+    address: $('#iform-address')?.value?.trim() || '',
+    town: $('#iform-town')?.value?.trim() || '',
+    state: $('#iform-state')?.value?.trim() || 'NY',
+    species: $('#iform-species')?.value || 'General',
+    status: $('#iform-status')?.value || 'Pending',
+    notes: $('#iform-notes')?.value?.trim() || '',
+    scheduled_start: scheduledStart,
+    created_at: inspectionId ? (store.getState().inspections || []).find(i => i.id === inspectionId)?.created_at || now() : now(),
+    updated_at: now(),
+  };
+
+  store.setState(prev => {
+    const inspections = [...(prev.inspections || [])];
+    const idx = inspections.findIndex(i => i.id === inspection.id);
+    if (idx >= 0) { inspections[idx] = inspection; }
+    else { inspections.push(inspection); }
+    snapshotQueue.push({ action: 'save', type: 'inspection', id: inspection.id, data: inspection });
+    return { inspections, selectedInspectionId: null };
+  });
+
+  showToast(`Inspection ${inspectionId ? 'updated' : 'scheduled'} for ${customer}`, 'success');
+  navigateTo('inspections');
+}
+
+function handleConvertInspection(inspection) {
+  const job = {
+    id: id(),
+    customer: inspection.customer,
+    phone: inspection.phone,
+    address: inspection.address,
+    town: inspection.town,
+    state: inspection.state,
+    species: inspection.species,
+    status: 'Active',
+    priority: 'Normal',
+    assigned_tech: '',
+    notes: `Converted from inspection.\n${inspection.notes || ''}`,
+    ai_notes: '',
+    scope: '',
+    warranty: '90 days',
+    estimate: 0,
+    subtotal: 0,
+    tax_rate: config.DEFAULT_TAX_RATE,
+    tax_amount: 0,
+    grand_total: 0,
+    deposit_paid: 0,
+    balance_due: 0,
+    latitude: '',
+    longitude: '',
+    accuracy: 0,
+    scheduled_start: inspection.scheduled_start,
+    timer_total: 0,
+    is_recurring: false,
+    created_at: now(),
+    updated_at: now(),
+  };
+
+  store.setState(prev => {
+    const jobs = [...(prev.jobs || []), job];
+    const inspections = (prev.inspections || []).map(i =>
+      i.id === inspection.id ? { ...i, status: 'Converted' } : i
+    );
+    snapshotQueue.push({ action: 'save', type: 'job', id: job.id, data: job });
+    return { jobs, inspections, selectedJobId: job.id };
+  });
+
+  showToast(`Converted inspection for ${inspection.customer} to a job`, 'success');
+  navigateTo('job-detail', job.id);
+}
+
 function handleSaveJob(jobId) {
   const customer = $('#form-customer')?.value?.trim();
   const phone = $('#form-phone')?.value?.trim();

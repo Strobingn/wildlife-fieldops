@@ -1044,11 +1044,13 @@ button.action.green {
   font-weight: 800;
 }
 
-.cal-day.cal-has-jobs {
+.cal-day.cal-has-jobs,
+.cal-day.cal-has-items {
   background: rgba(59, 130, 246, 0.08);
 }
 
-.cal-day.cal-has-jobs:hover {
+.cal-day.cal-has-jobs:hover,
+.cal-day.cal-has-items:hover {
   background: rgba(59, 130, 246, 0.15);
 }
 

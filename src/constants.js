@@ -34,6 +34,15 @@ export const STATUSES = [
   "Exclusion", "Repair", "Warranty", "Closed", "Cancelled"
 ];
 
+export const INSPECTION_STATUSES = ['Pending', 'Scheduled', 'Completed', 'No Show', 'Converted'];
+export const INSPECTION_STATUS_STYLES = {
+  Pending: 'pending',
+  Scheduled: 'scheduled',
+  Completed: 'completed',
+  'No Show': 'cancelled',
+  Converted: 'completed',
+};
+
 export const STATUS_STYLES = {
   "Active": "active",
   "Scheduled": "scheduled",
@@ -183,6 +192,7 @@ export const PAGES = [
 export const DRAWER_PAGES = [
   { id: "dashboard", label: "🏠 Dashboard" },
   { id: "jobs", label: "🦝 Jobs" },
+  { id: "inspections", label: "🔍 Inspections" },
   { id: "schedule", label: "📅 Schedule" },
   { id: "gps", label: "📍 GPS Map" },
   { id: "estimate", label: "💵 Estimator" },
@@ -197,9 +207,9 @@ export const DRAWER_PAGES = [
 export const BOTTOM_NAV = [
   { id: "dashboard", icon: "🏠", label: "Home" },
   { id: "jobs", icon: "🦝", label: "Jobs" },
+  { id: "inspections", icon: "🔍", label: "Inspect" },
   { id: "schedule", icon: "📅", label: "Schedule" },
-  { id: "gps", icon: "📍", label: "GPS" },
-  { id: "metrics", icon: "📊", label: "Metrics" }
+  { id: "gps", icon: "📍", label: "GPS" }
 ];
 
 // ─── Base prices for estimates by species ───
