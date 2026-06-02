@@ -421,6 +421,21 @@ body {
 /* ---------------------------------------------------------------------------
    Page Layout
    --------------------------------------------------------------------------- */
+/* App shell layout: header fixed, content scrollable, footer fixed */
+#app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.app-container {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 .page {
   padding: var(--content-padding);
   padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
