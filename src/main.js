@@ -1175,10 +1175,20 @@ const EstimateCalc = {
             <label>Tax Rate</label>
             <input type="number" id="est-tax" value="${config.DEFAULT_TAX_RATE * 100}" min="0" max="20" step="0.001">%
           </div>
-          <div class="estimate-total-bar" id="est-total-bar" style="display:none;">
-            <div class="total-label">Grand Total</div>
-            <div class="total-value" id="est-total-val">$0.00</div>
-            <div class="total-breakdown" id="est-total-breakdown">Subtotal $0.00 + Tax $0.00</div>
+          <!-- Estimate Total Breakdown -->
+          <div class="estimate-total-section">
+            <div class="estimate-line">
+              <span>Subtotal</span>
+              <span id="est-subtotal">$0.00</span>
+            </div>
+            <div class="estimate-line">
+              <span>Tax <small id="est-tax-label">(8.875%)</small></span>
+              <span id="est-tax-amount">$0.00</span>
+            </div>
+            <div class="estimate-line total">
+              <span>Grand Total</span>
+              <span id="est-grand-total">$0.00</span>
+            </div>
           </div>
           <div style="margin-top:var(--space-md);display:flex;gap:var(--space-sm);flex-wrap:wrap;">
             <button class="btn primary" data-action="calc-estimate">🧮 Calculate Full Breakdown</button>
@@ -1870,14 +1880,16 @@ function updateEstimateTotal() {
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
-  const totalBar = $('#est-total-bar');
-  const totalVal = $('#est-total-val');
-  const totalBreak = $('#est-total-breakdown');
-  if (totalBar && totalVal && totalBreak) {
-    totalBar.style.display = '';
-    totalVal.textContent = '$' + total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    totalBreak.textContent = `Subtotal $${subtotal.toFixed(2)} + Tax $${tax.toFixed(2)} @ ${(taxRate*100).toFixed(3)}%`;
-  }
+  const fmt = (n) => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  const subEl = $('#est-subtotal');
+  const taxEl = $('#est-tax-amount');
+  const totEl = $('#est-grand-total');
+  const taxLbl = $('#est-tax-label');
+  if (subEl) subEl.textContent = fmt(subtotal);
+  if (taxEl) taxEl.textContent = fmt(tax);
+  if (totEl) totEl.textContent = fmt(total);
+  if (taxLbl) taxLbl.textContent = `(${(taxRate * 100).toFixed(3)}%)`;
 }
 
 function handleCalcEstimate() {
