@@ -34,6 +34,23 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
+      - name: Inject GPS permissions into AndroidManifest
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # Remove closing manifest tag, add permissions, close again
+          sed -i 's|</manifest>||' "$MANIFEST"
+          cat >> "$MANIFEST" << 'EOF'
+
+          <!-- GPS / Geolocation permissions -->
+          <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+          <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+          <uses-feature android:name="android.hardware.location" android:required="false" />
+          <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+          </manifest>
+          EOF
+          echo "AndroidManifest.xml permissions injected:"
+          grep -A6 "GPS" "$MANIFEST"
+
       - name: Build APK
         run: |
           cd android

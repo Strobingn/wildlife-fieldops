@@ -22,6 +22,7 @@ import { config, isFeatureAvailable, getBuildInfo } from './config.js';
 import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, closeModal, startSnapshots, stopSnapshots } from './state.js';
 import { router, registerRoutes } from './router.js';
 import { initErrorBoundary, asyncWrapper, retry, safeExecute, logError, safeJSONParse } from './errors.js';
+import { Geolocation } from '@capacitor/geolocation';
 import {
   E, money, tel, id, now, formatDate, formatPhone,
   isValidPhone, validateJob, validateCustomer,
@@ -2507,18 +2508,51 @@ function openManualGPS() {
 }
 
 /**
- * Capture GPS with proper error handling, retry logic, and fallback.
+ * Capture GPS using Capacitor Geolocation plugin (handles Android
+ * runtime permissions automatically) with browser fallback.
  */
-function handleCaptureGPS() {
+async function handleCaptureGPS() {
+  showToast('Getting location...', 'success', 2000);
+
+  // Try Capacitor Geolocation first (proper Android permission handling)
+  try {
+    // Check/request permission (Android 6+ requires runtime permission)
+    const perm = await Geolocation.checkPermissions();
+    if (perm.location !== 'granted') {
+      const req = await Geolocation.requestPermissions();
+      if (req.location !== 'granted') {
+        showToast('Location permission denied', 'error');
+        showGPSHelp();
+        return;
+      }
+    }
+
+    const pos = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: config.GPS_TIMEOUT,
+      maximumAge: 0,
+    });
+
+    const gps = {
+      lat: +pos.coords.latitude.toFixed(6),
+      lng: +pos.coords.longitude.toFixed(6),
+      accuracy: Math.round(pos.coords.accuracy || 0),
+    };
+    store.setState({ pendingGPS: gps });
+    showToast(`GPS: ${gps.lat}, ${gps.lng} (\u00b1${gps.accuracy}m)`);
+    return;
+  } catch (err) {
+    // Capacitor failed — try browser fallback (for web/PWA)
+    console.warn('Capacitor GPS failed, trying browser fallback:', err.message);
+  }
+
+  // Browser fallback for PWA/web use
   if (!('geolocation' in navigator)) {
     showToast('GPS not supported on this device', 'warn');
     openManualGPS();
     return;
   }
 
-  showToast('Getting location...', 'success', 2000);
-
-  // First try: high accuracy
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const gps = {
@@ -2531,34 +2565,14 @@ function handleCaptureGPS() {
     },
     (err) => {
       if (err.code === 1) {
-        // PERMISSION_DENIED
         showToast('Location permission denied', 'error');
         showGPSHelp();
       } else if (err.code === 2) {
-        // POSITION_UNAVAILABLE
-        showToast('GPS signal unavailable. Try again outdoors.', 'warn');
-        // Offer manual entry after a short delay
+        showToast('GPS signal unavailable. Try outdoors.', 'warn');
         setTimeout(openManualGPS, 800);
       } else if (err.code === 3) {
-        // TIMEOUT
-        showToast('GPS timed out. Retrying with low accuracy...', 'warn');
-        // Retry with low accuracy
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const gps = {
-              lat: +pos.coords.latitude.toFixed(6),
-              lng: +pos.coords.longitude.toFixed(6),
-              accuracy: Math.round(pos.coords.accuracy),
-            };
-            store.setState({ pendingGPS: gps });
-            showToast(`GPS: ${gps.lat}, ${gps.lng} (\u00b1${gps.accuracy}m)`);
-          },
-          (err2) => {
-            showToast('GPS unavailable. Enter coordinates manually.', 'error');
-            openManualGPS();
-          },
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-        );
+        showToast('GPS timed out', 'warn');
+        openManualGPS();
       } else {
         showToast(`GPS error: ${err.message}`, 'error');
         openManualGPS();
