@@ -18,6 +18,7 @@
 // Imports
 // ─────────────────────────────────────────────────
 
+import { inject } from '@vercel/analytics';
 import { config, isFeatureAvailable, getBuildInfo } from './config.js';
 import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, closeModal, startSnapshots, stopSnapshots } from './state.js';
 import { router, registerRoutes } from './router.js';
@@ -41,6 +42,11 @@ import {
   BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY,
 } from './constants.js';
 
+// ─────────────────────────────────────────────────
+// Initialize Vercel Analytics
+// ─────────────────────────────────────────────────
+
+inject();
 // ─────────────────────────────────────────────────
 // DOM Helpers (local to this module)
 // ─────────────────────────────────────────────────
