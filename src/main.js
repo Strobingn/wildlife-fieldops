@@ -19,6 +19,7 @@
 // ─────────────────────────────────────────────────
 
 import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 import { config, isFeatureAvailable, getBuildInfo } from './config.js';
 import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, closeModal, startSnapshots, stopSnapshots } from './state.js';
 import { router, registerRoutes } from './router.js';
@@ -43,10 +44,11 @@ import {
 } from './constants.js';
 
 // ─────────────────────────────────────────────────
-// Initialize Vercel Analytics
+// Initialize Vercel Analytics & Speed Insights
 // ─────────────────────────────────────────────────
 
 inject();
+injectSpeedInsights();
 // ─────────────────────────────────────────────────
 // DOM Helpers (local to this module)
 // ─────────────────────────────────────────────────
