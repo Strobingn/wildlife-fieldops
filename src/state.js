@@ -156,6 +156,10 @@ function buildInitialState() {
     aiResponse: '',
     aiLoading: false,
 
+    // ── Schedule ──
+    scheduleYear: new Date().getFullYear(),
+    scheduleMonth: new Date().getMonth(),
+
     // ── Pagination ──
     jobsPage: 1,
     jobsPerPage: 25,

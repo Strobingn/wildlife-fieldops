@@ -294,7 +294,7 @@ export function registerRoutes() {
     .add('/jobs/:id/edit', (params) => navigateTo('job-form', { selectedJobId: params.id }))
     .add('/customers', () => navigateTo('customers'))
     .add('/customers/new', () => navigateTo('customer-form'))
-    .add('/customers/:id', (params) => navigateTo('customer-detail', { selectedCustomerId: params.id }))
+    .add('/customers/:id', (params) => navigateTo('customer-form', { selectedCustomerId: params.id }))
     .add('/customers/:id/edit', (params) => navigateTo('customer-form', { selectedCustomerId: params.id }))
     .add('/estimate', () => navigateTo('estimate'))
     .add('/photos', () => navigateTo('photos'))

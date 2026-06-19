@@ -53,7 +53,7 @@ inject();
 
 /** @returns {HTMLElement|null} */
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const $$ = (sel, scope) => Array.from((scope || document).querySelectorAll(sel));
 
 /**
  * Create or update the toast element.
