@@ -6,6 +6,7 @@
 
 import { supabase, uploadToStorage, deleteFromStorage } from './supabaseClient.js';
 import { syncQueue } from './sync.js';
+import { config } from '../config.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ export async function compressImage(file, maxWidth = DEFAULT_MAX_WIDTH, quality 
  * @param {string} [notes=''] - Optional notes
  * @returns {Promise<Object>}
  */
-export async function uploadPhoto(jobId, file, tag = 'General', notes = '') {
+export async function uploadPhotoLegacy(jobId, file, tag = 'General', notes = '') {
   if (!jobId || typeof jobId !== 'string') throw new Error('Job ID is required');
   if (!file) throw new Error('File is required');
 
@@ -201,7 +202,7 @@ export async function uploadPhoto(jobId, file, tag = 'General', notes = '') {
  * @param {string} jobId
  * @returns {Promise<Array>}
  */
-export async function getPhotosByJob(jobId) {
+export async function getPhotosByJobLegacy(jobId) {
   if (!jobId) throw new Error('Job ID is required');
 
   try {
@@ -241,7 +242,7 @@ export async function getPhotosByJob(jobId) {
  * @param {string} photoId
  * @returns {Promise<Object>}
  */
-export async function deletePhoto(photoId) {
+export async function deletePhotoLegacy(photoId) {
   if (!photoId) throw new Error('Photo ID is required');
 
   // Find the photo to get storage path
@@ -328,11 +329,176 @@ export async function uploadPhotosBatch(jobId, photos) {
   const results = [];
   for (const p of photos) {
     try {
-      const result = await uploadPhoto(jobId, p.file, p.tag, p.notes);
+      const result = await uploadPhotoLegacy(jobId, p.file, p.tag, p.notes);
       results.push(result);
     } catch (err) {
       results.push({ error: err.message, file: p.file?.name });
     }
   }
   return results;
+}
+
+// ─── Improved Upload with Better Reliability & Error Handling ───────────────
+
+/**
+ * Upload a photo with improved reliability and error handling.
+ * Generates a structured path: job-photos/{jobId}/{timestamp}_{filename}
+ *
+ * @param {string} jobId - Associated job ID
+ * @param {File|Blob} file - Photo file to upload
+ * @param {Object} [metadata={}]
+ * @param {string} [metadata.tag] - Photo tag (e.g. 'before', 'after')
+ * @param {string} [metadata.notes] - Optional notes
+ * @returns {Promise<{data: {path: string, publicUrl: string, photoId: string}|null, error: Error|null}>}
+ */
+export async function uploadPhoto(jobId, file, metadata = {}) {
+  if (!jobId) return { data: null, error: new Error('jobId is required') };
+  if (!file || !file.size) return { data: null, error: new Error('Valid file is required') };
+
+  // Size check
+  const maxSize = (config.MAX_FILE_SIZE_MB || 10) * 1024 * 1024;
+  if (file.size > maxSize) {
+    return { data: null, error: new Error(`File too large: max ${config.MAX_FILE_SIZE_MB || 10}MB`) };
+  }
+
+  const photoId = 'photo_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  const ext = file.name?.split('.').pop() || 'jpg';
+  const filename = `${Date.now()}_${photoId}.${ext}`;
+  const path = `${jobId}/${filename}`;
+  const bucket = 'job-photos';
+
+  // Upload to Supabase Storage
+  if (config.hasSupabase) {
+    try {
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, file, {
+          contentType: file.type || 'image/jpeg',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(`[photos] Upload failed:`, uploadError.message);
+        return { data: null, error: uploadError };
+      }
+
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicUrl = urlData?.publicUrl || '';
+
+      // Save photo record to database
+      const photoRecord = {
+        id: photoId,
+        job_id: jobId,
+        storage_path: path,
+        public_url: publicUrl,
+        tag: metadata.tag || '',
+        notes: metadata.notes || '',
+        file_size: file.size,
+        content_type: file.type || 'image/jpeg',
+        created_at: new Date().toISOString(),
+      };
+
+      try {
+        await supabase.from('photos').insert(photoRecord);
+      } catch (dbErr) {
+        console.warn('[photos] DB insert failed (photo uploaded but not recorded):', dbErr.message);
+      }
+
+      return {
+        data: { path, publicUrl, photoId },
+        error: null,
+      };
+    } catch (err) {
+      console.error('[photos] Upload exception:', err.message);
+      return { data: null, error: err };
+    }
+  }
+
+  // Offline fallback: return local data URL
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve({
+        data: { path: `local://${path}`, publicUrl: reader.result, photoId },
+        error: null,
+      });
+    };
+    reader.onerror = () => {
+      resolve({ data: null, error: new Error('Failed to read file for local storage') });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Get all photos for a job.
+ * @param {string} jobId
+ * @returns {Promise<{data: Array, error: Error|null}>}
+ */
+export async function getPhotosByJob(jobId) {
+  if (!jobId) return { data: [], error: null };
+
+  if (config.hasSupabase) {
+    try {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('[photos] DB fetch failed:', error.message);
+        return { data: [], error };
+      }
+      return { data: data || [], error: null };
+    } catch (e) {
+      console.warn('[photos] Fetch exception:', e.message);
+    }
+  }
+
+  // Local fallback
+  try {
+    const raw = localStorage.getItem('ww_rockstar_photos');
+    const all = raw ? JSON.parse(raw) : [];
+    return { data: all.filter((p) => p.job_id === jobId), error: null };
+  } catch {
+    return { data: [], error: null };
+  }
+}
+
+/**
+ * Delete a photo from storage and database.
+ * @param {string} photoId
+ * @param {string} storagePath
+ * @returns {Promise<{error: Error|null}>}
+ */
+export async function deletePhoto(photoId, storagePath) {
+  if (config.hasSupabase && storagePath && !storagePath.startsWith('local://')) {
+    try {
+      const { error } = await supabase.storage.from('job-photos').remove([storagePath]);
+      if (error) console.warn('[photos] Storage delete warning:', error.message);
+    } catch (e) {
+      console.warn('[photos] Storage delete exception:', e.message);
+    }
+
+    try {
+      await supabase.from('photos').delete().eq('id', photoId);
+    } catch (e) {
+      console.warn('[photos] DB delete exception:', e.message);
+    }
+  }
+
+  // Remove from local cache
+  try {
+    const raw = localStorage.getItem('ww_rockstar_photos');
+    if (raw) {
+      const all = JSON.parse(raw);
+      const filtered = all.filter((p) => p.id !== photoId);
+      localStorage.setItem('ww_rockstar_photos', JSON.stringify(filtered));
+    }
+  } catch (e) {
+    console.warn('[photos] Local delete failed:', e.message);
+  }
+
+  return { error: null };
 }

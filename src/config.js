@@ -36,6 +36,25 @@ const GOOGLE_CALENDAR_CLIENT_ID = env.VITE_GOOGLE_CALENDAR_CLIENT_ID || '';
 const OPENWEATHER_API_KEY = env.VITE_OPENWEATHER_API_KEY || '';
 
 // ═══════════════════════════════════════════════════
+// Key Validation
+// ═══════════════════════════════════════════════════
+
+/**
+ * Validate that an API key is real (not a placeholder).
+ * Rejects empty strings, short values, and common placeholder patterns.
+ * @param {string} key
+ * @param {number} [minLen=20]
+ * @returns {boolean}
+ */
+function isValidKey(key, minLen = 20) {
+  if (!key || typeof key !== 'string') return false;
+  const k = key.trim();
+  if (k.length < minLen) return false;
+  const bad = ['your-', 'YOUR_', 'example', 'placeholder', 'xxx', 'test', 'demo', 'sb_publishable_ExD5'];
+  return !bad.some((b) => k.toLowerCase().includes(b.toLowerCase()));
+}
+
+// ═══════════════════════════════════════════════════
 // Application Config Object
 // ═══════════════════════════════════════════════════
 
@@ -53,9 +72,9 @@ export const config = Object.freeze({
 
   // ── Feature Flags ──
   /** Whether Supabase sync is configured */
-  hasSupabase: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
+  hasSupabase: isValidKey(SUPABASE_URL, 10) && isValidKey(SUPABASE_ANON_KEY, 10),
   /** Whether Google Maps is configured */
-  hasGoogleMaps: Boolean(GOOGLE_MAPS_API_KEY),
+  hasGoogleMaps: isValidKey(GOOGLE_MAPS_API_KEY),
   /** Whether Google Calendar is configured */
   hasGoogleCalendar: Boolean(GOOGLE_CALENDAR_CLIENT_ID),
   /** Whether Weather API is configured */

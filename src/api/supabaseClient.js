@@ -5,11 +5,12 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { config } from '../config.js';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
-const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://hgdzmwfcghtilyqagjak.supabase.co';
-const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_ExD5HM7IkieB_ZWItda83w_rFwR3nrB';
+const SUPABASE_URL = config.SUPABASE_URL;
+const SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY;
 
 const REQUEST_TIMEOUT_MS = 10000;
 const HEALTH_CHECK_INTERVAL_MS = 30000;
@@ -118,26 +119,74 @@ async function interceptedFetch(url, init = {}) {
 
 // ─── Supabase Client ─────────────────────────────────────────────────────────
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: localStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
+let supabase = null;
+
+if (config.hasSupabase) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      storage: localStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
     },
-  },
-  global: {
-    fetch: interceptedFetch,
-    headers: {
-      'X-Client-Name': 'wildlife-fieldops',
-      'X-Client-Version': '2.0.0',
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
     },
-  },
-});
+    global: {
+      fetch: interceptedFetch,
+      headers: {
+        'X-Client-Name': 'wildlife-fieldops',
+        'X-Client-Version': '3.0.0',
+      },
+    },
+  });
+
+  // ─── Realtime Connection Monitor ─────────────────────────────────────────────
+
+  supabase.realtime?.onOpen?.(() => {
+    console.log('[supabaseClient] Realtime connection opened');
+    notifyConnectionChange(true);
+  });
+
+  supabase.realtime?.onClose?.(() => {
+    console.warn('[supabaseClient] Realtime connection closed');
+  });
+
+  supabase.realtime?.onError?.((error) => {
+    console.error('[supabaseClient] Realtime error:', error);
+    notifyConnectionChange(false);
+  });
+} else {
+  // Safe offline stub when Supabase is not configured
+  console.log('[supabaseClient] No valid Supabase config — running in offline mode');
+  supabase = {
+    from: () => ({
+      select: () => ({ data: [], error: null }),
+      insert: () => ({ data: null, error: new Error('Supabase not configured') }),
+      update: () => ({ data: null, error: new Error('Supabase not configured') }),
+      delete: () => ({ data: null, error: new Error('Supabase not configured') }),
+      eq: () => ({ data: [], error: null }),
+      order: () => ({ data: [], error: null }),
+      limit: () => ({ data: [], error: null }),
+    }),
+    storage: {
+      from: () => ({
+        upload: () => ({ data: null, error: new Error('Supabase not configured') }),
+        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+        remove: () => ({ data: null, error: null }),
+      }),
+    },
+    auth: {
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      getSession: () => Promise.resolve({ data: { session: null } }),
+      signInWithPassword: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
+      signOut: () => Promise.resolve({ error: null }),
+    },
+    realtime: {},
+  };
+}
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 
@@ -200,21 +249,7 @@ export function startHealthChecks() {
   };
 }
 
-// ─── Realtime Connection Monitor ─────────────────────────────────────────────
 
-supabase.realtime?.onOpen?.(() => {
-  console.log('[supabaseClient] Realtime connection opened');
-  notifyConnectionChange(true);
-});
-
-supabase.realtime?.onClose?.(() => {
-  console.warn('[supabaseClient] Realtime connection closed');
-});
-
-supabase.realtime?.onError?.((error) => {
-  console.error('[supabaseClient] Realtime error:', error);
-  notifyConnectionChange(false);
-});
 
 // ─── Network Event Listeners ─────────────────────────────────────────────────
 

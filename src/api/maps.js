@@ -4,11 +4,11 @@
  * marker management, bounds fitting, navigation URLs, and geocoding.
  */
 
-import { KEYS } from '../config.js';
+import { config } from '../config.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const GOOGLE_MAPS_API_KEY = KEYS.GOOGLE_MAPS;
+const GOOGLE_MAPS_API_KEY = config.GOOGLE_MAPS_API_KEY || '';
 const SCRIPT_ID = 'google-maps-script';
 const DEFAULT_CENTER = { lat: 40.7128, lng: -74.006 }; // NYC default
 const DEFAULT_ZOOM = 12;
@@ -47,7 +47,7 @@ const LIGHT_THEME_STYLES = [];
 // ─── API Key Validation ──────────────────────────────────────────────────────
 
 function hasApiKey() {
-  return GOOGLE_MAPS_API_KEY && !GOOGLE_MAPS_API_KEY.includes('YOUR_');
+  return config.hasGoogleMaps;
 }
 
 // ─── Script Loader ───────────────────────────────────────────────────────────

@@ -24,6 +24,7 @@ import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, clos
 import { router, registerRoutes } from './router.js';
 import { initErrorBoundary, asyncWrapper, retry, safeExecute, logError, safeJSONParse } from './errors.js';
 import { Geolocation } from '@capacitor/geolocation';
+import { loadGoogleMaps } from './api/maps.js';
 import {
   E, money, tel, id, now, formatDate, formatPhone,
   isValidPhone, validateJob, validateCustomer,
@@ -2965,30 +2966,6 @@ function initSplashScreen() {
       }, 500);
     }, 800);
   });
-}
-
-// ═══════════════════════════════════════════════════
-// Google Maps Loader
-// ═══════════════════════════════════════════════════
-
-/** @type {boolean} */
-let googleMapsLoaded = false;
-
-function loadGoogleMaps() {
-  if (googleMapsLoaded) return;
-  if (!config.hasGoogleMaps) return;
-  if (window.google?.maps) {
-    googleMapsLoaded = true;
-    return;
-  }
-
-  const script = document.createElement('script');
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${config.GOOGLE_MAPS_API_KEY}&libraries=places`;
-  script.async = true;
-  script.defer = true;
-  script.onload = () => { googleMapsLoaded = true; };
-  script.onerror = () => console.warn('[Google Maps] Failed to load');
-  document.head.appendChild(script);
 }
 
 // ═══════════════════════════════════════════════════
