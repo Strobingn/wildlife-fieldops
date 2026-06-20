@@ -85,8 +85,11 @@ jobs:
           name: web-dist
           path: dist/
 
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli
+      - name: Install Capacitor
+        run: |
+          echo "Installing Capacitor CLI and Android platform..."
+          npm install -g @capacitor/cli
+          npm install @capacitor/core @capacitor/android --no-save
 
       - name: Add Android platform
         run: |
