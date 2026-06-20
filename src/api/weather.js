@@ -4,7 +4,7 @@
  * graceful fallback when API key is missing, and offline awareness.
  */
 
-import { KEYS } from '../config.js';
+import { config } from '../config.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ function mapWeatherCondition(code, description) {
 // ─── API Key Check ───────────────────────────────────────────────────────────
 
 function hasApiKey() {
-  return KEYS.OPENWEATHER && !KEYS.OPENWEATHER.includes('YOUR_');
+  return config.hasOpenWeather;
 }
 
 // ─── Current Weather ─────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export async function getWeather(lat, lng) {
   }
 
   try {
-    const url = `${WEATHER_BASE_URL}/weather?lat=${lat}&lon=${lng}&appid=${KEYS.OPENWEATHER}&units=imperial`;
+    const url = `${WEATHER_BASE_URL}/weather?lat=${lat}&lon=${lng}&appid=${config.OPENWEATHER_API_KEY}&units=imperial`;
     const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
@@ -201,7 +201,7 @@ export async function getForecast(lat, lng) {
   }
 
   try {
-    const url = `${WEATHER_BASE_URL}/forecast?lat=${lat}&lon=${lng}&appid=${KEYS.OPENWEATHER}&units=imperial`;
+    const url = `${WEATHER_BASE_URL}/forecast?lat=${lat}&lon=${lng}&appid=${config.OPENWEATHER_API_KEY}&units=imperial`;
     const response = await fetchWithTimeout(url);
 
     if (!response.ok) {

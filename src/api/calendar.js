@@ -4,12 +4,12 @@
  * for OAuth. Supports creating events from jobs and checking API configuration.
  */
 
-import { KEYS } from '../config.js';
+import { config } from '../config.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const CLIENT_ID = KEYS.GOOGLE_CALENDAR_CLIENT_ID;
-const API_KEY = KEYS.GOOGLE_API_KEY;
+const CLIENT_ID = config.GOOGLE_CALENDAR_CLIENT_ID || '';
+const API_KEY = config.GOOGLE_MAPS_API_KEY || '';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
 const SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
@@ -24,12 +24,7 @@ let authCallback = null;
 // ─── API Key Check ───────────────────────────────────────────────────────────
 
 function hasConfig() {
-  return (
-    CLIENT_ID &&
-    !CLIENT_ID.includes('YOUR_') &&
-    API_KEY &&
-    !API_KEY.includes('YOUR_')
-  );
+  return config.hasGoogleCalendar;
 }
 
 /** @returns {boolean} */
