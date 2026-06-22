@@ -50,7 +50,7 @@ function isValidKey(key, minLen = 20) {
   if (!key || typeof key !== 'string') return false;
   const k = key.trim();
   if (k.length < minLen) return false;
-  const bad = ['your-', 'YOUR_', 'example', 'placeholder', 'xxx', 'test', 'demo', 'sb_publishable_ExD5'];
+  const bad = ['your-', 'YOUR_', 'example', 'placeholder', 'xxx', 'testkey', 'demo_key', 'changeme', 'replace_me'];
   return !bad.some((b) => k.toLowerCase().includes(b.toLowerCase()));
 }
 
