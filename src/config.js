@@ -76,9 +76,9 @@ export const config = Object.freeze({
   /** Whether Google Maps is configured */
   hasGoogleMaps: isValidKey(GOOGLE_MAPS_API_KEY),
   /** Whether Google Calendar is configured */
-  hasGoogleCalendar: Boolean(GOOGLE_CALENDAR_CLIENT_ID),
+  hasGoogleCalendar: isValidKey(GOOGLE_CALENDAR_CLIENT_ID, 10),
   /** Whether Weather API is configured */
-  hasWeather: Boolean(OPENWEATHER_API_KEY),
+  hasWeather: isValidKey(OPENWEATHER_API_KEY),
 
   // ── Version ──
   APP_VERSION: '3.0.0',
@@ -159,5 +159,4 @@ export function getBuildInfo() {
     `Google Maps: ${config.hasGoogleMaps ? '✅' : '❌'}`,
     `Google Calendar: ${config.hasGoogleCalendar ? '✅' : '❌'}`,
     `Weather: ${config.hasWeather ? '✅' : '❌'}`,
-  ].join(' · ');
-}
+  ].join(' ·
