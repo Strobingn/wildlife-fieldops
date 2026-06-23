@@ -159,4 +159,5 @@ export function getBuildInfo() {
     `Google Maps: ${config.hasGoogleMaps ? '✅' : '❌'}`,
     `Google Calendar: ${config.hasGoogleCalendar ? '✅' : '❌'}`,
     `Weather: ${config.hasWeather ? '✅' : '❌'}`,
-  ].join(' ·
+  ].join(' | ');
+}
