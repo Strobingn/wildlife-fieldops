@@ -385,14 +385,15 @@ const Dashboard = {
   _cleanup: null,
 
   render(state) {
-    const openJobs = state.jobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
+    const jobs = state.jobs || [];
+    const openJobs = jobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
     const totalEstimate = openJobs.reduce((sum, j) => sum + (j.grand_total || j.estimate || calculateEstimate(j.species, j.severity) || 0), 0);
     const q = (state.searchQuery || '').toLowerCase();
     const recentJobs = q
-      ? searchJobs(state.jobs, q).slice(0, 5)
-      : state.jobs.slice(0, 5);
+      ? searchJobs(jobs, q).slice(0, 5)
+      : jobs.slice(0, 5);
 
-    const townCounts = groupBy(state.jobs, 'town');
+    const townCounts = groupBy(jobs, 'town');
     const topTowns = Object.entries(townCounts)
       .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 5);
@@ -468,9 +469,9 @@ const Dashboard = {
     const s = jobScore(j.id);
     const icon = SPECIES_ICONS[j.species] || '🐾';
     const sc = STATUS_STYLES[j.status] || 'active';
-    const vCount = state.visits.filter((v) => (v.jobId || v.job_id) === j.id).length;
-    const rCount = state.repairs.filter((r) => (r.jobId || r.job_id) === j.id).length;
-    const pCount = state.photos.filter((p) => (p.jobId || p.job_id) === j.id).length;
+    const vCount = (state.visits || []).filter((v) => (v.jobId || v.job_id) === j.id).length;
+    const rCount = (state.repairs || []).filter((r) => (r.jobId || r.job_id) === j.id).length;
+    const pCount = (state.photos || []).filter((p) => (p.jobId || p.job_id) === j.id).length;
     return `
       <div class="card job-card" data-job-id="${E(j.id)}">
         <div class="job-header">
@@ -667,10 +668,10 @@ const JobDetail = {
     const icon = SPECIES_ICONS[job.species] || '🐾';
     const sc = STATUS_STYLES[job.status] || 'active';
     const s = jobScore(jobId);
-    const jobVisits = state.visits.filter((v) => (v.jobId || v.job_id) === jobId);
-    const jobRepairs = state.repairs.filter((r) => (r.jobId || r.job_id) === jobId);
-    const jobPhotos = state.photos.filter((p) => (p.jobId || p.job_id) === jobId);
-    const jobServices = state.services.filter((sv) => (sv.jobId || sv.job_id) === jobId);
+    const jobVisits = (state.visits || []).filter((v) => (v.jobId || v.job_id) === jobId);
+    const jobRepairs = (state.repairs || []).filter((r) => (r.jobId || r.job_id) === jobId);
+    const jobPhotos = (state.photos || []).filter((p) => (p.jobId || p.job_id) === jobId);
+    const jobServices = (state.services || []).filter((sv) => (sv.jobId || sv.job_id) === jobId);
 
     return `
       <div class="page job-detail-page">
@@ -1545,7 +1546,7 @@ const GPSMap = {
 
   _refreshMap(state) {
     if (!this._map) return;
-    const jobs = state.jobs.filter((j) => (j.latitude || j.lat) && (j.longitude || j.lng));
+    const jobs = (state.jobs || []).filter((j) => (j.latitude || j.lat) && (j.longitude || j.lng));
     if (!jobs.length) {
       const container = $('#map-container');
       if (container && !this._map) container.innerHTML = '<div class="card empty">No GPS jobs yet.</div>';
@@ -1591,12 +1592,13 @@ const GPSMap = {
 
 const MetricsPage = {
   render(state) {
-    const openJobs = state.jobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
-    const closedJobs = state.jobs.filter((j) => j.status === 'Closed');
+    const allJobs = state.jobs || [];
+    const openJobs = allJobs.filter((j) => j.status !== 'Closed' && j.status !== 'Cancelled');
+    const closedJobs = allJobs.filter((j) => j.status === 'Closed');
     const totalRevenue = closedJobs.reduce((sum, j) => sum + (j.grand_total || j.estimate || 0), 0);
     const avgJobValue = closedJobs.length ? totalRevenue / closedJobs.length : 0;
 
-    const bySpecies = groupBy(state.jobs, 'species');
+    const bySpecies = groupBy(allJobs, 'species');
     const speciesRanking = Object.entries(bySpecies)
       .sort((a, b) => b[1].length - a[1].length);
 
