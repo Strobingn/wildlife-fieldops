@@ -1,1 +1,21 @@
-/* Deprecated: all styles are inline in index.html */
+/* Existing styles... */
+
+/* FIX: Proper text wrapping for suggestions/hint boxes */
+.suggestions-box,
+.hint-text,
+.observations-result {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  overflow-y: auto;
+  max-height: 220px;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+/* Make sure the container allows wrapping */
+.suggestions-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
