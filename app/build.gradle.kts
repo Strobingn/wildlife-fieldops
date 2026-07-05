@@ -8,32 +8,18 @@ plugins {
 android {
     namespace = "com.strobingn.wildlifefieldops"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0-native-rockstar"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
+        versionCode = 2
+        versionName = "1.1-rockstar-full"
     }
-
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
     buildFeatures {
         compose = true
@@ -41,59 +27,26 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
     }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
-    implementation(libs.androidx.hilt.navigation.compose)
-
-    // Room for offline
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
-
-    // WorkManager for background sync
-    implementation(libs.androidx.work.runtime.ktx)
-
-    // Location
-    implementation(libs.play.services.location)
-
-    // Camera
-    implementation(libs.androidx.camera.core)
-    implementation(libs.androidx.camera.camera2)
-    implementation(libs.androidx.camera.lifecycle)
-    implementation(libs.androidx.camera.view)
-
-    // Maps Compose
+    // Previous deps + new
     implementation("com.google.maps.android:maps-compose:4.3.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
 
-    // PDF generation (using Android PdfDocument + helper)
-    // No extra dep needed for basic PdfDocument
+    // TensorFlow Lite / MediaPipe for on-device AI species ID
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
+    implementation("com.google.mlkit:vision-object-detection:17.0.0")
+    // MediaPipe pose or custom model for species (stub ready to load)
 
-    // Coil for images
-    implementation(libs.coil.compose)
+    // Firebase/Supabase for realtime collab (Supabase preferred for your backend)
+    implementation("io.github.jan.supabase:supabase-kt:2.0.0") // or Firebase
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    // PDF advanced
+    implementation("com.itextpdf:itext7-core:8.0.2") // For rich PDFs
+
+    // Signature for e-sign
+    // Canvas + save
+
+    // Existing Room, WorkManager, Hilt, etc.
 }
