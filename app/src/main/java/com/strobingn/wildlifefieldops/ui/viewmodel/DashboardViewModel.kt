@@ -1,0 +1,75 @@
+package com.strobingn.wildlifefieldops.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.strobingn.wildlifefieldops.data.local.*
+import com.strobingn.wildlifefieldops.data.model.JobStatus
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import javax.inject.Inject
+
+data class DashboardStats(
+    val totalJobs: Int = 0,
+    val pendingJobs: Int = 0,
+    val inProgressJobs: Int = 0,
+    val completedJobs: Int = 0,
+    val totalCustomers: Int = 0,
+    val totalInspections: Int = 0,
+    val followUpRequired: Int = 0,
+    val totalRevenue: Double = 0.0,
+    val todayJobs: Int = 0,
+    val overdueJobs: Int = 0
+)
+
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val jobDao: JobDao,
+    private val customerDao: CustomerDao,
+    private val inspectionDao: InspectionDao,
+    private val reminderDao: ReminderDao
+) : ViewModel() {
+
+    val stats: StateFlow<DashboardStats> = combine(
+        jobDao.getAll(),
+        customerDao.getAll(),
+        inspectionDao.getAll(),
+        reminderDao.getPending()
+    ) { jobs, customers, inspections, reminders ->
+        val now = System.currentTimeMillis()
+        val dayStart = now - (now % 86400000L)
+        val dayEnd = dayStart + 86400000L
+
+        DashboardStats(
+            totalJobs = jobs.size,
+            pendingJobs = jobs.count { it.status == JobStatus.PENDING },
+            inProgressJobs = jobs.count { it.status == JobStatus.IN_PROGRESS },
+            completedJobs = jobs.count { it.status == JobStatus.COMPLETED || it.status == JobStatus.PAID },
+            totalCustomers = customers.size,
+            totalInspections = inspections.size,
+            followUpRequired = inspections.count { it.followUpRequired },
+            totalRevenue = jobs.filter { it.status == JobStatus.PAID }.sumOf { it.actualCost },
+            todayJobs = jobs.count {
+                it.scheduledDate != null &&
+                it.scheduledDate in dayStart..dayEnd &&
+                it.status != JobStatus.COMPLETED &&
+                it.status != JobStatus.CANCELLED &&
+                it.status != JobStatus.PAID
+            },
+            overdueJobs = jobs.count {
+                it.scheduledDate != null &&
+                it.scheduledDate < now &&
+                it.status != JobStatus.COMPLETED &&
+                it.status != JobStatus.CANCELLED &&
+                it.status != JobStatus.PAID
+            }
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
+
+    val recentJobs = jobDao.getAll()
+        .map { it.take(5) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val pendingReminders = reminderDao.getPending()
+        .map { it.take(5) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+}

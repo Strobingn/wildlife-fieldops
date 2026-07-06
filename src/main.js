@@ -41,7 +41,9 @@ import {
   VISIT_TYPES, REPAIR_STATUSES, SEVERITIES,
   PHOTO_TAGS, ESTIMATE_TEMPLATES,
   BASE_PRICES, SEVERITY_MULTIPLIERS,
-  BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY,
+  EXPENSE_CATEGORIES, INVENTORY_CATEGORIES, EQUIPMENT_TYPES,
+  COMMUNICATION_TYPES, WEATHER_ICONS, DEFAULT_CHECKLIST,
+  BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY, WEATHER_CACHE_KEY,
 } from './constants.js';
 
 // ─────────────────────────────────────────────────
@@ -245,6 +247,10 @@ function updatePageLabel(page) {
     metrics: '📊 Metrics',
     settings: '⚙️ Settings',
     ai: '🧠 AI Assistant',
+    route: '🗺️ Route Optimizer',
+    expenses: '💰 Expenses',
+    inventory: '📦 Inventory',
+    equipment: '🔧 Equipment',
   };
   const el = $('#page-label');
   if (el) el.textContent = labels[page] || 'Wildlife Whisperer';
@@ -286,6 +292,107 @@ function closeSearch() {
 const onSearchInput = debounce((q) => {
   store.setState({ searchQuery: q });
 }, config.SEARCH_DEBOUNCE);
+
+/**
+ * Render global search results into the search overlay.
+ * Searches jobs, customers, and inspections.
+ */
+function renderSearchResults() {
+  const state = store.getState();
+  const q = (state.searchQuery || '').toLowerCase().trim();
+  const container = $('#search-results');
+  if (!container) return;
+
+  if (!q) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Search jobs
+  const matchedJobs = (state.jobs || []).filter((j) =>
+    ['title', 'customer', 'address', 'town', 'species', 'scope', 'status', 'phone']
+      .some((f) => String(j?.[f] ?? '').toLowerCase().includes(q))
+  ).slice(0, 5);
+
+  // Search customers
+  const matchedCustomers = (state.customers || []).filter((c) =>
+    ['name', 'address', 'town', 'phone', 'email']
+      .some((f) => String(c?.[f] ?? '').toLowerCase().includes(q))
+  ).slice(0, 5);
+
+  // Search inspections
+  const matchedInspections = (state.inspections || []).filter((i) =>
+    ['customer', 'address', 'town', 'species', 'phone', 'notes']
+      .some((f) => String(i?.[f] ?? '').toLowerCase().includes(q))
+  ).slice(0, 5);
+
+  const html = [];
+
+  if (matchedJobs.length) {
+    html.push(`<div class="search-section"><h4>🦝 Jobs</h4>`);
+    matchedJobs.forEach((j) => {
+      html.push(`
+        <div class="search-result-item" data-action="open-job" data-id="${E(j.id)}">
+          <b>${E(j.title || j.species + ' job')}</b>
+          <span class="tiny">${E(j.customer)} · ${E(j.address)}${j.town ? ', ' + E(j.town) : ''}</span>
+        </div>
+      `);
+    });
+    html.push('</div>');
+  }
+
+  if (matchedCustomers.length) {
+    html.push(`<div class="search-section"><h4>👥 Customers</h4>`);
+    matchedCustomers.forEach((c) => {
+      html.push(`
+        <div class="search-result-item" data-action="open-customer" data-id="${E(c.id)}">
+          <b>${E(c.name)}</b>
+          <span class="tiny">${formatPhone(c.phone)} · ${E(c.address)}${c.town ? ', ' + E(c.town) : ''}</span>
+        </div>
+      `);
+    });
+    html.push('</div>');
+  }
+
+  if (matchedInspections.length) {
+    html.push(`<div class="search-section"><h4>🔍 Inspections</h4>`);
+    matchedInspections.forEach((i) => {
+      html.push(`
+        <div class="search-result-item" data-action="open-inspection" data-id="${E(i.id)}">
+          <b>${E(i.customer || 'Unknown')}</b>
+          <span class="tiny">${E(i.species)} · ${E(i.status)}${i.scheduled_start ? ' · ' + formatDate(i.scheduled_start) : ''}</span>
+        </div>
+      `);
+    });
+    html.push('</div>');
+  }
+
+  if (!matchedJobs.length && !matchedCustomers.length && !matchedInspections.length) {
+    html.push(`<div class="card empty">No results for "${E(q)}"</div>`);
+  }
+
+  container.innerHTML = html.join('');
+
+  // Attach click handlers
+  $$('[data-action="open-job"]', container).forEach((el) => {
+    el.addEventListener('click', () => {
+      closeSearch();
+      router.navigate(`/jobs/${el.dataset.id}`);
+    });
+  });
+  $$('[data-action="open-customer"]', container).forEach((el) => {
+    el.addEventListener('click', () => {
+      closeSearch();
+      router.navigate(`/customers/${el.dataset.id}`);
+    });
+  });
+  $$('[data-action="open-inspection"]', container).forEach((el) => {
+    el.addEventListener('click', () => {
+      closeSearch();
+      navigateTo('inspection-form', { selectedInspectionId: el.dataset.id });
+    });
+  });
+}
 
 // ─────────────────────────────────────────────────
 // Component Helpers
@@ -422,6 +529,12 @@ const Dashboard = {
           </div>
         </div>
 
+        <!-- Weather Widget -->
+        ${state.weatherCache ? renderWeatherWidget(state.weatherCache) : ''}
+
+        <!-- Follow-up Reminders -->
+        ${this._renderDashboardReminders(state)}
+
         <!-- Quick Actions -->
         <div class="quick-actions">
           <button class="quick-action" data-action="new-job">
@@ -463,6 +576,35 @@ const Dashboard = {
         ` : ''}
 
 
+      </div>
+    `;
+  },
+
+  _renderDashboardReminders(state) {
+    const now = new Date();
+    const reminders = (state.reminders || [])
+      .filter((r) => r.status === 'pending' && new Date(r.dueDate) >= new Date(now.getTime() - 7 * 86400000))
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+      .slice(0, 5);
+
+    if (!reminders.length) return '';
+
+    const overdueCount = reminders.filter((r) => new Date(r.dueDate) < now).length;
+
+    return `
+      <div class="card">
+        <h3>🔔 Follow-ups ${overdueCount > 0 ? `<span class="pill bad">${overdueCount} overdue</span>` : ''}</h3>
+        ${reminders.map((r) => {
+          const isOverdue = new Date(r.dueDate) < now;
+          const job = state.jobs.find((j) => j.id === r.jobId);
+          return `
+            <div class="reminder-row ${isOverdue ? 'warn' : ''}" data-action="open-reminder-job" data-job-id="${E(r.jobId)}">
+              <span>${isOverdue ? '🔴' : '🟡'} ${formatDate(r.dueDate)}</span>
+              <span class="tiny">${job ? E(job.customer) : 'Unknown'} — ${E(r.notes || 'Follow-up')}</span>
+              <button class="btn-sm" data-action="dismiss-reminder" data-id="${E(r.id)}">✓ Done</button>
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   },
@@ -539,6 +681,18 @@ const Dashboard = {
         if (e.target.closest('button')) return; // Don't trigger on button clicks
         const id = card.dataset.jobId;
         if (id) router.navigate(`/jobs/${id}`);
+      });
+    });
+
+    // Reminder actions
+    $$('[data-action="dismiss-reminder"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleDismissReminder(btn.dataset.id));
+    });
+    $$('[data-action="open-reminder-job"]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const jobId = el.dataset.jobId;
+        if (jobId) router.navigate(`/jobs/${jobId}`);
       });
     });
   },
@@ -793,6 +947,56 @@ const JobDetail = {
           </div>
         `).join('') : '<div class="card empty">No photos yet.</div>'}
 
+        <!-- Job Completion Checklist -->
+        <div class="card">
+          <h3>✅ Completion Checklist</h3>
+          ${this._renderChecklist(job, state)}
+        </div>
+
+        <!-- Voice Notes -->
+        <div class="card">
+          <h3>🎤 Voice Notes</h3>
+          ${this._renderVoiceNotes(job.id, state)}
+          <button class="btn" data-action="record-voice" data-job-id="${E(job.id)}" id="record-btn">🎙️ Record Voice Note</button>
+          <span id="recording-status" class="tiny" style="display:none;">🔴 Recording...</span>
+        </div>
+
+        <!-- Trap Log -->
+        <div class="card">
+          <h3>🪤 Trap Log</h3>
+          ${this._renderTrapLog(job.id, state)}
+          <form id="trap-log-form" class="form-row">
+            <div class="two-col">
+              <div><label>Date</label><input type="date" id="trap-date" value="${new Date().toISOString().slice(0,10)}"></div>
+              <div><label>Location</label><input type="text" id="trap-location" placeholder="e.g. Attic, Garage"></div>
+            </div>
+            <div class="two-col">
+              <div><label>Species Caught</label><select id="trap-species">${O(SPECIES, job.species || 'Raccoon')}</select></div>
+              <div><label>Count</label><input type="number" id="trap-count" value="1" min="0"></div>
+            </div>
+            <div><label>Bait Used</label><input type="text" id="trap-bait" placeholder="e.g. Peanut butter, sardines"></div>
+            <div><label>Notes</label><textarea id="trap-notes" rows="2" placeholder="Any observations..."></textarea></div>
+            <button type="submit" class="btn primary">➕ Log Trap Check</button>
+          </form>
+        </div>
+
+        <!-- Communication Log -->
+        <div class="card">
+          <h3>📞 Communication Log</h3>
+          ${this._renderCommunications(job, state)}
+          <form id="comm-form" class="form-row">
+            <div class="two-col">
+              <div><label>Type</label><select id="comm-type">${O(COMMUNICATION_TYPES, 'Call')}</select></div>
+              <div><label>Direction</label><select id="comm-direction"><option value="outbound">Outbound</option><option value="inbound">Inbound</option></select></div>
+            </div>
+            <div><label>Notes</label><textarea id="comm-notes" rows="2" placeholder="What was discussed..."></textarea></div>
+            <button type="submit" class="btn primary">➕ Log Communication</button>
+          </form>
+        </div>
+
+        <!-- Follow-up Reminders -->
+        ${job.status === 'Closed' ? this._renderReminders(job.id, state) : ''}
+
         <!-- Detail Map -->
         ${job.latitude || job.lat ? `
           <h3 class="section-title">📍 Location</h3>
@@ -861,6 +1065,42 @@ const JobDetail = {
     $$('[data-action="add-calendar"]').forEach((btn) => {
       btn.addEventListener('click', () => handleAddToCalendar(btn.dataset.id));
     });
+
+    // Checklist toggles
+    $$('[data-checklist-id]').forEach((chk) => {
+      chk.addEventListener('change', () => handleToggleChecklist(jobId, chk.dataset.checklistId, chk.checked));
+    });
+
+    // Voice recording
+    $$('[data-action="record-voice"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleToggleVoiceRecording(btn.dataset.jobId));
+    });
+
+    // Delete voice notes
+    $$('[data-action="delete-voice-note"]').forEach((btn) => {
+      btn.addEventListener('click', () => handleDeleteVoiceNote(btn.dataset.id));
+    });
+
+    // Trap log form
+    const trapForm = $('#trap-log-form');
+    if (trapForm) {
+      const onTrapSubmit = (e) => { e.preventDefault(); handleAddTrapLog(jobId); };
+      trapForm.addEventListener('submit', onTrapSubmit);
+    }
+
+    // Communication form
+    const commForm = $('#comm-form');
+    if (commForm) {
+      const onCommSubmit = (e) => { e.preventDefault(); handleAddCommunication(jobId); };
+      commForm.addEventListener('submit', onCommSubmit);
+    }
+
+    // Reminder form
+    const reminderForm = $('#reminder-form');
+    if (reminderForm) {
+      const onReminderSubmit = (e) => { e.preventDefault(); handleAddReminder(jobId); };
+      reminderForm.addEventListener('submit', onReminderSubmit);
+    }
   },
 
   _initDetailMap(job) {
@@ -876,6 +1116,111 @@ const JobDetail = {
       center: { lat, lng },
     });
     new google.maps.Marker({ position: { lat, lng }, map, title: job.customer });
+  },
+
+  _renderChecklist(job, state) {
+    const checklist = job.checklist || initChecklist();
+    const completed = checklist.filter((c) => c.done).length;
+    const pct = checklist.length ? Math.round((completed / checklist.length) * 100) : 0;
+    return `
+      <div class="checklist-progress">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="tiny">${completed}/${checklist.length} completed (${pct}%)</div>
+      </div>
+      <div class="checklist-items">
+        ${checklist.map((item) => `
+          <label class="checklist-row">
+            <input type="checkbox" data-checklist-id="${E(item.id)}" ${item.done ? 'checked' : ''}>
+            <span class="${item.done ? 'done' : ''}">${E(item.label)}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  _renderVoiceNotes(jobId, state) {
+    const notes = (state.voiceNotes || []).filter((v) => v.jobId === jobId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    if (!notes.length) return '<p class="empty">No voice notes yet.</p>';
+    return `
+      <div class="voice-notes-list">
+        ${notes.map((v) => `
+          <div class="voice-note-item">
+            <audio controls src="${E(v.audioData)}" style="flex:1;min-width:0;"></audio>
+            <span class="tiny">${Math.round(v.duration || 0)}s · ${formatDate(v.createdAt)}</span>
+            <button class="btn-sm danger" data-action="delete-voice-note" data-id="${E(v.id)}">🗑️</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  _renderTrapLog(jobId, state) {
+    const logs = (state.trapLogs || []).filter((t) => t.jobId === jobId).sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (!logs.length) return '<p class="empty">No trap checks logged yet.</p>';
+
+    // Running totals per species
+    const speciesTotals = {};
+    logs.forEach((l) => { speciesTotals[l.species] = (speciesTotals[l.species] || 0) + (l.count || 0); });
+
+    return `
+      <div class="trap-totals">
+        ${Object.entries(speciesTotals).map(([sp, count]) => `
+          <span class="pill">${SPECIES_ICONS[sp] || '🐾'} ${E(sp)}: ${count}</span>
+        `).join('')}
+      </div>
+      ${logs.map((t) => `
+        <div class="trap-log-entry">
+          <div class="trap-log-header">
+            <b>${formatDate(t.date)}</b>
+            <span class="pill">${SPECIES_ICONS[t.species] || '🐾'} ${t.count || 0} ${E(t.species)}</span>
+          </div>
+          <div class="tiny">${E(t.location)}${t.bait ? ' · Bait: ' + E(t.bait) : ''}</div>
+          ${t.notes ? `<div class="tiny">${E(t.notes)}</div>` : ''}
+        </div>
+      `).join('')}
+    `;
+  },
+
+  _renderCommunications(job, state) {
+    const customer = job.customer;
+    const logs = (state.communications || []).filter((c) => c.customerId === customer).sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (!logs.length) return '<p class="empty">No communications logged yet.</p>';
+    return `
+      <div class="comm-log">
+        ${logs.map((c) => `
+          <div class="comm-entry">
+            <div class="comm-header">
+              <span class="pill ${c.direction === 'inbound' ? 'info' : ''}">${c.direction === 'inbound' ? '📥' : '📤'} ${E(c.type)}</span>
+              <span class="tiny">${formatDate(c.date)}</span>
+            </div>
+            ${c.notes ? `<div class="tiny">${E(c.notes)}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  _renderReminders(jobId, state) {
+    const reminders = (state.reminders || []).filter((r) => r.jobId === jobId);
+    return `
+      <div class="card">
+        <h3>🔔 Follow-up Reminders</h3>
+        ${reminders.length ? reminders.map((r) => `
+          <div class="reminder-item ${r.status === 'overdue' ? 'warn' : r.status === 'completed' ? 'done' : ''}">
+            <span>${formatDate(r.dueDate)} — ${E(r.notes || 'Follow-up')}</span>
+            <span class="pill">${E(r.status)}</span>
+          </div>
+        `).join('') : '<p class="empty">No reminders set.</p>'}
+        <form id="reminder-form" class="form-row">
+          <div class="two-col">
+            <div><label>Follow-up Date</label><input type="date" id="reminder-date" value="${new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)}"></div>
+            <div><label>Type</label><select id="reminder-type"><option value="warranty">Warranty Check</option><option value="followup">General Follow-up</option><option value="seasonal">Seasonal</option></select></div>
+          </div>
+          <div><label>Notes</label><input type="text" id="reminder-notes" placeholder="e.g. Check if raccoon returned..."></div>
+          <button type="submit" class="btn primary">➕ Add Reminder</button>
+        </form>
+      </div>
+    `;
   },
 
   unmount() {
@@ -1795,6 +2140,329 @@ const AIModal = {
   unmount() {},
 };
 
+// ── Route Optimizer ──────────────────────────────
+
+const RouteOptimizer = {
+  _cleanup: null,
+
+  render(state) {
+    const jobsWithGPS = (state.jobs || []).filter((j) =>
+      (j.latitude || j.lat) && (j.longitude || j.lng) && j.status !== 'Closed' && j.status !== 'Cancelled'
+    );
+
+    if (!jobsWithGPS.length) {
+      return `<div class="page"><div class="card empty">No jobs with GPS coordinates found.</div></div>`;
+    }
+
+    // Calculate optimal route using nearest-neighbor from current location
+    const route = calculateOptimalRoute(jobsWithGPS, state.pendingGPS);
+
+    return `
+      <div class="page route-page">
+        <h2>🗺️ Route Optimizer</h2>
+        <p class="tiny">${route.length} stops optimized for shortest driving distance.</p>
+        <div class="route-list">
+          ${route.map((stop, idx) => `
+            <div class="card route-stop">
+              <div class="route-stop-header">
+                <span class="route-number">${idx + 1}</span>
+                <div class="route-stop-info">
+                  <b>${E(stop.job.customer)}</b>
+                  <span class="tiny">${E(stop.job.address)}${stop.job.town ? ', ' + E(stop.job.town) : ''}</span>
+                </div>
+                <span class="route-species">${SPECIES_ICONS[stop.job.species] || '🐾'}</span>
+              </div>
+              ${idx > 0 ? `<div class="route-leg tiny">↳ ${stop.distance.toFixed(1)} mi from previous</div>` : '<div class="route-leg tiny">📍 Starting point</div>'}
+              <div class="route-actions">
+                <button class="btn-sm" data-action="navigate-route" data-lat="${stop.job.latitude || stop.job.lat}" data-lng="${stop.job.longitude || stop.job.lng}" data-addr="${E(stop.job.address)}">🗺️ Directions</button>
+                <button class="btn-sm" data-action="open-job" data-id="${E(stop.job.id)}">📂 Open Job</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="card" style="margin-top:var(--space-md);">
+          <div class="tiny">Total estimated driving distance: <b>${route.reduce((sum, s, i) => sum + (i > 0 ? s.distance : 0), 0).toFixed(1)} miles</b></div>
+          <div class="tiny">At 30 mph average: ~${Math.ceil(route.reduce((sum, s, i) => sum + (i > 0 ? s.distance : 0), 0) / 30 * 60)} min driving time</div>
+        </div>
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    $$('[data-action="navigate-route"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lat = parseFloat(btn.dataset.lat) || null;
+        const lng = parseFloat(btn.dataset.lng) || null;
+        navigateToJob(lat, lng, btn.dataset.addr || '');
+      });
+    });
+    $$('[data-action="open-job"]').forEach((btn) => {
+      btn.addEventListener('click', () => router.navigate(`/jobs/${btn.dataset.id}`));
+    });
+  },
+
+  unmount() {
+    if (this._cleanup) { this._cleanup(); this._cleanup = null; }
+  },
+};
+
+// ── Expense Tracker ──────────────────────────────
+
+const ExpenseTracker = {
+  _listeners: [],
+
+  render(state) {
+    const q = (state.searchQuery || '').toLowerCase();
+    let expenses = [...(state.expenses || [])];
+    if (q) {
+      expenses = expenses.filter((e) =>
+        (e.description || '').toLowerCase().includes(q) ||
+        (e.category || '').toLowerCase().includes(q)
+      );
+    }
+    expenses = sortBy(expenses, 'date', 'desc');
+
+    // Totals by category
+    const byCategory = {};
+    EXPENSE_CATEGORIES.forEach((c) => byCategory[c] = 0);
+    expenses.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + (e.amount || 0); });
+    const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    return `
+      <div class="page expense-page">
+        <h2>💰 Expense Tracker</h2>
+
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-value">${money(totalExpenses)}</div>
+            <div class="metric-label">Total Expenses</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">${expenses.length}</div>
+            <div class="metric-label">Entries</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Add Expense</h3>
+          <form id="expense-form">
+            <div class="form-row two-col">
+              <div><label>Date</label><input type="date" id="exp-date" value="${new Date().toISOString().slice(0,10)}"></div>
+              <div><label>Amount ($)</label><input type="number" id="exp-amount" min="0" step="0.01" placeholder="0.00"></div>
+            </div>
+            <div class="form-row two-col">
+              <div><label>Category</label><select id="exp-category">${O(EXPENSE_CATEGORIES)}</select></div>
+              <div><label>Linked Job (optional)</label><select id="exp-job"><option value="">— None —</option>${(state.jobs || []).map((j) => `<option value="${E(j.id)}">${E(j.customer)}</option>`).join('')}</select></div>
+            </div>
+            <div class="form-row"><label>Description</label><input type="text" id="exp-desc" placeholder="What was this for?"></div>
+            <button type="submit" class="btn primary">➕ Add Expense</button>
+          </form>
+        </div>
+
+        <h3 class="section-title">By Category</h3>
+        <div class="card-flat">
+          ${Object.entries(byCategory).filter(([,v]) => v > 0).map(([cat, amt]) => `
+            <div class="expense-category-row">
+              <span>${E(cat)}</span>
+              <span class="fin-val">${money(amt)}</span>
+            </div>
+          `).join('') || '<p class="empty">No expenses yet.</p>'}
+        </div>
+
+        <h3 class="section-title">Recent Entries</h3>
+        ${expenses.length ? expenses.slice(0, 50).map((e) => `
+          <div class="card expense-card">
+            <div class="expense-header">
+              <span class="pill">${E(e.category)}</span>
+              <span class="fin-val bold">${money(e.amount)}</span>
+            </div>
+            <div class="tiny">${formatDate(e.date)} · ${E(e.description || 'No description')}</div>
+            ${e.jobId ? `<div class="tiny">Linked: ${E((state.jobs || []).find((j) => j.id === e.jobId)?.customer || 'Unknown')}</div>` : ''}
+          </div>
+        `).join('') : '<div class="card empty">No expenses yet.</div>'}
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    const form = $('#expense-form');
+    if (form) {
+      const onSubmit = (e) => {
+        e.preventDefault();
+        handleAddExpense();
+      };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+  },
+
+  unmount() {
+    this._listeners.forEach((fn) => fn());
+    this._listeners = [];
+  },
+};
+
+// ── Inventory Tracker ────────────────────────────
+
+const InventoryTracker = {
+  _listeners: [],
+
+  render(state) {
+    const items = [...(state.inventory || [])];
+    const lowStock = items.filter((i) => (i.quantity || 0) <= (i.minQuantity || 0));
+
+    return `
+      <div class="page inventory-page">
+        <h2>📦 Inventory Tracker</h2>
+
+        ${lowStock.length ? `
+          <div class="card warn">
+            <h3>⚠️ Low Stock Alert (${lowStock.length})</h3>
+            ${lowStock.map((i) => `<div class="tiny">${E(i.name)} — Only ${i.quantity} ${E(i.unit)} left (min: ${i.minQuantity})</div>`).join('')}
+          </div>
+        ` : ''}
+
+        <div class="card">
+          <h3>Add Item</h3>
+          <form id="inventory-form">
+            <div class="form-row two-col">
+              <div><label>Name</label><input type="text" id="inv-name" placeholder="e.g. Live Trap - Large"></div>
+              <div><label>Category</label><select id="inv-category">${O(INVENTORY_CATEGORIES)}</select></div>
+            </div>
+            <div class="form-row three-col">
+              <div><label>Quantity</label><input type="number" id="inv-qty" min="0" value="0"></div>
+              <div><label>Min Qty</label><input type="number" id="inv-min" min="0" value="0"></div>
+              <div><label>Unit</label><input type="text" id="inv-unit" placeholder="ea, ft, lb..."></div>
+            </div>
+            <button type="submit" class="btn primary">➕ Add Item</button>
+          </form>
+        </div>
+
+        <h3 class="section-title">Inventory (${items.length})</h3>
+        ${items.length ? items.map((i) => {
+          const isLow = (i.quantity || 0) <= (i.minQuantity || 0);
+          return `
+            <div class="card inventory-card ${isLow ? 'warn' : ''}">
+              <div class="inventory-header">
+                <b>${E(i.name)}</b>
+                <span class="pill ${isLow ? 'warn' : ''}">${i.quantity || 0} ${E(i.unit)}</span>
+              </div>
+              <div class="tiny">${E(i.category)} · Min: ${i.minQuantity || 0} ${E(i.unit)} · Last restocked: ${formatDate(i.lastRestocked)}</div>
+              <div class="inventory-actions">
+                <button class="btn-sm" data-action="inv-restock" data-id="${E(i.id)}">📥 Restock</button>
+                <button class="btn-sm" data-action="inv-use" data-id="${E(i.id)}">📤 Use</button>
+              </div>
+            </div>
+          `;
+        }).join('') : '<div class="card empty">No inventory items yet.</div>'}
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    const form = $('#inventory-form');
+    if (form) {
+      const onSubmit = (e) => { e.preventDefault(); handleAddInventoryItem(); };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+    $$('[data-action="inv-restock"]').forEach((btn) => {
+      const fn = () => handleRestockItem(btn.dataset.id);
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+    $$('[data-action="inv-use"]').forEach((btn) => {
+      const fn = () => handleUseItem(btn.dataset.id);
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach((fn) => fn());
+    this._listeners = [];
+  },
+};
+
+// ── Equipment Tracker ────────────────────────────
+
+const EquipmentTracker = {
+  _listeners: [],
+
+  render(state) {
+    const items = [...(state.equipment || [])];
+    const now = new Date();
+    const overdue = items.filter((i) => i.nextMaintenanceDue && new Date(i.nextMaintenanceDue) < now);
+
+    return `
+      <div class="page equipment-page">
+        <h2>🔧 Equipment Maintenance</h2>
+
+        ${overdue.length ? `
+          <div class="card warn">
+            <h3>⚠️ Maintenance Due (${overdue.length})</h3>
+            ${overdue.map((i) => `<div class="tiny">${E(i.name)} — was due ${formatDate(i.nextMaintenanceDue)}</div>`).join('')}
+          </div>
+        ` : ''}
+
+        <div class="card">
+          <h3>Add Equipment</h3>
+          <form id="equipment-form">
+            <div class="form-row two-col">
+              <div><label>Name</label><input type="text" id="eq-name" placeholder="e.g. Work Truck"></div>
+              <div><label>Type</label><select id="eq-type">${O(EQUIPMENT_TYPES)}</select></div>
+            </div>
+            <div class="form-row two-col">
+              <div><label>Purchase Date</label><input type="date" id="eq-purchase"></div>
+              <div><label>Next Maintenance</label><input type="date" id="eq-next"></div>
+            </div>
+            <div class="form-row"><label>Notes</label><textarea id="eq-notes" rows="2"></textarea></div>
+            <button type="submit" class="btn primary">➕ Add Equipment</button>
+          </form>
+        </div>
+
+        <h3 class="section-title">Equipment (${items.length})</h3>
+        ${items.length ? items.map((i) => {
+          const isOverdue = i.nextMaintenanceDue && new Date(i.nextMaintenanceDue) < now;
+          return `
+            <div class="card equipment-card ${isOverdue ? 'warn' : ''}">
+              <div class="equipment-header">
+                <b>${E(i.name)}</b>
+                <span class="pill">${E(i.type)}</span>
+              </div>
+              <div class="tiny">Purchased: ${formatDate(i.purchaseDate)} · Last maintained: ${formatDate(i.lastMaintenance)}</div>
+              <div class="tiny ${isOverdue ? 'warn' : ''}">Next maintenance: ${formatDate(i.nextMaintenanceDue)}</div>
+              ${i.notes ? `<div class="tiny">${E(i.notes)}</div>` : ''}
+              <div class="equipment-actions">
+                <button class="btn-sm" data-action="eq-maintain" data-id="${E(i.id)}">🔧 Mark Maintained</button>
+              </div>
+            </div>
+          `;
+        }).join('') : '<div class="card empty">No equipment tracked yet.</div>'}
+      </div>
+    `;
+  },
+
+  afterRender(state) {
+    const form = $('#equipment-form');
+    if (form) {
+      const onSubmit = (e) => { e.preventDefault(); handleAddEquipment(); };
+      form.addEventListener('submit', onSubmit);
+      this._listeners.push(() => form.removeEventListener('submit', onSubmit));
+    }
+    $$('[data-action="eq-maintain"]').forEach((btn) => {
+      const fn = () => handleMarkMaintained(btn.dataset.id);
+      btn.addEventListener('click', fn);
+      this._listeners.push(() => btn.removeEventListener('click', fn));
+    });
+  },
+
+  unmount() {
+    this._listeners.forEach((fn) => fn());
+    this._listeners = [];
+  },
+};
+
 // ─────────────────────────────────────────────────
 // Page Registry
 // ─────────────────────────────────────────────────
@@ -1876,11 +2544,24 @@ const SchedulePage = {
     }
 
     // Upcoming items list (both jobs + inspections)
+    const filterDate = state.scheduleFilterDate;
     const upcomingJobs = scheduledJobs
-      .filter(j => new Date(j.scheduled_start) >= now)
+      .filter(j => {
+        const d = new Date(j.scheduled_start);
+        if (filterDate) {
+          return d.toISOString().slice(0, 10) === filterDate;
+        }
+        return d >= now;
+      })
       .map(j => ({ ...j, itemType: 'job' }));
     const upcomingInspections = scheduledInspections
-      .filter(i => new Date(i.scheduled_start) >= now)
+      .filter(i => {
+        const d = new Date(i.scheduled_start);
+        if (filterDate) {
+          return d.toISOString().slice(0, 10) === filterDate;
+        }
+        return d >= now;
+      })
       .map(i => ({ ...i, itemType: 'inspection' }));
     const upcoming = [...upcomingJobs, ...upcomingInspections]
       .sort((a, b) => new Date(a.scheduled_start) - new Date(b.scheduled_start))
@@ -1902,7 +2583,13 @@ const SchedulePage = {
           <span><span class="cal-dot" style="background:#22c55e;display:inline-block;"></span> Job</span>
           <span><span class="cal-dot" style="background:#3b82f6;display:inline-block;"></span> Inspection</span>
         </div>
-        <h2 class="section-title">📋 Upcoming</h2>
+        ${filterDate ? `
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+            <span>Filtered: <b>${formatDate(filterDate)}</b></span>
+            <button class="btn-sm" data-action="clear-date-filter">✕ Clear Filter</button>
+          </div>
+        ` : ''}
+        <h2 class="section-title">📋 ${filterDate ? 'Items for Selected Date' : 'Upcoming'}</h2>
         <div class="card-flat">
           ${upcoming.length ? upcoming.map(item => `
             <div class="job-row" data-id="${item.id}" data-type="${item.itemType}">
@@ -1937,6 +2624,9 @@ const SchedulePage = {
         navigateTo('schedule', { scheduleFilterDate: dateStr });
       });
     });
+    $$('[data-action="clear-date-filter"]').forEach((btn) => {
+      btn.addEventListener('click', () => store.setState({ scheduleFilterDate: null }));
+    });
     $$('.job-row[data-id]').forEach(row => {
       row.addEventListener('click', () => {
         const type = row.dataset.type;
@@ -1963,6 +2653,10 @@ const pages = {
   metrics: MetricsPage,
   settings: SettingsPage,
   ai: AIModal,
+  route: RouteOptimizer,
+  expenses: ExpenseTracker,
+  inventory: InventoryTracker,
+  equipment: EquipmentTracker,
 };
 
 // ═══════════════════════════════════════════════════
@@ -2050,6 +2744,527 @@ function handleConvertInspection(inspection) {
   navigateTo('job-detail', { selectedJobId: job.id });
 }
 
+// ── Route Optimizer Helpers ──────────────────────
+
+/**
+ * Calculate the great-circle distance between two lat/lng points (Haversine formula).
+ * @param {number} lat1
+ * @param {number} lng1
+ * @param {number} lat2
+ * @param {number} lng2
+ * @returns {number} Distance in miles
+ */
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3959; // Earth radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Calculate optimal route using nearest-neighbor algorithm.
+ * @param {Array} jobs - Jobs with GPS coordinates
+ * @param {{lat:number,lng:number}|null} startGPS - Starting position
+ * @returns {Array<{job:object, distance:number}>}
+ */
+function calculateOptimalRoute(jobs, startGPS) {
+  if (!jobs.length) return [];
+  const unvisited = [...jobs];
+  const route = [];
+  let currentLat = startGPS?.lat || parseFloat(unvisited[0].latitude || unvisited[0].lat);
+  let currentLng = startGPS?.lng || parseFloat(unvisited[0].longitude || unvisited[0].lng);
+
+  while (unvisited.length > 0) {
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    unvisited.forEach((job, idx) => {
+      const jLat = parseFloat(job.latitude || job.lat);
+      const jLng = parseFloat(job.longitude || job.lng);
+      const dist = haversine(currentLat, currentLng, jLat, jLng);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestIdx = idx;
+      }
+    });
+    const nearest = unvisited.splice(nearestIdx, 1)[0];
+    route.push({ job: nearest, distance: nearestDist === Infinity ? 0 : nearestDist });
+    currentLat = parseFloat(nearest.latitude || nearest.lat);
+    currentLng = parseFloat(nearest.longitude || nearest.lng);
+  }
+  return route;
+}
+
+// ── Expense Handlers ─────────────────────────────
+
+function handleAddExpense() {
+  const date = $('#exp-date')?.value;
+  const amount = parseFloat($('#exp-amount')?.value || 0);
+  const category = $('#exp-category')?.value;
+  const jobId = $('#exp-job')?.value || null;
+  const description = $('#exp-desc')?.value?.trim() || '';
+
+  if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
+
+  const expense = {
+    id: id(),
+    date: date || new Date().toISOString().slice(0, 10),
+    category: category || 'Other',
+    amount,
+    description,
+    jobId,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ expenses: [expense, ...s.expenses] }));
+  showToast('Expense added');
+
+  // Reset form
+  $('#exp-amount').value = '';
+  $('#exp-desc').value = '';
+}
+
+// ── Inventory Handlers ───────────────────────────
+
+function handleAddInventoryItem() {
+  const name = $('#inv-name')?.value?.trim();
+  const category = $('#inv-category')?.value;
+  const quantity = parseInt($('#inv-qty')?.value || 0);
+  const minQuantity = parseInt($('#inv-min')?.value || 0);
+  const unit = $('#inv-unit')?.value?.trim() || 'ea';
+
+  if (!name) { showToast('Item name is required', 'error'); return; }
+
+  const item = {
+    id: id(),
+    name,
+    category: category || 'Other',
+    quantity,
+    minQuantity,
+    unit,
+    lastRestocked: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ inventory: [item, ...s.inventory] }));
+  showToast(`Added ${name} to inventory`);
+  $('#inv-name').value = '';
+  $('#inv-qty').value = '0';
+}
+
+/** @param {string} itemId */
+function handleRestockItem(itemId) {
+  const qty = parseInt(prompt('How many to add?', '1') || '0');
+  if (!qty || qty <= 0) return;
+  store.setState((s) => ({
+    inventory: s.inventory.map((i) =>
+      i.id === itemId
+        ? { ...i, quantity: (i.quantity || 0) + qty, lastRestocked: new Date().toISOString() }
+        : i
+    ),
+  }));
+  showToast(`Restocked ${qty} units`);
+}
+
+/** @param {string} itemId */
+function handleUseItem(itemId) {
+  const qty = parseInt(prompt('How many used?', '1') || '0');
+  if (!qty || qty <= 0) return;
+  store.setState((s) => ({
+    inventory: s.inventory.map((i) =>
+      i.id === itemId
+        ? { ...i, quantity: Math.max(0, (i.quantity || 0) - qty) }
+        : i
+    ),
+  }));
+  showToast(`Recorded ${qty} units used`);
+}
+
+// ── Equipment Handlers ───────────────────────────
+
+function handleAddEquipment() {
+  const name = $('#eq-name')?.value?.trim();
+  const type = $('#eq-type')?.value;
+  const purchaseDate = $('#eq-purchase')?.value || null;
+  const nextMaintenance = $('#eq-next')?.value || null;
+  const notes = $('#eq-notes')?.value?.trim() || '';
+
+  if (!name) { showToast('Equipment name is required', 'error'); return; }
+
+  const item = {
+    id: id(),
+    name,
+    type: type || 'Other',
+    purchaseDate,
+    lastMaintenance: null,
+    nextMaintenanceDue: nextMaintenance,
+    notes,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ equipment: [item, ...s.equipment] }));
+  showToast(`Added ${name}`);
+  $('#eq-name').value = '';
+  $('#eq-notes').value = '';
+}
+
+/** @param {string} itemId */
+function handleMarkMaintained(itemId) {
+  store.setState((s) => ({
+    equipment: s.equipment.map((i) =>
+      i.id === itemId
+        ? { ...i, lastMaintenance: new Date().toISOString(), nextMaintenanceDue: null }
+        : i
+    ),
+  }));
+  showToast('Maintenance recorded');
+}
+
+// ── Voice Note Handlers ──────────────────────────
+
+/** @type {MediaRecorder|null} */
+let _mediaRecorder = null;
+/** @type {Blob[]} */
+let _recordedChunks = [];
+/** @type {number|null} */
+let _recordingStartTime = null;
+/** @type {string|null} */
+let _recordingJobId = null;
+
+/**
+ * Start or stop voice recording.
+ * @param {string} jobId
+ */
+async function handleToggleVoiceRecording(jobId) {
+  if (_mediaRecorder && _mediaRecorder.state === 'recording') {
+    _mediaRecorder.stop();
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _mediaRecorder = new MediaRecorder(stream);
+    _recordedChunks = [];
+    _recordingStartTime = Date.now();
+    _recordingJobId = jobId;
+
+    _mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) _recordedChunks.push(e.data);
+    };
+
+    _mediaRecorder.onstop = () => {
+      const duration = Math.round((Date.now() - _recordingStartTime) / 1000);
+      const blob = new Blob(_recordedChunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const note = {
+          id: id(),
+          jobId: _recordingJobId,
+          audioData: reader.result,
+          duration,
+          createdAt: new Date().toISOString(),
+        };
+        store.setState((s) => ({ voiceNotes: [note, ...s.voiceNotes] }));
+        showToast(`Voice note saved (${duration}s)`);
+        _recordingJobId = null;
+      };
+      reader.readAsDataURL(blob);
+
+      // Stop all tracks
+      stream.getTracks().forEach((t) => t.stop());
+
+      // Update UI
+      const statusEl = $('#recording-status');
+      const btn = $('#record-btn');
+      if (statusEl) statusEl.style.display = 'none';
+      if (btn) btn.textContent = '🎙️ Record Voice Note';
+      _mediaRecorder = null;
+    };
+
+    _mediaRecorder.onerror = () => {
+      showToast('Recording error', 'error');
+      stream.getTracks().forEach((t) => t.stop());
+      _mediaRecorder = null;
+    };
+
+    _mediaRecorder.start();
+    showToast('Recording started', 'success', 1500);
+    const statusEl = $('#recording-status');
+    const btn = $('#record-btn');
+    if (statusEl) statusEl.style.display = 'inline';
+    if (btn) btn.textContent = '⏹️ Stop Recording';
+  } catch (err) {
+    showToast('Microphone access denied', 'error');
+    console.error('Voice recording error:', err);
+  }
+}
+
+/** @param {string} noteId */
+function handleDeleteVoiceNote(noteId) {
+  if (!confirm('Delete this voice note?')) return;
+  store.setState((s) => ({ voiceNotes: s.voiceNotes.filter((v) => v.id !== noteId) }));
+  showToast('Voice note deleted');
+}
+
+// ── Checklist Helpers ────────────────────────────
+
+/**
+ * Get or initialize a job's checklist.
+ * @param {object} job
+ * @returns {Array<{id:string, label:string, done:boolean}>}
+ */
+function initChecklist() {
+  return deepClone(DEFAULT_CHECKLIST);
+}
+
+/**
+ * Toggle a checklist item.
+ * @param {string} jobId
+ * @param {string} checklistId
+ * @param {boolean} done
+ */
+function handleToggleChecklist(jobId, checklistId, done) {
+  store.setState((s) => ({
+    jobs: s.jobs.map((j) => {
+      if (j.id !== jobId) return j;
+      const checklist = j.checklist ? [...j.checklist] : initChecklist();
+      const item = checklist.find((c) => c.id === checklistId);
+      if (item) item.done = done;
+      return { ...j, checklist };
+    }),
+  }));
+}
+
+// ── Trap Log Handlers ────────────────────────────
+
+/** @param {string} jobId */
+function handleAddTrapLog(jobId) {
+  const date = $('#trap-date')?.value;
+  const location = $('#trap-location')?.value?.trim();
+  const species = $('#trap-species')?.value;
+  const count = parseInt($('#trap-count')?.value || 0);
+  const bait = $('#trap-bait')?.value?.trim();
+  const notes = $('#trap-notes')?.value?.trim();
+
+  if (!location) { showToast('Location is required', 'error'); return; }
+
+  const entry = {
+    id: id(),
+    jobId,
+    date: date || new Date().toISOString().slice(0, 10),
+    location,
+    species: species || 'Other',
+    count,
+    bait,
+    notes,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ trapLogs: [entry, ...s.trapLogs] }));
+  showToast('Trap check logged');
+  $('#trap-location').value = '';
+  $('#trap-count').value = '1';
+  $('#trap-bait').value = '';
+  $('#trap-notes').value = '';
+}
+
+// ── Communication Log Handlers ───────────────────
+
+/** @param {string} jobId */
+function handleAddCommunication(jobId) {
+  const st = store.getState();
+  const job = st.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+
+  const type = $('#comm-type')?.value;
+  const direction = $('#comm-direction')?.value;
+  const notes = $('#comm-notes')?.value?.trim();
+
+  if (!notes) { showToast('Notes are required', 'error'); return; }
+
+  const entry = {
+    id: id(),
+    customerId: job.customer,
+    jobId,
+    type: type || 'Call',
+    direction: direction || 'outbound',
+    date: new Date().toISOString(),
+    notes,
+  };
+
+  store.setState((s) => ({ communications: [entry, ...s.communications] }));
+  showToast('Communication logged');
+  $('#comm-notes').value = '';
+}
+
+// ── Reminder Handlers ────────────────────────────
+
+/**
+ * Prompt for follow-up date when closing a job.
+ * @param {string} jobId
+ */
+function promptFollowUpOnClose(jobId) {
+  const st = store.getState();
+  const job = st.jobs.find((j) => j.id === jobId);
+  if (!job) return;
+
+  // Check if we already have a reminder for this job
+  const existing = (st.reminders || []).filter((r) => r.jobId === jobId);
+  if (existing.length > 0) return; // Already has reminder
+
+  const defaultDate = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const dueDate = prompt('Set follow-up reminder date:', defaultDate);
+  if (!dueDate) return;
+
+  const reminder = {
+    id: id(),
+    jobId,
+    dueDate,
+    type: 'warranty',
+    notes: `Follow-up for ${job.customer} — ${job.species}`,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ reminders: [reminder, ...s.reminders] }));
+  showToast(`Follow-up set for ${formatDate(dueDate)}`);
+}
+
+/** @param {string} jobId */
+function handleAddReminder(jobId) {
+  const dueDate = $('#reminder-date')?.value;
+  const type = $('#reminder-type')?.value;
+  const notes = $('#reminder-notes')?.value?.trim();
+
+  if (!dueDate) { showToast('Date is required', 'error'); return; }
+
+  const reminder = {
+    id: id(),
+    jobId,
+    dueDate,
+    type: type || 'followup',
+    notes: notes || 'Follow-up',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+
+  store.setState((s) => ({ reminders: [reminder, ...s.reminders] }));
+  showToast('Reminder added');
+  $('#reminder-notes').value = '';
+}
+
+/** @param {string} reminderId */
+function handleDismissReminder(reminderId) {
+  store.setState((s) => ({
+    reminders: s.reminders.map((r) => r.id === reminderId ? { ...r, status: 'completed' } : r),
+  }));
+  showToast('Reminder marked done');
+}
+
+// ── Weather Widget ───────────────────────────────
+
+/**
+ * Initialize the weather widget on the dashboard.
+ */
+async function initWeatherWidget() {
+  // Check cache first
+  try {
+    const cached = localStorage.getItem(WEATHER_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.expiresAt && new Date(parsed.expiresAt) > new Date()) {
+        store.setState({ weatherCache: parsed.data });
+        return;
+      }
+    }
+  } catch { /* ignore cache errors */ }
+
+  await fetchWeather();
+}
+
+/**
+ * Fetch weather data from OpenWeatherMap API.
+ */
+async function fetchWeather() {
+  if (!config.hasWeather) return;
+
+  try {
+    // Get current position
+    let lat = config.DEFAULT_MAP_CENTER.lat;
+    let lng = config.DEFAULT_MAP_CENTER.lng;
+
+    if ('geolocation' in navigator) {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 300000 });
+      });
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+    }
+
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${config.OPENWEATHER_API_KEY}&units=imperial`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const weatherData = {
+      temp: Math.round(data.main?.temp || 0),
+      feelsLike: Math.round(data.main?.feels_like || 0),
+      condition: data.weather?.[0]?.main || 'Unknown',
+      description: data.weather?.[0]?.description || '',
+      humidity: data.main?.humidity || 0,
+      windSpeed: Math.round(data.wind?.speed || 0),
+      icon: data.weather?.[0]?.icon || '',
+      location: data.name || 'Unknown',
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Cache for 30 minutes
+    const cacheEntry = {
+      data: weatherData,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    };
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(cacheEntry));
+    store.setState({ weatherCache: weatherData });
+  } catch (err) {
+    console.warn('Weather fetch failed:', err.message);
+    // Gracefully degrade — no error toast, just no weather shown
+  }
+}
+
+/**
+ * Render weather widget HTML.
+ * @param {object|null} weather
+ * @returns {string}
+ */
+function renderWeatherWidget(weather) {
+  if (!weather) return '';
+  const icon = WEATHER_ICONS[weather.condition] || '🌡️';
+  let warning = '';
+  if (weather.condition === 'Rain' || weather.condition === 'Thunderstorm' || weather.condition === 'Drizzle') {
+    warning = '<div class="weather-warning">🌧️ Rain expected — bring waterproof gear</div>';
+  } else if (weather.condition === 'Snow') {
+    warning = '<div class="weather-warning">🌨️ Snow expected — drive carefully</div>';
+  } else if (weather.windSpeed > 20) {
+    warning = '<div class="weather-warning">💨 High winds — secure ladders and traps</div>';
+  } else if (weather.temp > 90) {
+    warning = '<div class="weather-warning">☀️ Extreme heat — stay hydrated</div>';
+  } else if (weather.temp < 20) {
+    warning = '<div class="weather-warning">❄️ Freezing temps — check trap batteries</div>';
+  }
+
+  return `
+    <div class="weather-card">
+      <span class="weather-icon">${icon}</span>
+      <div class="weather-info">
+        <div class="weather-temp">${weather.temp}°F <small>(feels ${weather.feelsLike}°F)</small></div>
+        <div class="weather-desc">${E(weather.description)} · ${E(weather.location)}</div>
+        <div class="tiny">💨 ${weather.windSpeed} mph · 💧 ${weather.humidity}% humidity</div>
+      </div>
+    </div>
+    ${warning}
+  `;
+}
+
 function handleSaveJob(jobId) {
   const customer = $('#form-customer')?.value?.trim();
   const phone = $('#form-phone')?.value?.trim();
@@ -2111,11 +3326,17 @@ function handleSaveJob(jobId) {
 
   if (jobId) {
     // Update
+    const oldJob = store.getState().jobs.find((j) => j.id === jobId);
+    const wasNotClosed = oldJob?.status !== 'Closed';
     store.setState((st) => ({
       ...st,
       jobs: st.jobs.map((j) => (j.id === jobId ? { ...j, ...payload } : j)),
       pendingGPS: null,
     }));
+    // Prompt for follow-up if job was just closed
+    if (wasNotClosed && payload.status === 'Closed') {
+      setTimeout(() => promptFollowUpOnClose(jobId), 500);
+    }
     showToast('Job updated');
     router.navigate(`/jobs/${jobId}`);
   } else {
@@ -2860,6 +4081,9 @@ function renderApp() {
 
     // ── Loading ──
     renderLoading(state.loading);
+
+    // ── Search Results ──
+    renderSearchResults();
   });
 }
 
@@ -3029,6 +4253,8 @@ export function initApp() {
   cleanupFns.push(stopSnap);
 
   startPeriodicSync();
+
+  initWeatherWidget();
 
   initSplashScreen();
 

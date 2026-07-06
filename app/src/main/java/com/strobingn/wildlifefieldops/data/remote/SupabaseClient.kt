@@ -1,0 +1,92 @@
+package com.strobingn.wildlifefieldops.data.remote
+
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.Auth
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.serializer.KotlinXSerializer
+import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class SupabaseService @Inject constructor() {
+
+    // Replace with your actual Supabase credentials
+    private val supabaseUrl = "https://your-project.supabase.co"
+    private val supabaseKey = "your-anon-key"
+
+    val client: SupabaseClient by lazy {
+        createSupabaseClient(
+            supabaseUrl = supabaseUrl,
+            supabaseKey = supabaseKey
+        ) {
+            install(Postgrest)
+            install(Auth) {
+                // Auth configuration
+            }
+            install(Storage) {
+                // Storage configuration
+            }
+            defaultSerializer = KotlinXSerializer(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            })
+        }
+    }
+
+    val auth get() = client.auth
+    val postgrest get() = client.postgrest
+
+    suspend fun signIn(email: String, password: String): Boolean {
+        return try {
+            auth.signInWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun signUp(email: String, password: String): Boolean {
+        return try {
+            auth.signUpWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun signOut() {
+        try {
+            auth.signOut()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun isAuthenticated(): Boolean {
+        return auth.currentUserOrNull() != null
+    }
+
+    suspend fun signInAnonymous(): Boolean {
+        return try {
+            auth.signInAnonymously()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+}

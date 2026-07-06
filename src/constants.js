@@ -195,10 +195,14 @@ export const DRAWER_PAGES = [
   { id: "inspections", label: "🔍 Inspections" },
   { id: "schedule", label: "📅 Schedule" },
   { id: "gps", label: "📍 GPS Map" },
+  { id: "route", label: "🗺️ Route Optimizer" },
   { id: "estimate", label: "💵 Estimator" },
   { id: "ai", label: "🧠 AI Assistant" },
   { id: "customers", label: "👥 Customers" },
   { id: "photos", label: "📸 Photos" },
+  { id: "expenses", label: "💰 Expenses" },
+  { id: "inventory", label: "📦 Inventory" },
+  { id: "equipment", label: "🔧 Equipment" },
   { id: "metrics", label: "📊 Metrics" },
   { id: "settings", label: "⚙️ Settings" }
 ];
@@ -238,8 +242,59 @@ export const DEFAULT_TAX_RATE = 0.08;
 // ─── App version ───
 export const APP_VERSION = "3.0.0";
 
+// ─── Expense Categories ───
+export const EXPENSE_CATEGORIES = [
+  "Fuel", "Supplies", "Equipment", "Permits", "Vehicle", "Insurance", "Marketing", "Other"
+];
+
+// ─── Inventory Categories ───
+export const INVENTORY_CATEGORIES = [
+  "Traps", "Exclusion Materials", "Bait", "Tools", "Safety Gear", "Cleaning Supplies", "Other"
+];
+
+// ─── Equipment Types ───
+export const EQUIPMENT_TYPES = [
+  "Truck", "Trailer", "Ladder", "Trap", "Camera", "Tool", "Safety Gear", "Other"
+];
+
+// ─── Communication Types ───
+export const COMMUNICATION_TYPES = ["Call", "Email", "Text", "In-Person Visit"];
+
+// ─── Weather condition icons ───
+export const WEATHER_ICONS = {
+  "Clear": "☀️",
+  "Clouds": "☁️",
+  "Rain": "🌧️",
+  "Drizzle": "🌦️",
+  "Thunderstorm": "⛈️",
+  "Snow": "🌨️",
+  "Mist": "🌫️",
+  "Fog": "🌫️",
+  "Haze": "🌫️",
+  "Smoke": "🌫️",
+  "Dust": "🌫️",
+  "Sand": "🌫️",
+  "Tornado": "🌪️",
+  "Squall": "💨",
+};
+
+// ─── Job Completion Checklist Items ───
+export const DEFAULT_CHECKLIST = [
+  { id: "inspection", label: "Initial inspection completed", done: false },
+  { id: "entry_points", label: "Entry points identified and sealed", done: false },
+  { id: "traps", label: "Traps set / one-way door installed", done: false },
+  { id: "exclusion", label: "Exclusion work completed", done: false },
+  { id: "cleanup", label: "Cleanup and sanitation done", done: false },
+  { id: "final_inspection", label: "Final inspection with customer", done: false },
+  { id: "signature", label: "Customer signature obtained", done: false },
+  { id: "photos", label: "Photos taken (before/after)", done: false },
+  { id: "warranty", label: "Warranty explained", done: false },
+  { id: "followup", label: "Follow-up scheduled", done: false },
+];
+
 // ─── LocalStorage keys ───
 export const STORAGE_KEY = "ww_rockstar";
 export const PREF_KEY = "ww_rockstar_pref";
 export const SYNC_URL_KEY = STORAGE_KEY + "_syncUrl";
 export const THEME_KEY = "ww_theme";
+export const WEATHER_CACHE_KEY = STORAGE_KEY + "_weather";

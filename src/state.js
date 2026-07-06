@@ -111,6 +111,12 @@ function buildInitialState() {
     repairs: [],
     signatures: [],
     syncQueue: [],
+    voiceNotes: [],
+    trapLogs: [],
+    reminders: [],
+    communications: [],
+    inventory: [],
+    equipment: [],
 
     // ── Selection ──
     selectedJobId: null,
@@ -159,6 +165,10 @@ function buildInitialState() {
     // ── Schedule ──
     scheduleYear: new Date().getFullYear(),
     scheduleMonth: new Date().getMonth(),
+    scheduleFilterDate: null,
+
+    // ── Weather ──
+    weatherCache: null,
 
     // ── Pagination ──
     jobsPage: 1,
@@ -189,6 +199,12 @@ function loadPersistedState() {
       signatures: parsed.signatures ?? [],
       services: parsed.services ?? [],
       expenses: parsed.expenses ?? [],
+      voiceNotes: parsed.voiceNotes ?? [],
+      trapLogs: parsed.trapLogs ?? [],
+      reminders: parsed.reminders ?? [],
+      communications: parsed.communications ?? [],
+      inventory: parsed.inventory ?? [],
+      equipment: parsed.equipment ?? [],
       syncQueue: parsed.queue ?? [],
     };
   } catch {
@@ -235,6 +251,12 @@ export function persistState() {
         signatures: s.signatures,
         services: s.services,
         expenses: s.expenses,
+        voiceNotes: s.voiceNotes,
+        trapLogs: s.trapLogs,
+        reminders: s.reminders,
+        communications: s.communications,
+        inventory: s.inventory,
+        equipment: s.equipment,
         queue: s.syncQueue,
         savedAt: new Date().toISOString(),
       };
@@ -278,6 +300,12 @@ export function saveSnapshot() {
         signatures: s.signatures,
         services: s.services,
         expenses: s.expenses,
+        voiceNotes: s.voiceNotes,
+        trapLogs: s.trapLogs,
+        reminders: s.reminders,
+        communications: s.communications,
+        inventory: s.inventory,
+        equipment: s.equipment,
         queue: s.syncQueue,
       },
     };
