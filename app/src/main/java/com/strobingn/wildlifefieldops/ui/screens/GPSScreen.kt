@@ -26,7 +26,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import kotlinx.coroutines.delay
-import com.google.android.gms.maps.model.MapType
+import com.google.maps.android.compose.MapType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
