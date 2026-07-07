@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -380,7 +381,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(2f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.sp(13))
+            textStyle = TextStyle(fontSize = sp(13))
         )
         OutlinedTextField(
             value = item.quantity.toString(),
@@ -391,7 +392,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(0.5f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.sp(13)),
+            textStyle = TextStyle(fontSize = sp(13)),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
         OutlinedTextField(
@@ -403,7 +404,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(0.7f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = androidx.compose.ui.text.TextStyle(fontSize = androidx.compose.ui.unit.sp(13)),
+            textStyle = TextStyle(fontSize = sp(13)),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
         Text(

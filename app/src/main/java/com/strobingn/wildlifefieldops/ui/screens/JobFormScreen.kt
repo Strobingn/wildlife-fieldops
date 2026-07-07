@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -264,7 +265,7 @@ fun JobFormScreen(
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = androidx.compose.ui.graphics.Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
                 shape = RoundedCornerShape(12.dp),
                 enabled = title.isNotBlank()
             ) {

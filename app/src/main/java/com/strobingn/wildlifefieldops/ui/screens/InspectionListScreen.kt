@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -50,7 +51,7 @@ fun InspectionListScreen(
             FloatingActionButton(
                 onClick = onNavigateToInspectionForm,
                 containerColor = PrimaryGreen,
-                contentColor = androidx.compose.ui.graphics.Color.Black
+                contentColor = Color.Black
             ) {
                 Icon(Icons.Default.Add, contentDescription = "New Inspection")
             }

@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops
 
+import androidx.compose.ui.graphics.Color
 import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -195,7 +196,7 @@ private fun AppNavHost(
             // Placeholder - navigates back
             LaunchedEffect(Unit) { navController.popBackStack() }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF22c55e))
+                CircularProgressIndicator(color = Color(0xFF22c55e))
             }
         }
 
@@ -318,19 +319,19 @@ private fun BottomNavigationBar(
     onMenuClick: () -> Unit
 ) {
     NavigationBar(
-        containerColor = androidx.compose.ui.graphics.Color(0xFF0f0f1a),
+        containerColor = Color(0xFF0f0f1a),
         tonalElevation = 0.dp
     ) {
         IconButton(
             onClick = onMenuClick,
             modifier = Modifier.padding(horizontal = 4.dp)
         ) {
-            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = androidx.compose.ui.graphics.Color(0xFFa0a0b0))
+            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color(0xFFa0a0b0))
         }
 
         Screen.bottomNavItems.forEach { screen ->
             val selected = currentRoute == screen.route
-            val color = if (selected) androidx.compose.ui.graphics.Color(0xFF22c55e) else androidx.compose.ui.graphics.Color(0xFF6b6b80)
+            val color = if (selected) Color(0xFF22c55e) else Color(0xFF6b6b80)
 
             NavigationBarItem(
                 icon = {
@@ -349,11 +350,11 @@ private fun BottomNavigationBar(
                 selected = selected,
                 onClick = { onNavigate(screen.route) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = androidx.compose.ui.graphics.Color(0xFF22c55e),
-                    selectedTextColor = androidx.compose.ui.graphics.Color(0xFF22c55e),
-                    indicatorColor = androidx.compose.ui.graphics.Color(0xFF22c55e).copy(alpha = 0.15f),
-                    unselectedIconColor = androidx.compose.ui.graphics.Color(0xFF6b6b80),
-                    unselectedTextColor = androidx.compose.ui.graphics.Color(0xFF6b6b80)
+                    selectedIconColor = Color(0xFF22c55e),
+                    selectedTextColor = Color(0xFF22c55e),
+                    indicatorColor = Color(0xFF22c55e).copy(alpha = 0.15f),
+                    unselectedIconColor = Color(0xFF6b6b80),
+                    unselectedTextColor = Color(0xFF6b6b80)
                 )
             )
         }
@@ -366,8 +367,8 @@ private fun AppDrawer(
     onClose: () -> Unit
 ) {
     ModalDrawerSheet(
-        drawerContainerColor = androidx.compose.ui.graphics.Color(0xFF13131f),
-        drawerContentColor = androidx.compose.ui.graphics.Color(0xFFf0f0f5)
+        drawerContainerColor = Color(0xFF13131f),
+        drawerContentColor = Color(0xFFf0f0f5)
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -375,20 +376,20 @@ private fun AppDrawer(
         Text(
             "Wildlife FieldOps",
             style = MaterialTheme.typography.headlineSmall,
-            color = androidx.compose.ui.graphics.Color(0xFF22c55e),
+            color = Color(0xFF22c55e),
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
         Text(
             "Field Operations Center",
             style = MaterialTheme.typography.bodySmall,
-            color = androidx.compose.ui.graphics.Color(0xFF6b6b80),
+            color = Color(0xFF6b6b80),
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
         Divider(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            color = androidx.compose.ui.graphics.Color(0xFF2a2a3f)
+            color = Color(0xFF2a2a3f)
         )
 
         // Drawer Items
@@ -396,22 +397,22 @@ private fun AppDrawer(
             NavigationDrawerItem(
                 icon = {
                     screen.icon?.let {
-                        Icon(it, contentDescription = screen.title, tint = androidx.compose.ui.graphics.Color(0xFFa0a0b0))
+                        Icon(it, contentDescription = screen.title, tint = Color(0xFFa0a0b0))
                     }
                 },
                 label = {
                     Text(
                         screen.title,
-                        color = androidx.compose.ui.graphics.Color(0xFFf0f0f5)
+                        color = Color(0xFFf0f0f5)
                     )
                 },
                 selected = false,
                 onClick = { onNavigate(screen.route) },
                 modifier = Modifier.padding(horizontal = 8.dp),
                 colors = NavigationDrawerItemDefaults.colors(
-                    unselectedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                    unselectedTextColor = androidx.compose.ui.graphics.Color(0xFFf0f0f5),
-                    unselectedIconColor = androidx.compose.ui.graphics.Color(0xFFa0a0b0)
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedTextColor = Color(0xFFf0f0f5),
+                    unselectedIconColor = Color(0xFFa0a0b0)
                 )
             )
         }
@@ -420,13 +421,13 @@ private fun AppDrawer(
 
         Divider(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = androidx.compose.ui.graphics.Color(0xFF2a2a3f)
+            color = Color(0xFF2a2a3f)
         )
 
         Text(
             "v1.1 - Rockstar Edition",
             style = MaterialTheme.typography.labelSmall,
-            color = androidx.compose.ui.graphics.Color(0xFF6b6b80),
+            color = Color(0xFF6b6b80),
             modifier = Modifier.padding(16.dp)
         )
     }

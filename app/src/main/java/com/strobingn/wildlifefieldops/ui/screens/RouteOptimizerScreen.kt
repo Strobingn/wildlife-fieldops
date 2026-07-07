@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -141,7 +142,7 @@ fun RouteOptimizerScreen(
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (isOptimized) AccentBlue else PrimaryGreen, contentColor = if (isOptimized) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (isOptimized) AccentBlue else PrimaryGreen, contentColor = if (isOptimized) Color.White else Color.Black),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(if (isOptimized) Icons.Default.Check else Icons.Default.Route, contentDescription = null)
@@ -230,7 +231,7 @@ private fun optimizeRoute(stops: List<RouteStop>): List<RouteStop> {
 }
 
 @Composable
-private fun RouteStat(value: String, label: String, color: androidx.compose.ui.graphics.Color) {
+private fun RouteStat(value: String, label: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.headlineSmall, color = color, fontWeight = FontWeight.Bold)
         Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)

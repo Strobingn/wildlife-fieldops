@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -66,7 +67,7 @@ fun PhotoGalleryScreen(
             FloatingActionButton(
                 onClick = onTakePhoto,
                 containerColor = PrimaryGreen,
-                contentColor = androidx.compose.ui.graphics.Color.Black
+                contentColor = Color.Black
             ) {
                 Icon(Icons.Default.CameraAlt, contentDescription = "Take Photo")
             }
@@ -194,7 +195,7 @@ private fun PhotoGridItem(photo: PhotoItem) {
                 Text(
                     photo.category.name.lowercase().replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.labelSmall,
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = Color.White,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -204,12 +205,12 @@ private fun PhotoGridItem(photo: PhotoItem) {
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f))
+                    .background(Color.Black.copy(alpha = 0.6f))
                     .padding(8.dp)
             ) {
                 Column {
-                    Text(photo.title, color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, maxLines = 1)
-                    Text(photo.date, color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(photo.title, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium, maxLines = 1)
+                    Text(photo.date, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
             }
         }
