@@ -33,6 +33,7 @@ data class Inspection(
     val followUpDate: Long? = null,
     val temperature: Float? = null,
     val weatherConditions: String = "",
+    val notes: String = "",
     val humidity: Int? = null,
     val windSpeed: Float? = null,
     val latitude: Double? = null,
