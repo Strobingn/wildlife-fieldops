@@ -13,6 +13,9 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
       OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,21 +29,28 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools extras;google;m2repository'
 
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > keystore.jks
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
+      - name: Build Release APK (Signed)
         run: |
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -500
+          export KEYSTORE_PATH=keystore.jks
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace --info 2>&1 | tail -500
         timeout-minutes: 20
 
-      - name: Upload APK
+      - name: Upload Signed Release APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: wildlife-field-labs-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: wildlife-field-labs-release-signed-apk
+          path: app/build/outputs/apk/release/*.apk
           retention-days: 7
 
       - name: Upload build logs on failure
@@ -53,4 +63,4 @@ jobs:
 
       - name: Summary
         if: success()
-        run: echo "Wildlife Field Labs APK built successfully!"
+        run: echo "Wildlife Field Labs Signed Release APK built successfully! Maps + Supabase hooked."
