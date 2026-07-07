@@ -19,7 +19,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Expense
 import com.strobingn.wildlifefieldops.data.model.ExpenseCategory
 import com.strobingn.wildlifefieldops.ui.theme.*
-import com.strobingn.wildlifefieldops.ui.viewmodel.ExpensesViewModel
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import import com.strobingn.wildlifefieldops.ui.viewmodel.ExpensesViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -49,7 +52,7 @@ fun ExpenseScreen(
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = PrimaryGreen,
-                contentColor = androidx.compose.ui.graphics.Color.Black
+                contentColor = Color.Black
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
@@ -234,8 +237,7 @@ private fun AddExpenseDialog(
                     ExposedDropdownMenu(
                         expanded = showCategoryDropdown,
                         onDismissRequest = { showCategoryDropdown = false },
-                        modifier = Modifier.exposedDropdownSize(),
-                        containerColor = BackgroundCard
+                        modifier = Modifier.exposedDropdownSize()
                     ) {
                         ExpenseCategory.values().forEach { category ->
                             DropdownMenuItem(
@@ -324,7 +326,7 @@ private fun AddExpenseDialog(
                         onSave(selectedCategory, description, amt, t, System.currentTimeMillis(), vendor, mil, notes)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = androidx.compose.ui.graphics.Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
                 enabled = description.isNotBlank() && amount.isNotBlank()
             ) {
                 Text("Save", fontWeight = FontWeight.Bold)
@@ -340,6 +342,7 @@ private fun AddExpenseDialog(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = PrimaryGreen,
     unfocusedBorderColor = BorderDark,

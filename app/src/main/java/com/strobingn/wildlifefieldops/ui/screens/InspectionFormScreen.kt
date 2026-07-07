@@ -10,6 +10,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -104,8 +106,7 @@ fun InspectionFormScreen(
                     ExposedDropdownMenu(
                         expanded = showTypeDropdown,
                         onDismissRequest = { showTypeDropdown = false },
-                        modifier = Modifier.exposedDropdownSize(),
-                        containerColor = BackgroundCard
+                        modifier = Modifier.exposedDropdownSize()
                     ) {
                         InspectionType.values().forEach { type ->
                             DropdownMenuItem(
@@ -137,8 +138,7 @@ fun InspectionFormScreen(
                     ExposedDropdownMenu(
                         expanded = showSeverityDropdown,
                         onDismissRequest = { showSeverityDropdown = false },
-                        modifier = Modifier.exposedDropdownSize(),
-                        containerColor = BackgroundCard
+                        modifier = Modifier.exposedDropdownSize()
                     ) {
                         FindingSeverity.values().forEach { severity ->
                             DropdownMenuItem(
@@ -258,7 +258,7 @@ fun InspectionFormScreen(
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = androidx.compose.ui.graphics.Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
                 shape = RoundedCornerShape(12.dp),
                 enabled = customerName.isNotBlank()
             ) {
@@ -271,3 +271,14 @@ fun InspectionFormScreen(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = PrimaryGreen,
+    unfocusedBorderColor = BorderDark,
+    focusedTextColor = TextPrimary,
+    unfocusedTextColor = TextPrimary,
+    focusedContainerColor = BackgroundDark,
+    unfocusedContainerColor = BackgroundDark
+)

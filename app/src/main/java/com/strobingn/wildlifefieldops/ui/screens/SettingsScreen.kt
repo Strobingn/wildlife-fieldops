@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.SettingsViewModel
@@ -295,6 +296,7 @@ private fun SettingsSwitchItem(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun settingFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = PrimaryGreen,
     unfocusedBorderColor = BorderDark,

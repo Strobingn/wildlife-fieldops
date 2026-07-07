@@ -17,7 +17,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.FindingSeverity
 import com.strobingn.wildlifefieldops.data.model.Inspection
 import com.strobingn.wildlifefieldops.ui.theme.*
-import com.strobingn.wildlifefieldops.ui.viewmodel.InspectionsViewModel
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import import com.strobingn.wildlifefieldops.ui.viewmodel.InspectionsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 

@@ -18,7 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.InventoryItem
 import com.strobingn.wildlifefieldops.ui.theme.*
-import com.strobingn.wildlifefieldops.ui.viewmodel.InventoryViewModel
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import import com.strobingn.wildlifefieldops.ui.viewmodel.InventoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,7 +51,7 @@ fun InventoryScreen(
             FloatingActionButton(
                 onClick = { showAddDialog = true },
                 containerColor = PrimaryGreen,
-                contentColor = androidx.compose.ui.graphics.Color.Black
+                contentColor = Color.Black
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Item")
             }
@@ -250,7 +253,7 @@ private fun LowStockItemCard(item: InventoryItem, onAdjust: (Double) -> Unit) {
                         newQty.toDoubleOrNull()?.let { onAdjust(it) }
                         showAdjust = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = androidx.compose.ui.graphics.Color.Black)
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black)
                 ) {
                     Text("Update")
                 }
@@ -313,7 +316,7 @@ private fun AddInventoryDialog(
                     onSave(item)
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = androidx.compose.ui.graphics.Color.Black),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
                 enabled = name.isNotBlank()
             ) {
                 Text("Save", fontWeight = FontWeight.Bold)
@@ -327,6 +330,7 @@ private fun AddInventoryDialog(
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = PrimaryGreen,
     unfocusedBorderColor = BorderDark,

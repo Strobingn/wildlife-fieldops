@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import androidx.compose.ui.graphics.Color
 import com.strobingn.wildlifefieldops.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -145,7 +147,7 @@ fun GPSScreen(
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
                         isMyLocationEnabled = true,
-                        mapType = com.google.android.gms.maps.model.MapType.NORMAL
+                        mapType = MapType.NORMAL
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = true,
@@ -191,7 +193,7 @@ fun GPSScreen(
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (trackingEnabled) ErrorRed else PrimaryGreen,
-                        contentColor = if (trackingEnabled) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black
+                        contentColor = if (trackingEnabled) Color.White else Color.Black
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {

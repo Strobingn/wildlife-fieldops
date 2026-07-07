@@ -138,8 +138,7 @@ fun JobFormScreen(
                     ExposedDropdownMenu(
                         expanded = showTypeDropdown,
                         onDismissRequest = { showTypeDropdown = false },
-                        modifier = Modifier.exposedDropdownSize(),
-                        containerColor = BackgroundCard
+                        modifier = Modifier.exposedDropdownSize()
                     ) {
                         JobType.values().forEach { type ->
                             DropdownMenuItem(
@@ -171,8 +170,7 @@ fun JobFormScreen(
                     ExposedDropdownMenu(
                         expanded = showPriorityDropdown,
                         onDismissRequest = { showPriorityDropdown = false },
-                        modifier = Modifier.exposedDropdownSize(),
-                        containerColor = BackgroundCard
+                        modifier = Modifier.exposedDropdownSize()
                     ) {
                         JobPriority.values().forEach { priority ->
                             DropdownMenuItem(

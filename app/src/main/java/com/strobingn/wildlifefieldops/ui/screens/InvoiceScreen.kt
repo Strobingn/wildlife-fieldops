@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.*
@@ -441,6 +442,7 @@ private fun InvoiceTotalRow(label: String, amount: Double, color: Color = TextSe
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun invoiceFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = PrimaryGreen,
     unfocusedBorderColor = BorderDark,
