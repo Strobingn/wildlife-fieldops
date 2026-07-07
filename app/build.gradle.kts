@@ -129,7 +129,7 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 
     // ML Kit
-    implementation("com.google.mlkit:vision-object-detection:17.0.0")
+    implementation("com.google.mlkit:object-detection:17.0.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
