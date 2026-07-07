@@ -381,7 +381,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(2f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = TextStyle(fontSize = sp(13))
+            textStyle = TextStyle(fontSize = 13.sp)
         )
         OutlinedTextField(
             value = item.quantity.toString(),
@@ -392,7 +392,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(0.5f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = TextStyle(fontSize = sp(13)),
+            textStyle = TextStyle(fontSize = 13.sp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
         OutlinedTextField(
@@ -404,7 +404,7 @@ private fun InvoiceLineItemRow(
             modifier = Modifier.weight(0.7f),
             shape = RoundedCornerShape(8.dp),
             singleLine = true,
-            textStyle = TextStyle(fontSize = sp(13)),
+            textStyle = TextStyle(fontSize = 13.sp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
         Text(
