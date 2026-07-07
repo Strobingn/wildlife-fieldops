@@ -28,7 +28,7 @@ import com.strobingn.wildlifefieldops.data.model.JobStatus
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.MapProperty
 import com.strobingn.wildlifefieldops.ui.viewmodel.MapViewModel
-import com.google.android.gms.maps.model.MapType
+import com.google.maps.android.compose.MapType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +84,7 @@ fun MapScreen(
                 cameraPositionState = cameraPositionState,
                 properties = MapProperties(
                     isMyLocationEnabled = true,
-                    mapType = com.google.android.gms.maps.model.MapType.HYBRID
+                    mapType = MapType.HYBRID
                 ),
                 uiSettings = MapUiSettings(
                     zoomControlsEnabled = true,
