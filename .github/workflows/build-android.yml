@@ -2,12 +2,17 @@ name: Build Native Android APK (Rockstar)
 
 on:
   push:
-    branches: [ native-rockstar-compose, main ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+      OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -19,7 +24,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools'
+          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools extras;google;m2repository'
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
@@ -28,13 +33,13 @@ jobs:
         run: |
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
           ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -500
-        timeout-minutes: 15
+        timeout-minutes: 20
 
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: native-rockstar-debug-apk
+          name: wildlife-field-labs-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
 
@@ -48,4 +53,4 @@ jobs:
 
       - name: Summary
         if: success()
-        run: echo "Native Rockstar APK built successfully!"
+        run: echo "Wildlife Field Labs APK built successfully!"
