@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.strobingn.wildlifefieldops.navigation.Screen
 import com.strobingn.wildlifefieldops.ui.screens.*
 import com.strobingn.wildlifefieldops.ui.theme.WildlifeFieldOpsTheme
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    WildlifeFieldOpsApp()
+                    WildlifeFieldOpsNavHost()
                 }
             }
         }
@@ -68,7 +69,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WildlifeFieldOpsApp() {
+fun WildlifeFieldOpsNavHost() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route

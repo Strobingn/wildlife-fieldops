@@ -44,6 +44,17 @@ fun CustomerFormScreen(
     var showTypeDropdown by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = PrimaryGreen,
+        unfocusedBorderColor = BorderDark,
+        focusedLabelColor = PrimaryGreen,
+        unfocusedLabelColor = TextSecondary,
+        focusedTextColor = TextPrimary,
+        unfocusedTextColor = TextPrimary,
+        focusedContainerColor = BackgroundCard,
+        unfocusedContainerColor = BackgroundCard
+    )
+
     LaunchedEffect(customerId) {
         customerId?.let { id ->
             viewModel.getCustomerById(id).collect { customer ->
@@ -95,7 +106,7 @@ fun CustomerFormScreen(
                     value = firstName,
                     onValueChange = { firstName = it },
                     label = { Text("First Name *") },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     shape = RoundedCornerShape(12.dp),
@@ -105,7 +116,7 @@ fun CustomerFormScreen(
                     value = lastName,
                     onValueChange = { lastName = it },
                     label = { Text("Last Name *") },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.weight(1f),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                     shape = RoundedCornerShape(12.dp),
@@ -118,7 +129,7 @@ fun CustomerFormScreen(
                 onValueChange = { companyName = it },
                 label = { Text("Company Name") },
                 leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = TextSecondary) },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -129,7 +140,7 @@ fun CustomerFormScreen(
                 onValueChange = { phone = it },
                 label = { Text("Phone") },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = TextSecondary) },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 shape = RoundedCornerShape(12.dp),
@@ -141,7 +152,7 @@ fun CustomerFormScreen(
                 onValueChange = { email = it },
                 label = { Text("Email") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = TextSecondary) },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 shape = RoundedCornerShape(12.dp),
@@ -153,7 +164,7 @@ fun CustomerFormScreen(
                 onValueChange = { address = it },
                 label = { Text("Address") },
                 leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary) },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                 shape = RoundedCornerShape(12.dp),
@@ -165,7 +176,7 @@ fun CustomerFormScreen(
                     value = city,
                     onValueChange = { city = it },
                     label = { Text("City") },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -174,7 +185,7 @@ fun CustomerFormScreen(
                     value = state,
                     onValueChange = { state = it },
                     label = { Text("State") },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.weight(0.6f),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -183,7 +194,7 @@ fun CustomerFormScreen(
                     value = zipCode,
                     onValueChange = { zipCode = it },
                     label = { Text("ZIP") },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.weight(0.7f),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(12.dp),
@@ -193,8 +204,7 @@ fun CustomerFormScreen(
 
             ExposedDropdownMenuBox(
                 expanded = showTypeDropdown,
-                onExpandedChange = { showTypeDropdown = it },
-                modifier = Modifier.fillMaxWidth()
+                onExpandedChange = { showTypeDropdown = it }
             ) {
                 OutlinedTextField(
                     value = selectedType.name.lowercase().replaceFirstChar { it.uppercase() },
@@ -202,15 +212,14 @@ fun CustomerFormScreen(
                     readOnly = true,
                     label = { Text("Customer Type") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showTypeDropdown) },
-                    colors = fieldColors(),
+                    colors = fieldColors,
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
                 ExposedDropdownMenu(
                     expanded = showTypeDropdown,
                     onDismissRequest = { showTypeDropdown = false },
-                    modifier = Modifier.exposedDropdownSize(),
-                    containerColor = BackgroundCard
+                    modifier = Modifier.exposedDropdownSize()
                 ) {
                     CustomerType.values().forEach { type ->
                         DropdownMenuItem(
@@ -231,7 +240,7 @@ fun CustomerFormScreen(
                 value = billingAddress,
                 onValueChange = { billingAddress = it },
                 label = { Text("Billing Address") },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -241,7 +250,7 @@ fun CustomerFormScreen(
                 value = paymentTerms,
                 onValueChange = { paymentTerms = it },
                 label = { Text("Payment Terms") },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -251,7 +260,7 @@ fun CustomerFormScreen(
                 value = notes,
                 onValueChange = { notes = it },
                 label = { Text("Notes") },
-                colors = fieldColors(),
+                colors = fieldColors,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp),

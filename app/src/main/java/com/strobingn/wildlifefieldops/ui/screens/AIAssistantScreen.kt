@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,6 +34,21 @@ fun AIAssistantScreen(
     var isTyping by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    val sendMessage: () -> Unit = {
+        val userMessage = inputText.trim()
+        messages = messages + ChatMessage(userMessage, true)
+        inputText = ""
+        isTyping = true
+
+        // Simulate AI response
+        coroutineScope.launch {
+            kotlinx.coroutines.delay(1000 + (500..2000).random().toLong())
+            val response = generateAIResponse(userMessage)
+            messages = messages + ChatMessage(response, false)
+            isTyping = false
+        }
+    }
 
     // Auto-scroll to bottom
     LaunchedEffect(messages.size) {
@@ -153,21 +169,6 @@ fun AIAssistantScreen(
                     Icon(Icons.Default.Send, contentDescription = "Send")
                 }
             }
-        }
-    }
-
-    fun sendMessage() {
-        val userMessage = inputText.trim()
-        messages = messages + ChatMessage(userMessage, true)
-        inputText = ""
-        isTyping = true
-
-        // Simulate AI response
-        coroutineScope.launch {
-            kotlinx.coroutines.delay(1000 + (500..2000).random().toLong())
-            val response = generateAIResponse(userMessage)
-            messages = messages + ChatMessage(response, false)
-            isTyping = false
         }
     }
 }

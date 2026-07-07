@@ -81,8 +81,13 @@ class SupabaseService @Inject constructor() {
     }
 
     suspend fun signInAnonymous(): Boolean {
+        // Anonymous sign-in using email-less auto-signup
         return try {
-            auth.signInAnonymously()
+            val uuid = java.util.UUID.randomUUID().toString()
+            auth.signUpWith(Email) {
+                this.email = "anon_${uuid}@wildlifefieldops.local"
+                this.password = uuid
+            }
             true
         } catch (e: Exception) {
             e.printStackTrace()
