@@ -17,8 +17,17 @@ android {
         versionCode = 2
         versionName = "1.1-rockstar-full"
 
-        buildConfigField("String", "SUPABASE_URL", "\"https://your-project.supabase.co\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"your-anon-key\"")
+        // Use GitHub Secrets or local env vars (falls back to placeholders for local dev)
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"
+        val supabaseKey = System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
+
+        // Optional other keys
+        val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: "your_google_maps_key"
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
+        val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
     }
 
     buildTypes {
