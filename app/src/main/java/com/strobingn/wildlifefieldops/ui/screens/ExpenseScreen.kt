@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -19,10 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Expense
 import com.strobingn.wildlifefieldops.data.model.ExpenseCategory
 import com.strobingn.wildlifefieldops.ui.theme.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.Color
-import import com.strobingn.wildlifefieldops.ui.viewmodel.ExpensesViewModel
+import com.strobingn.wildlifefieldops.ui.viewmodel.ExpensesViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
