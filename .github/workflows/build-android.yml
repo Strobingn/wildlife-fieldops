@@ -25,14 +25,26 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -500
+        timeout-minutes: 15
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: native-rockstar-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: app/build/outputs/
+          retention-days: 1
 
       - name: Summary
         if: success()
