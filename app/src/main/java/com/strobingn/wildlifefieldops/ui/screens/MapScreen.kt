@@ -28,6 +28,7 @@ import com.strobingn.wildlifefieldops.data.model.JobStatus
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.MapProperty
 import com.strobingn.wildlifefieldops.ui.viewmodel.MapViewModel
+import com.google.maps.android.compose.MapType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
