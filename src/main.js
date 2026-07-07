@@ -334,7 +334,7 @@ function renderSearchResults() {
       html.push(`
         <div class="search-result-item" data-action="open-job" data-id="${E(j.id)}">
           <b>${E(j.title || j.species + ' job')}</b>
-          <span class="tiny">${E(j.customer)} · ${E(j.address)}${j.town ? ', ' + E(j.town) : ''}</span>
+          <span class="tiny">${E(j.customer_name)} · ${E(j.address)}${j.town ? ', ' + E(j.town) : ''}</span>
         </div>
       `);
     });
@@ -359,7 +359,7 @@ function renderSearchResults() {
     matchedInspections.forEach((i) => {
       html.push(`
         <div class="search-result-item" data-action="open-inspection" data-id="${E(i.id)}">
-          <b>${E(i.customer || 'Unknown')}</b>
+          <b>${E(i.customer_name || 'Unknown')}</b>
           <span class="tiny">${E(i.species)} · ${E(i.status)}${i.scheduled_start ? ' · ' + formatDate(i.scheduled_start) : ''}</span>
         </div>
       `);
@@ -600,7 +600,7 @@ const Dashboard = {
           return `
             <div class="reminder-row ${isOverdue ? 'warn' : ''}" data-action="open-reminder-job" data-job-id="${E(r.jobId)}">
               <span>${isOverdue ? '🔴' : '🟡'} ${formatDate(r.dueDate)}</span>
-              <span class="tiny">${job ? E(job.customer) : 'Unknown'} — ${E(r.notes || 'Follow-up')}</span>
+              <span class="tiny">${job ? E(job.customer_name) : 'Unknown'} — ${E(r.notes || 'Follow-up')}</span>
               <button class="btn-sm" data-action="dismiss-reminder" data-id="${E(r.id)}">✓ Done</button>
             </div>
           `;
@@ -623,7 +623,7 @@ const Dashboard = {
           <h3 class="job-title">${E(j.title || j.species + ' job')}</h3>
           <span class="status-pill ${sc}">${E(j.status)}</span>
         </div>
-        <div class="job-meta">${E(j.customer)} · ${formatPhone(j.phone)}</div>
+        <div class="job-meta">${E(j.customer_name)} · ${formatPhone(j.phone)}</div>
         <div class="job-address">${E(j.address)}${j.town ? `, ${E(j.town)}` : ''}</div>
         <div class="job-pills">
           <span class="pill">${E(j.species)}</span>
@@ -747,7 +747,7 @@ const JobList = {
           <h3 class="job-title">${E(j.title || j.species + ' job')}</h3>
           <span class="status-pill ${sc}">${E(j.status)}</span>
         </div>
-        <div class="job-meta">${E(j.customer)} · ${formatPhone(j.phone)}</div>
+        <div class="job-meta">${E(j.customer_name)} · ${formatPhone(j.phone)}</div>
         <div class="job-address">${E(j.address)}${j.town ? `, ${E(j.town)}` : ''}</div>
         <div class="job-pills">
           <span class="pill">${E(j.species)}</span>
@@ -842,7 +842,7 @@ const JobDetail = {
             </div>
           </div>
           <div class="detail-meta">
-            <div><strong>${E(job.customer)}</strong> · <a href="${tel(job.phone)}" class="phone-link">${formatPhone(job.phone)}</a></div>
+            <div><strong>${E(job.customer_name)}</strong> · <a href="${tel(job.phone)}" class="phone-link">${formatPhone(job.phone)}</a></div>
             <div class="tiny">${E(job.address)}${job.town ? `, ${E(job.town)}` : ''}</div>
             ${job.email ? `<div class="tiny">${E(job.email)}</div>` : ''}
           </div>
@@ -1115,7 +1115,7 @@ const JobDetail = {
       zoom: config.DEFAULT_MAP_ZOOM,
       center: { lat, lng },
     });
-    new google.maps.Marker({ position: { lat, lng }, map, title: job.customer });
+    new google.maps.Marker({ position: { lat, lng }, map, title: job.customer_name });
   },
 
   _renderChecklist(job, state) {
@@ -1182,7 +1182,7 @@ const JobDetail = {
   },
 
   _renderCommunications(job, state) {
-    const customer = job.customer;
+    const customer = job.customer_name;
     const logs = (state.communications || []).filter((c) => c.customerId === customer).sort((a, b) => new Date(b.date) - new Date(a.date));
     if (!logs.length) return '<p class="empty">No communications logged yet.</p>';
     return `
@@ -1245,7 +1245,7 @@ const JobForm = {
         <form id="job-form" class="card form-card">
           <div class="form-row">
             <label>Customer Name *</label>
-            <input type="text" id="form-customer" value="${E(job?.customer || '')}" required placeholder="Full name">
+            <input type="text" id="form-customer" value="${E(job?.customer_name || '')}" required placeholder="Full name">
           </div>
           <div class="form-row">
             <label>Phone</label>
@@ -1510,7 +1510,7 @@ const InspectionList = {
     const search = (state.searchQuery || '').toLowerCase();
     const filtered = search
       ? inspections.filter(i =>
-          (i.customer || '').toLowerCase().includes(search) ||
+          (i.customer_name || '').toLowerCase().includes(search) ||
           (i.address || '').toLowerCase().includes(search) ||
           (i.phone || '').toLowerCase().includes(search) ||
           (i.species || '').toLowerCase().includes(search)
@@ -1541,7 +1541,7 @@ const InspectionList = {
               ${items.map(i => `
                 <div class="job-row" data-id="${i.id}" data-type="inspection">
                   <span class="job-row-date">${i.scheduled_start ? formatDateShort(i.scheduled_start) : 'No date'}</span>
-                  <span class="job-row-title">${SPECIES_ICONS[i.species] || '🔍'} ${E(i.customer || 'Unknown')}</span>
+                  <span class="job-row-title">${SPECIES_ICONS[i.species] || '🔍'} ${E(i.customer_name || 'Unknown')}</span>
                   <span class="status-badge ${(INSPECTION_STATUS_STYLES[i.status] || 'pending').replace(/\s+/g, '-')}">${E(i.status || 'Pending')}</span>
                 </div>
               `).join('')}
@@ -1596,7 +1596,7 @@ const InspectionForm = {
         <form id="inspection-form" class="card form-card">
           <div class="form-row">
             <label>Customer Name *</label>
-            <input type="text" id="iform-customer" value="${E(inspection?.customer || '')}" required placeholder="Customer name">
+            <input type="text" id="iform-customer" value="${E(inspection?.customer_name || '')}" required placeholder="Customer name">
           </div>
           <div class="form-row">
             <label>Phone</label>
@@ -1913,7 +1913,7 @@ const GPSMap = {
       const marker = new google.maps.Marker({
         position: pos,
         map: this._map,
-        title: `${E(j.species)} — ${E(j.customer)}`,
+        title: `${E(j.species)} — ${E(j.customer_name)}`,
         animation: google.maps.Animation.DROP,
       });
       marker.addListener('click', () => router.navigate(`/jobs/${j.id}`));
@@ -2167,7 +2167,7 @@ const RouteOptimizer = {
               <div class="route-stop-header">
                 <span class="route-number">${idx + 1}</span>
                 <div class="route-stop-info">
-                  <b>${E(stop.job.customer)}</b>
+                  <b>${E(stop.job.customer_name)}</b>
                   <span class="tiny">${E(stop.job.address)}${stop.job.town ? ', ' + E(stop.job.town) : ''}</span>
                 </div>
                 <span class="route-species">${SPECIES_ICONS[stop.job.species] || '🐾'}</span>
@@ -2252,7 +2252,7 @@ const ExpenseTracker = {
             </div>
             <div class="form-row two-col">
               <div><label>Category</label><select id="exp-category">${O(EXPENSE_CATEGORIES)}</select></div>
-              <div><label>Linked Job (optional)</label><select id="exp-job"><option value="">— None —</option>${(state.jobs || []).map((j) => `<option value="${E(j.id)}">${E(j.customer)}</option>`).join('')}</select></div>
+              <div><label>Linked Job (optional)</label><select id="exp-job"><option value="">— None —</option>${(state.jobs || []).map((j) => `<option value="${E(j.id)}">${E(j.customer_name)}</option>`).join('')}</select></div>
             </div>
             <div class="form-row"><label>Description</label><input type="text" id="exp-desc" placeholder="What was this for?"></div>
             <button type="submit" class="btn primary">➕ Add Expense</button>
@@ -2277,7 +2277,7 @@ const ExpenseTracker = {
               <span class="fin-val bold">${money(e.amount)}</span>
             </div>
             <div class="tiny">${formatDate(e.date)} · ${E(e.description || 'No description')}</div>
-            ${e.jobId ? `<div class="tiny">Linked: ${E((state.jobs || []).find((j) => j.id === e.jobId)?.customer || 'Unknown')}</div>` : ''}
+            ${e.jobId ? `<div class="tiny">Linked: ${E((state.jobs || []).find((j) => j.id === e.jobId)?.customer_name || 'Unknown')}</div>` : ''}
           </div>
         `).join('') : '<div class="card empty">No expenses yet.</div>'}
       </div>
@@ -2528,12 +2528,12 @@ const SchedulePage = {
       // Job dots (green/yellow)
       dayItems.jobs.forEach(j => {
         const color = j.status === 'Active' ? '#22c55e' : j.status === 'Scheduled' ? '#eab308' : '#6b7280';
-        dots.push(`<span class="cal-dot" style="background:${color}" title="Job: ${E(j.customer || 'Unknown')}"></span>`);
+        dots.push(`<span class="cal-dot" style="background:${color}" title="Job: ${E(j.customer_name || 'Unknown')}"></span>`);
       });
       // Inspection dots (blue)
       dayItems.inspections.forEach(i => {
         const color = i.status === 'Pending' ? '#3b82f6' : i.status === 'Scheduled' ? '#8b5cf6' : i.status === 'Completed' ? '#10b981' : '#6b7280';
-        dots.push(`<span class="cal-dot" style="background:${color}" title="Inspection: ${E(i.customer || 'Unknown')}"></span>`);
+        dots.push(`<span class="cal-dot" style="background:${color}" title="Inspection: ${E(i.customer_name || 'Unknown')}"></span>`);
       });
       calendarHTML += `
         <div class="cal-day ${isToday ? 'cal-today' : ''} ${totalItems ? 'cal-has-items' : ''}" data-day="${day}">
@@ -2594,7 +2594,7 @@ const SchedulePage = {
           ${upcoming.length ? upcoming.map(item => `
             <div class="job-row" data-id="${item.id}" data-type="${item.itemType}">
               <span class="job-row-date">${formatDateShort(item.scheduled_start)}</span>
-              <span class="job-row-title">${item.itemType === 'inspection' ? '🔍' : (SPECIES_ICONS[item.species] || '🔧')} ${E(item.customer || 'Unknown')}</span>
+              <span class="job-row-title">${item.itemType === 'inspection' ? '🔍' : (SPECIES_ICONS[item.species] || '🔧')} ${E(item.customer_name || 'Unknown')}</span>
               <span class="status-badge ${(item.status || '').toLowerCase().replace(/\s+/g, '-')}">${item.itemType === 'inspection' ? 'INSP: ' : ''}${E(item.status || 'Active')}</span>
             </div>
           `).join('') : '<p class="empty">No upcoming items scheduled.</p>'}
@@ -2702,7 +2702,7 @@ function handleSaveInspection(inspectionId) {
 function handleConvertInspection(inspection) {
   const job = {
     id: id(),
-    customer: inspection.customer,
+    customer: inspection.customer_name,
     phone: inspection.phone,
     address: inspection.address,
     town: inspection.town,
@@ -2740,7 +2740,7 @@ function handleConvertInspection(inspection) {
     return { jobs, inspections, selectedJobId: job.id };
   });
 
-  showToast(`Converted inspection for ${inspection.customer} to a job`, 'success');
+  showToast(`Converted inspection for ${inspection.customer_name} to a job`, 'success');
   navigateTo('job-detail', { selectedJobId: job.id });
 }
 
@@ -3084,7 +3084,7 @@ function handleAddCommunication(jobId) {
 
   const entry = {
     id: id(),
-    customerId: job.customer,
+    customerId: job.customer_name,
     jobId,
     type: type || 'Call',
     direction: direction || 'outbound',
@@ -3121,7 +3121,7 @@ function promptFollowUpOnClose(jobId) {
     jobId,
     dueDate,
     type: 'warranty',
-    notes: `Follow-up for ${job.customer} — ${job.species}`,
+    notes: `Follow-up for ${job.customer_name} — ${job.species}`,
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
@@ -3462,7 +3462,7 @@ function handleGeneratePDF(jobId) {
     const dataUrl = generatePDF(job, jobServices, jobPhotos);
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `job-${String(job.customer).replace(/[^a-z0-9]/gi, '_')}.pdf`;
+    a.download = `job-${String(job.customer_name).replace(/[^a-z0-9]/gi, '_')}.pdf`;
     a.click();
     showToast('PDF generated');
   } catch (err) {
@@ -3517,7 +3517,7 @@ function handleAddToCalendar(jobId) {
 
   const subject = encodeURIComponent('Wildlife Whisperer LLC Job');
   const body = encodeURIComponent(
-    `Customer: ${job.customer}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.scope || ''}`
+    `Customer: ${job.customer_name}\nPhone: ${job.phone}\nAddress: ${job.address}\nSpecies: ${job.species}\nScope: ${job.scope || ''}`
   );
   const location = encodeURIComponent(job.address);
   const start = new Date();
