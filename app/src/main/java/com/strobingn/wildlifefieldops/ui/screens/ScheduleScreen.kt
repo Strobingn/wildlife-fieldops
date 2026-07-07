@@ -149,7 +149,6 @@ fun ScheduleScreen(
                     JobCard(
                         job = job,
                         onClick = { onNavigateToJobDetail(job.id) },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
                 }
             }
