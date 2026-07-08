@@ -31,26 +31,34 @@ jobs:
 
       - name: Build Debug APK
         run: |
+          set -o pipefail
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tail -500
-        timeout-minutes: 20
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log | tail -1000
+        timeout-minutes: 30
+
+      - name: Check for APK and list outputs
+        run: |
+          echo "=== Checking for debug APKs ==="
+          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
+          ls -la app/build/outputs/apk/debug/ || echo "debug dir not found or empty"
+          echo "=== End check ==="
 
       - name: Upload Debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: wildlife-field-labs-debug-apk
+          name: wildlife-field-ops-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
 
-      - name: Upload build logs on failure
-        if: failure()
+      - name: Upload build logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: app/build/outputs/
-          retention-days: 1
+          path: build.log
+          retention-days: 7
 
       - name: Summary
         if: success()
-        run: echo "Wildlife Field Labs Debug APK built successfully! Maps + Supabase hooked."
+        run: echo "Wildlife Field Ops Debug APK built successfully! Maps + Supabase keys hooked via env/secrets."
