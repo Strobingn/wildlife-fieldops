@@ -10,15 +10,16 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.json.Json
+import com.strobingn.wildlifefieldops.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SupabaseService @Inject constructor() {
 
-    // Replace with your actual Supabase credentials
-    private val supabaseUrl = "https://your-project.supabase.co"
-    private val supabaseKey = "your-anon-key"
+    // Keys now pulled from BuildConfig (set in app/build.gradle.kts from env or fallback)
+    private val supabaseUrl = BuildConfig.SUPABASE_URL
+    private val supabaseKey = BuildConfig.SUPABASE_ANON_KEY
 
     val client: SupabaseClient by lazy {
         createSupabaseClient(
