@@ -130,10 +130,13 @@ dependencies {
     // Coil (image loading)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Supabase - FIXED to match io.github.jan.supabase imports in SupabaseClient.kt (prevents class resolution / startup crash)
-    implementation("io.github.jan.supabase:postgrest-kt:2.1.4")
-    implementation("io.github.jan.supabase:gotrue-kt:2.1.4")
-    implementation("io.github.jan.supabase:storage-kt:2.1.4")
+    // Supabase - correct group id is io.github.jan-tennert.supabase, package names are io.github.jan.supabase
+    val supabaseVersion = "2.6.1"
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
+    implementation("io.github.jan-tennert.supabase:storage-kt:$supabaseVersion")
+    // Ktor client engine required by Supabase
+    implementation("io.ktor:ktor-client-android:2.3.12")
 
     // Gson
     implementation("com.google.code.gson:gson:2.10.1")
