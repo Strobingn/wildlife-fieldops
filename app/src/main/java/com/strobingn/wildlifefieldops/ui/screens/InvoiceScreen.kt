@@ -623,7 +623,7 @@ private fun viewPDF(context: Context, path: String) {
 
 @Composable
 private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) {
-    val context = LocalContext.current
+    val density = LocalContext.current.resources.displayMetrics.density
     // Store touch points as line segments: each segment is (x1, y1, x2, y2)
     val lineSegments = remember { mutableStateListOf<android.graphics.PointF>() }
     var currentStart by remember { mutableStateOf<android.graphics.PointF?>(null) }
@@ -691,10 +691,8 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
             Button(
                 onClick = {
                     // Render line segments directly to Android Bitmap
-                    val ctx = LocalContext.current
-                    val densityFloat = ctx.resources.displayMetrics.density
-                    val widthPx = (600f * densityFloat).toInt().coerceAtLeast(1)
-                    val heightPx = (200f * densityFloat).toInt().coerceAtLeast(1)
+                    val widthPx = (600f * density).toInt().coerceAtLeast(1)
+                    val heightPx = (200f * density).toInt().coerceAtLeast(1)
                     val bm = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
                     val androidCanvas = android.graphics.Canvas(bm)
                     androidCanvas.drawColor(AndroidColor.WHITE)
@@ -702,7 +700,7 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                         isAntiAlias = true
                         color = AndroidColor.BLACK
                         style = android.graphics.Paint.Style.STROKE
-                        strokeWidth = 3f * densityFloat
+                        strokeWidth = 3f * density
                         strokeCap = android.graphics.Paint.Cap.ROUND
                         strokeJoin = android.graphics.Paint.Join.ROUND
                     }
@@ -711,16 +709,15 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                         val start = lineSegments.getOrNull(i) ?: continue
                         val end = lineSegments.getOrNull(i + 1) ?: continue
                         // Scale coordinates from dp to pixels
-                        val x1 = start.x * densityFloat
-                        val y1 = start.y * densityFloat
-                        val x2 = end.x * densityFloat
-                        val y2 = end.y * densityFloat
+                        val x1 = start.x * density
+                        val y1 = start.y * density
+                        val x2 = end.x * density
+                        val y2 = end.y * density
                         androidPath.moveTo(x1, y1)
                         androidPath.lineTo(x2, y2)
                     }
                     androidCanvas.drawPath(androidPath, paint)
                     onSave(bm)
-                },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black)
             ) {
                 Text("Save Signature", fontWeight = FontWeight.Bold)
