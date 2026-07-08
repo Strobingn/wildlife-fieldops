@@ -27,7 +27,6 @@ import com.strobingn.wildlifefieldops.ui.viewmodel.ExpensesViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseScreen(
     onBack: () -> Unit,
@@ -240,7 +239,7 @@ private fun AddExpenseDialog(
                         onDismissRequest = { showCategoryDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        ExpenseCategory.values().forEach { category ->
+                        ExpenseCategory.entries.forEach { category ->
                             DropdownMenuItem(
                                 text = { Text(category.name.lowercase().replaceFirstChar { it.uppercase() }, color = TextPrimary) },
                                 onClick = {

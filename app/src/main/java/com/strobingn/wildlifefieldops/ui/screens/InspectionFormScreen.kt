@@ -108,7 +108,7 @@ fun InspectionFormScreen(
                         onDismissRequest = { showTypeDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        InspectionType.values().forEach { type ->
+                        InspectionType.entries.forEach { type ->
                             DropdownMenuItem(
                                 text = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }, color = TextPrimary) },
                                 onClick = {
@@ -140,7 +140,7 @@ fun InspectionFormScreen(
                         onDismissRequest = { showSeverityDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        FindingSeverity.values().forEach { severity ->
+                        FindingSeverity.entries.forEach { severity ->
                             DropdownMenuItem(
                                 text = { Text(severity.name.lowercase().replaceFirstChar { it.uppercase() }, color = TextPrimary) },
                                 onClick = {

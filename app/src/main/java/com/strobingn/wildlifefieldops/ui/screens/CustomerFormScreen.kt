@@ -222,7 +222,7 @@ fun CustomerFormScreen(
                     onDismissRequest = { showTypeDropdown = false },
                     modifier = Modifier.exposedDropdownSize()
                 ) {
-                    CustomerType.values().forEach { type ->
+                    CustomerType.entries.forEach { type ->
                         DropdownMenuItem(
                             text = { Text(type.name.lowercase().replaceFirstChar { it.uppercase() }, color = TextPrimary) },
                             onClick = {

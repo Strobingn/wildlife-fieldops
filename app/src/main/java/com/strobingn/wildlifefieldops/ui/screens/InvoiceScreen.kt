@@ -623,8 +623,9 @@ private fun viewPDF(context: Context, path: String) {
 
 @Composable
 private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) {
-    val signaturePaths = remember { mutableStateListOf<androidx.compose.ui.graphics.Path>() }
-    var currentPath by remember { mutableStateOf(androidx.compose.ui.graphics.Path()) }
+    // Store touch points as line segments: each segment is (x1, y1, x2, y2)
+    val lineSegments = remember { mutableStateListOf<android.graphics.PointF>() }
+    var currentStart by remember { mutableStateOf<android.graphics.PointF?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -643,29 +644,40 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                         .pointerInput(Unit) {
                             detectDragGestures(
                                 onDragStart = { offset ->
-                                    currentPath = androidx.compose.ui.graphics.Path().apply { moveTo(offset.x, offset.y) }
+                                    currentStart = android.graphics.PointF(offset.x, offset.y)
                                 },
                                 onDrag = { change, _ ->
-                                    currentPath.lineTo(change.position.x, change.position.y)
-                                    signaturePaths.add(androidx.compose.ui.graphics.Path().apply {
-                                        addPath(currentPath)
-                                    })
+                                    val end = android.graphics.PointF(change.position.x, change.position.y)
+                                    val start = currentStart ?: end
+                                    lineSegments.add(start)
+                                    lineSegments.add(end)
+                                    currentStart = end
                                 },
                                 onDragEnd = {
-                                    currentPath = androidx.compose.ui.graphics.Path()
+                                    currentStart = null
                                 }
                             )
                         }
                 ) {
-                    signaturePaths.forEach { path ->
-                        drawPath(
-                            path = path,
-                            color = Color.Black,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
-                        )
+                    // Draw line segments as continuous paths
+                    val path = androidx.compose.ui.graphics.Path()
+                    for (i in 0 until lineSegments.size step 2) {
+                        val start = lineSegments.getOrNull(i) ?: continue
+                        val end = lineSegments.getOrNull(i + 1) ?: continue
+                        path.moveTo(start.x, start.y)
+                        path.lineTo(end.x, end.y)
                     }
+                    drawPath(
+                        path = path,
+                        color = Color.Black,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                            width = 3f,
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                            join = androidx.compose.ui.graphics.StrokeJoin.Round
+                        )
+                    )
                 }
-                if (signaturePaths.isEmpty()) {
+                if (lineSegments.isEmpty()) {
                     Text(
                         "Sign with your finger",
                         modifier = Modifier.align(Alignment.Center),
@@ -677,9 +689,34 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
         confirmButton = {
             Button(
                 onClick = {
-                    val bm = Bitmap.createBitmap(600, 200, Bitmap.Config.ARGB_8888)
+                    // Render line segments directly to Android Bitmap
+                    val density = context.resources.displayMetrics.density
+                    val widthPx = (600 * density).toInt().coerceAtLeast(1)
+                    val heightPx = (200 * density).toInt().coerceAtLeast(1)
+                    val bm = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
                     val androidCanvas = android.graphics.Canvas(bm)
                     androidCanvas.drawColor(AndroidColor.WHITE)
+                    val paint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        color = AndroidColor.BLACK
+                        style = android.graphics.Paint.Style.STROKE
+                        strokeWidth = 3f * density
+                        strokeCap = android.graphics.Paint.Cap.ROUND
+                        strokeJoin = android.graphics.Paint.Join.ROUND
+                    }
+                    val androidPath = android.graphics.Path()
+                    for (i in 0 until lineSegments.size step 2) {
+                        val start = lineSegments.getOrNull(i) ?: continue
+                        val end = lineSegments.getOrNull(i + 1) ?: continue
+                        // Scale coordinates from dp to pixels
+                        val x1 = start.x * density
+                        val y1 = start.y * density
+                        val x2 = end.x * density
+                        val y2 = end.y * density
+                        androidPath.moveTo(x1, y1)
+                        androidPath.lineTo(x2, y2)
+                    }
+                    androidCanvas.drawPath(androidPath, paint)
                     onSave(bm)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black)
@@ -688,7 +725,7 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
             }
         },
         dismissButton = {
-            TextButton(onClick = { signaturePaths.clear() }) {
+            TextButton(onClick = { lineSegments.clear() }) {
                 Text("Clear", color = TextSecondary)
             }
         },

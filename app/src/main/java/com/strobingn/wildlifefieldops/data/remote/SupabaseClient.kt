@@ -20,32 +20,46 @@ class SupabaseService @Inject constructor() {
     // Keys now pulled from BuildConfig (set in app/build.gradle.kts from env or fallback)
     private val supabaseUrl = BuildConfig.SUPABASE_URL
     private val supabaseKey = BuildConfig.SUPABASE_ANON_KEY
+    private val isConfigured = supabaseUrl.isNotBlank() &&
+            !supabaseUrl.contains("your-project") &&
+            supabaseKey.isNotBlank() &&
+            supabaseKey != "your-anon-key"
 
-    val client: SupabaseClient by lazy {
-        createSupabaseClient(
-            supabaseUrl = supabaseUrl,
-            supabaseKey = supabaseKey
-        ) {
-            install(Postgrest)
-            install(Auth) {
-                // Auth configuration
+    val client: SupabaseClient? by lazy {
+        if (!isConfigured) {
+            android.util.Log.w("SupabaseService", "Supabase not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY env vars.")
+            null
+        } else {
+            try {
+                createSupabaseClient(
+                    supabaseUrl = supabaseUrl,
+                    supabaseKey = supabaseKey
+                ) {
+                    install(Postgrest)
+                    install(Auth) {
+                        // Auth configuration
+                    }
+                    install(Storage) {
+                        // Storage configuration
+                    }
+                    defaultSerializer = KotlinXSerializer(Json {
+                        ignoreUnknownKeys = true
+                        isLenient = true
+                    })
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("SupabaseService", "Failed to create Supabase client", e)
+                null
             }
-            install(Storage) {
-                // Storage configuration
-            }
-            defaultSerializer = KotlinXSerializer(Json {
-                ignoreUnknownKeys = true
-                isLenient = true
-            })
         }
     }
 
-    val auth get() = client.auth
-    val postgrest get() = client.postgrest
+    val auth get() = client?.auth
+    val postgrest get() = client?.postgrest
 
     suspend fun signIn(email: String, password: String): Boolean {
         return try {
-            auth.signInWith(Email) {
+            auth?.signInWith(Email) {
                 this.email = email
                 this.password = password
             }
@@ -58,7 +72,7 @@ class SupabaseService @Inject constructor() {
 
     suspend fun signUp(email: String, password: String): Boolean {
         return try {
-            auth.signUpWith(Email) {
+            auth?.signUpWith(Email) {
                 this.email = email
                 this.password = password
             }
@@ -71,21 +85,20 @@ class SupabaseService @Inject constructor() {
 
     suspend fun signOut() {
         try {
-            auth.signOut()
+            auth?.signOut()
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     fun isAuthenticated(): Boolean {
-        return auth.currentUserOrNull() != null
+        return auth?.currentUserOrNull() != null
     }
 
     suspend fun signInAnonymous(): Boolean {
-        // Anonymous sign-in using email-less auto-signup
         return try {
             val uuid = java.util.UUID.randomUUID().toString()
-            auth.signUpWith(Email) {
+            auth?.signUpWith(Email) {
                 this.email = "anon_${uuid}@wildlifefieldops.local"
                 this.password = uuid
             }

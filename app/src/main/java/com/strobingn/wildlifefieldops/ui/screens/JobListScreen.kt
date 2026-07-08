@@ -171,7 +171,7 @@ fun JobListScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Filter by Status", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                 Spacer(modifier = Modifier.height(16.dp))
-                JobStatus.values().forEach { status ->
+                JobStatus.entries.forEach { status ->
                     ListItem(
                         headlineContent = {
                             Text(status.name.replace("_", " "), color = TextPrimary)

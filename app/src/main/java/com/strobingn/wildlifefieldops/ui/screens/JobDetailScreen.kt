@@ -176,7 +176,7 @@ fun JobDetailScreen(
                 title = { Text("Change Status", color = TextPrimary) },
                 text = {
                     Column {
-                        JobStatus.values().forEach { status ->
+                        JobStatus.entries.forEach { status ->
                             TextButton(
                                 onClick = {
                                     viewModel.updateJobStatus(currentJob.id, status)

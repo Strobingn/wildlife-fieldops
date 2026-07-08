@@ -1,7 +1,8 @@
 package com.strobingn.wildlifefieldops
 
-import androidx.compose.ui.graphics.Color
 import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -32,7 +34,6 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Handle permission results
         permissions.entries.forEach { (permission, granted) ->
             android.util.Log.d("Permissions", "$permission: $granted")
         }
@@ -41,15 +42,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Request essential permissions
-        requestEssentialPermissions()
-
         setContent {
             WildlifeFieldOpsTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // Request permissions after UI is ready
+                    LaunchedEffect(Unit) {
+                        requestEssentialPermissions()
+                    }
                     WildlifeFieldOpsNavHost()
                 }
             }
@@ -57,14 +59,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestEssentialPermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        )
-        permissionLauncher.launch(permissions.toTypedArray())
+        val permissions = mutableListOf<String>().apply {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            add(Manifest.permission.CAMERA)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            } else {
+                add(Manifest.permission.READ_MEDIA_IMAGES)
+            }
+        }.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (permissions.isNotEmpty()) {
+            permissionLauncher.launch(permissions.toTypedArray())
+        }
     }
 }
 

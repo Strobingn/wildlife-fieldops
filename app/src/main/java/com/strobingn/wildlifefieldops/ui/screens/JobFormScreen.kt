@@ -141,7 +141,7 @@ fun JobFormScreen(
                         onDismissRequest = { showTypeDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        JobType.values().forEach { type ->
+                        JobType.entries.forEach { type ->
                             DropdownMenuItem(
                                 text = { Text(type.name.replace("_", " "), color = TextPrimary) },
                                 onClick = {
@@ -173,7 +173,7 @@ fun JobFormScreen(
                         onDismissRequest = { showPriorityDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        JobPriority.values().forEach { priority ->
+                        JobPriority.entries.forEach { priority ->
                             DropdownMenuItem(
                                 text = { Text(priority.name, color = TextPrimary) },
                                 onClick = {
