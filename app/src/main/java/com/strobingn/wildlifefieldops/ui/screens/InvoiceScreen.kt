@@ -718,11 +718,11 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                     }
                     androidCanvas.drawPath(androidPath, paint)
                     onSave(bm)
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black)
             ) {
                 Text("Save Signature", fontWeight = FontWeight.Bold)
             }
-        },
         dismissButton = {
             TextButton(onClick = { lineSegments.clear() }) {
                 Text("Clear", color = TextSecondary)
