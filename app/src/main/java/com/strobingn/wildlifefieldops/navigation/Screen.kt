@@ -23,9 +23,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
 
     // Customer Screens
     object CustomerList : Screen("customers", "Customers", Icons.Default.People)
-    object CustomerDetail : Screen("customer_detail/{customerId}", "Customer Detail") {
-        fun createRoute(customerId: String) = "customer_detail/$customerId"
-    }
     object CustomerForm : Screen("customer_form?customerId={customerId}", "Customer Form") {
         fun createRoute(customerId: String? = null) =
             if (customerId != null) "customer_form?customerId=$customerId" else "customer_form"
