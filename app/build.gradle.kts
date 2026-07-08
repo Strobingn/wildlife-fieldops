@@ -23,10 +23,13 @@ android {
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
 
-        val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: "your_google_maps_key"
+        val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
         val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
+
+        // Manifest placeholder for Google Maps meta-data (fixes placeholder crash/key issues)
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
     }
 
     signingConfigs {
@@ -117,10 +120,10 @@ dependencies {
     // Coil (image loading)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Supabase
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:2.1.4")
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:2.1.4")
-    implementation("io.github.jan-tennert.supabase:storage-kt:2.1.4")
+    // Supabase - FIXED to match io.github.jan.supabase imports in SupabaseClient.kt (prevents class resolution / startup crash)
+    implementation("io.github.jan.supabase:postgrest-kt:2.1.4")
+    implementation("io.github.jan.supabase:gotrue-kt:2.1.4")
+    implementation("io.github.jan.supabase:storage-kt:2.1.4")
 
     // Gson
     implementation("com.google.code.gson:gson:2.10.1")
