@@ -65,10 +65,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Google Maps API Key - Replace with your actual key -->
+        <!-- Google Maps API Key - NOW uses manifest placeholder from build.gradle (env or YOUR_... fallback). Prevents placeholder key crashes on Maps init. -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+            android:value="${GOOGLE_MAPS_API_KEY}" />
 
         <!-- File Provider for PDF sharing -->
         <provider
