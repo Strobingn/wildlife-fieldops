@@ -623,6 +623,7 @@ private fun viewPDF(context: Context, path: String) {
 
 @Composable
 private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) {
+    val context = LocalContext.current
     // Store touch points as line segments: each segment is (x1, y1, x2, y2)
     val lineSegments = remember { mutableStateListOf<android.graphics.PointF>() }
     var currentStart by remember { mutableStateOf<android.graphics.PointF?>(null) }
