@@ -691,9 +691,10 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
             Button(
                 onClick = {
                     // Render line segments directly to Android Bitmap
-                    val density = context.resources.displayMetrics.density
-                    val widthPx = (600 * density).toInt().coerceAtLeast(1)
-                    val heightPx = (200 * density).toInt().coerceAtLeast(1)
+                    val ctx = LocalContext.current
+                    val densityFloat = ctx.resources.displayMetrics.density
+                    val widthPx = (600f * densityFloat).toInt().coerceAtLeast(1)
+                    val heightPx = (200f * densityFloat).toInt().coerceAtLeast(1)
                     val bm = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
                     val androidCanvas = android.graphics.Canvas(bm)
                     androidCanvas.drawColor(AndroidColor.WHITE)
@@ -701,7 +702,7 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                         isAntiAlias = true
                         color = AndroidColor.BLACK
                         style = android.graphics.Paint.Style.STROKE
-                        strokeWidth = 3f * density
+                        strokeWidth = 3f * densityFloat
                         strokeCap = android.graphics.Paint.Cap.ROUND
                         strokeJoin = android.graphics.Paint.Join.ROUND
                     }
@@ -710,10 +711,10 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
                         val start = lineSegments.getOrNull(i) ?: continue
                         val end = lineSegments.getOrNull(i + 1) ?: continue
                         // Scale coordinates from dp to pixels
-                        val x1 = start.x * density
-                        val y1 = start.y * density
-                        val x2 = end.x * density
-                        val y2 = end.y * density
+                        val x1 = start.x * densityFloat
+                        val y1 = start.y * densityFloat
+                        val x2 = end.x * densityFloat
+                        val y2 = end.y * densityFloat
                         androidPath.moveTo(x1, y1)
                         androidPath.lineTo(x2, y2)
                     }
