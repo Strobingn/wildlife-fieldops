@@ -43,6 +43,9 @@ jobs:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
 
+      - name: Sync Capacitor to Android (copy web assets + update plugins)
+        run: npx cap sync android
+
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
 
@@ -50,7 +53,7 @@ jobs:
         run: |
           set -o pipefail
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log | tail -2000
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
         timeout-minutes: 30
 
       - name: Check for APK and list outputs
