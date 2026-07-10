@@ -16,12 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -32,20 +26,6 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools extras;google;m2repository'
 
-      - name: Install Node dependencies
-        run: npm ci
-
-      - name: Build web assets with Vite
-        run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-          VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
-
-      - name: Sync Capacitor to Android (copy web assets + update plugins)
-        run: npx cap sync android
-
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
 
@@ -53,7 +33,7 @@ jobs:
         run: |
           set -o pipefail
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
         timeout-minutes: 30
 
       - name: Check for APK and list outputs
@@ -81,4 +61,4 @@ jobs:
 
       - name: Summary
         if: success()
-        run: echo "Wildlife Field Ops Debug APK built successfully!"
+        run: echo "Wildlife Field Ops Debug APK built successfully! Maps + Supabase keys hooked via env/secrets."

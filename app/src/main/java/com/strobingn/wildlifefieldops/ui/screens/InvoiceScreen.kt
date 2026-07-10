@@ -723,6 +723,7 @@ private fun SignaturePadDialog(onDismiss: () -> Unit, onSave: (Bitmap) -> Unit) 
             ) {
                 Text("Save Signature", fontWeight = FontWeight.Bold)
             }
+        },
         dismissButton = {
             TextButton(onClick = { lineSegments.clear() }) {
                 Text("Clear", color = TextSecondary)
