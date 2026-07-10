@@ -81,15 +81,20 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- WorkManager initialization -->
+        <!--
+          Disable default Startup initializers we do not ship (e.g. WorkManager).
+          WorkManagerInitializer was registered without a work-runtime dependency and
+          crashed the process at launch with ClassNotFoundException.
+        -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
-                        android:exported="false"
+            android:exported="false"
             tools:node="merge">
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup" />
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
     </application>
 </manifest>

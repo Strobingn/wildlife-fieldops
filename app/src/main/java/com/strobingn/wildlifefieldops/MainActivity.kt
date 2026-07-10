@@ -5,9 +5,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.compose.ui.graphics.Color
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +30,7 @@ import com.strobingn.wildlifefieldops.ui.theme.WildlifeFieldOpsTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -64,17 +64,30 @@ class MainActivity : ComponentActivity() {
             add(Manifest.permission.ACCESS_FINE_LOCATION)
             add(Manifest.permission.ACCESS_COARSE_LOCATION)
             add(Manifest.permission.CAMERA)
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            } else {
-                add(Manifest.permission.READ_MEDIA_IMAGES)
+            // Only request storage permissions that exist on this Android version.
+            // READ_MEDIA_IMAGES is API 33+; requesting it earlier can crash some OEMs.
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                    add(Manifest.permission.READ_MEDIA_IMAGES)
+                }
+                Build.VERSION.SDK_INT <= Build.VERSION_CODES.P -> {
+                    add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+                // API 29–32: scoped storage; no extra image permission required for camera/app files
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         if (permissions.isNotEmpty()) {
-            permissionLauncher.launch(permissions.toTypedArray())
+            try {
+                permissionLauncher.launch(permissions.toTypedArray())
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Permission request failed", e)
+            }
         }
     }
 }
