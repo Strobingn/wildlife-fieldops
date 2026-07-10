@@ -42,52 +42,45 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        setContent {
-            WildlifeFieldOpsTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    // Request permissions after UI is ready
-                    LaunchedEffect(Unit) {
-                        requestEssentialPermissions()
+        try {
+            setContent {
+                WildlifeFieldOpsTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        // Show UI first. Ask for location only after a short delay
+                        // (Samsung One UI / Android 15 can be strict about permission storms at cold start).
+                        LaunchedEffect(Unit) {
+                            kotlinx.coroutines.delay(800)
+                            requestLaunchPermissions()
+                        }
+                        WildlifeFieldOpsNavHost()
                     }
-                    WildlifeFieldOpsNavHost()
                 }
             }
+        } catch (t: Throwable) {
+            android.util.Log.e("MainActivity", "Fatal setContent failure", t)
+            throw t
         }
     }
 
-    private fun requestEssentialPermissions() {
-        val permissions = mutableListOf<String>().apply {
-            add(Manifest.permission.ACCESS_FINE_LOCATION)
-            add(Manifest.permission.ACCESS_COARSE_LOCATION)
-            add(Manifest.permission.CAMERA)
-            // Only request storage permissions that exist on this Android version.
-            // READ_MEDIA_IMAGES is API 33+; requesting it earlier can crash some OEMs.
-            when {
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
-                    add(Manifest.permission.READ_MEDIA_IMAGES)
-                }
-                Build.VERSION.SDK_INT <= Build.VERSION_CODES.P -> {
-                    add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
-                }
-                // API 29–32: scoped storage; no extra image permission required for camera/app files
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }.filter {
+    /**
+     * Only permissions needed to land on Home without scaring Android 14/15 privacy checks.
+     * Camera / media / notifications are requested later from the screens that need them.
+     */
+    private fun requestLaunchPermissions() {
+        val permissions = listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ).filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (permissions.isNotEmpty()) {
-            try {
-                permissionLauncher.launch(permissions.toTypedArray())
-            } catch (e: Exception) {
-                android.util.Log.e("MainActivity", "Permission request failed", e)
-            }
+        if (permissions.isEmpty()) return
+        try {
+            permissionLauncher.launch(permissions.toTypedArray())
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Permission request failed", e)
         }
     }
 }
