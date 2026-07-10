@@ -18,8 +18,6 @@
 // Imports
 // ─────────────────────────────────────────────────
 
-import { inject } from '@vercel/analytics';
-import { injectSpeedInsights } from '@vercel/speed-insights';
 import { config, isFeatureAvailable, getBuildInfo } from './config.js';
 import { store, navigateTo, showToast, setLoading, toggleDrawer, openModal, closeModal, startSnapshots, stopSnapshots } from './state.js';
 import { router, registerRoutes } from './router.js';
@@ -46,12 +44,6 @@ import {
   BOTTOM_NAV, DRAWER_PAGES, STORAGE_KEY, WEATHER_CACHE_KEY,
 } from './constants.js';
 
-// ─────────────────────────────────────────────────
-// Initialize Vercel Analytics & Speed Insights
-// ─────────────────────────────────────────────────
-
-inject();
-injectSpeedInsights();
 // ─────────────────────────────────────────────────
 // DOM Helpers (local to this module)
 // ─────────────────────────────────────────────────
@@ -2674,7 +2666,7 @@ function handleSaveInspection(inspectionId) {
 
   const inspection = {
     id: inspectionId || id(),
-    customer,
+    customer_name: customer,
     phone: $('#iform-phone')?.value?.trim() || '',
     address: $('#iform-address')?.value?.trim() || '',
     town: $('#iform-town')?.value?.trim() || '',
