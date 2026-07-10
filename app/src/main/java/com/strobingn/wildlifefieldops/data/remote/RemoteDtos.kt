@@ -15,9 +15,10 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * Supabase (PostgREST) DTOs mapped to the public schema in supabase/schema.sql.
- * Native Room models stay local-first; these shapes are only for cloud sync.
+ * DTOs match the LIVE Supabase project `wildlife_app` (hgdzmwfcghtilyqagjak).
+ * Jobs table uses customer_name/title/species (NOT NULL), not the idealized schema.sql only.
  */
+
 @Serializable
 data class RemoteCustomerDto(
     val id: String,
@@ -34,15 +35,21 @@ data class RemoteCustomerDto(
 @Serializable
 data class RemoteJobDto(
     val id: String,
-    val customer: String,
+    /** Live DB required column */
+    @SerialName("customer_name") val customerName: String,
+    /** Compatibility column used by older web clients */
+    val customer: String? = null,
+    /** Live DB required column */
+    val title: String,
+    /** Live DB required column */
+    val species: String = "Wildlife",
     @SerialName("customer_id") val customerId: String? = null,
     val phone: String? = null,
     val email: String? = null,
-    val address: String,
+    val address: String? = null,
     val town: String? = null,
     val state: String? = null,
     val zip: String? = null,
-    val species: String? = null,
     val status: String = "Active",
     val priority: String? = "Normal",
     @SerialName("assigned_tech") val assignedTech: String? = null,
@@ -59,10 +66,14 @@ data class RemoteJobDto(
 @Serializable
 data class RemoteInspectionDto(
     val id: String,
-    @SerialName("job_id") val jobId: String,
-    @SerialName("inspection_type") val inspectionType: String = "ROUTINE",
+    @SerialName("job_id") val jobId: String? = null,
+    @SerialName("inspection_type") val inspectionType: String? = "ROUTINE",
     val notes: String? = null,
-    val findings: JsonObject = buildJsonObject { }
+    val findings: JsonObject = buildJsonObject { },
+    @SerialName("customer_name") val customerName: String? = null,
+    val species: String? = null,
+    val status: String? = null,
+    val priority: String? = null
 )
 
 @Serializable
@@ -102,49 +113,60 @@ fun RemoteCustomerDto.toLocal(): Customer {
     )
 }
 
-fun Job.toRemoteDto(): RemoteJobDto = RemoteJobDto(
-    id = id.ifBlank { UUID.randomUUID().toString() },
-    customer = customerName.ifBlank { title.ifBlank { "Job" } },
-    customerId = customerId.takeIf { it.isNotBlank() && isUuid(it) },
-    address = address.ifBlank { "Address TBD" },
-    species = description.takeIf { it.isNotBlank() },
-    status = status.toRemoteStatus(),
-    priority = priority.toRemotePriority(),
-    assignedTech = assignedTo.ifBlank { null },
-    notes = notes.ifBlank { null },
-    scope = title.ifBlank { null },
-    latitude = latitude?.toString(),
-    longitude = longitude?.toString(),
-    estimate = estimatedValue,
-    grandTotal = actualCost,
-    scheduledStart = scheduledDate?.let { Instant.ofEpochMilli(it).toString() },
-    completedAt = completedDate?.let { Instant.ofEpochMilli(it).toString() }
-)
+fun Job.toRemoteDto(): RemoteJobDto {
+    val name = customerName.ifBlank { title.ifBlank { "Customer" } }
+    val jobTitle = title.ifBlank { name }
+    val speciesGuess = description.ifBlank { "Wildlife" }
+    return RemoteJobDto(
+        id = id.ifBlank { UUID.randomUUID().toString() },
+        customerName = name,
+        customer = name,
+        title = jobTitle,
+        species = speciesGuess,
+        customerId = customerId.takeIf { it.isNotBlank() && isUuid(it) },
+        phone = null,
+        email = null,
+        address = address.ifBlank { null },
+        status = status.toRemoteStatus(),
+        priority = priority.toRemotePriority(),
+        assignedTech = assignedTo.ifBlank { null },
+        notes = notes.ifBlank { null },
+        scope = description.ifBlank { null },
+        latitude = latitude?.toString(),
+        longitude = longitude?.toString(),
+        estimate = estimatedValue,
+        grandTotal = actualCost,
+        scheduledStart = scheduledDate?.let { Instant.ofEpochMilli(it).toString() },
+        completedAt = completedDate?.let { Instant.ofEpochMilli(it).toString() }
+    )
+}
 
-fun RemoteJobDto.toLocal(): Job = Job(
-    id = id,
-    title = scope ?: customer,
-    description = species.orEmpty(),
-    customerId = customerId.orEmpty(),
-    customerName = customer,
-    address = address,
-    latitude = latitude?.toDoubleOrNull(),
-    longitude = longitude?.toDoubleOrNull(),
-    status = status.fromRemoteStatus(),
-    priority = priority.fromRemotePriority(),
-    type = JobType.INSPECTION,
-    estimatedValue = estimate ?: 0.0,
-    actualCost = grandTotal ?: 0.0,
-    assignedTo = assignedTech.orEmpty(),
-    notes = notes.orEmpty(),
-    scheduledDate = scheduledStart?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
-    completedDate = completedAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
-    isSynced = true
-)
+fun RemoteJobDto.toLocal(): Job {
+    val displayCustomer = customerName.ifBlank { customer.orEmpty() }
+    return Job(
+        id = id,
+        title = title.ifBlank { displayCustomer },
+        description = species.ifBlank { scope.orEmpty() },
+        customerId = customerId.orEmpty(),
+        customerName = displayCustomer,
+        address = address.orEmpty(),
+        latitude = latitude?.toDoubleOrNull(),
+        longitude = longitude?.toDoubleOrNull(),
+        status = status.fromRemoteStatus(),
+        priority = priority.fromRemotePriority(),
+        type = JobType.INSPECTION,
+        estimatedValue = estimate ?: 0.0,
+        actualCost = grandTotal ?: 0.0,
+        assignedTo = assignedTech.orEmpty(),
+        notes = notes.orEmpty(),
+        scheduledDate = scheduledStart?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+        completedDate = completedAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+        isSynced = true
+    )
+}
 
-/** Returns null when job_id is missing (remote schema requires a real job UUID). */
-fun Inspection.toRemoteDtoOrNull(): RemoteInspectionDto? {
-    if (jobId.isBlank() || !isUuid(jobId)) return null
+/** Prefer linking to a real job UUID; otherwise store as standalone inspection row. */
+fun Inspection.toRemoteDtoOrNull(): RemoteInspectionDto {
     val findingsJson = buildJsonObject {
         put("text", findings)
         put("recommendations", recommendations)
@@ -154,13 +176,18 @@ fun Inspection.toRemoteDtoOrNull(): RemoteInspectionDto? {
         put("customer", customerName)
         put("inspector", inspectorName)
         put("weather", weatherConditions)
+        put("damage", damageAssessment)
     }
     return RemoteInspectionDto(
         id = id.ifBlank { UUID.randomUUID().toString() },
-        jobId = jobId,
+        jobId = jobId.takeIf { it.isNotBlank() && isUuid(it) },
         inspectionType = inspectionType.name,
         notes = notes.ifBlank { null },
-        findings = findingsJson
+        findings = findingsJson,
+        customerName = customerName.ifBlank { null },
+        species = speciesIdentified.ifBlank { null },
+        status = if (followUpRequired) "follow_up" else "completed",
+        priority = severity.name.lowercase()
     )
 }
 

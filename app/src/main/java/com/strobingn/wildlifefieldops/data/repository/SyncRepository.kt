@@ -66,14 +66,12 @@ class SyncRepository @Inject constructor(
             val unsyncedInspections = inspectionDao.getUnsynced()
             if (unsyncedInspections.isNotEmpty()) {
                 try {
-                    val pairs = unsyncedInspections.mapNotNull { insp ->
-                        insp.toRemoteDtoOrNull()?.let { dto -> insp.id to dto }
+                    val pairs = unsyncedInspections.map { insp ->
+                        insp.id to insp.toRemoteDtoOrNull()
                     }
-                    if (pairs.isNotEmpty()) {
-                        client.from("inspections").upsert(pairs.map { it.second })
-                        pairs.forEach { inspectionDao.markSynced(it.first) }
-                        pushedInspections = pairs.size
-                    }
+                    client.from("inspections").upsert(pairs.map { it.second })
+                    pairs.forEach { inspectionDao.markSynced(it.first) }
+                    pushedInspections = pairs.size
                 } catch (e: Exception) {
                     android.util.Log.w("SyncRepository", "Inspection push skipped: ${e.message}")
                 }

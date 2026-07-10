@@ -61,6 +61,21 @@ create table if not exists public.techs (
   updated_at timestamptz not null default now()
 );
 
+-- Customers MUST exist before jobs (FK customer_id)
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  phone text,
+  email text,
+  address text,
+  town text,
+  state text,
+  zip text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(),
 
@@ -115,20 +130,6 @@ create table if not exists public.jobs (
   constraint jobs_priority_check check (
     priority in ('Low', 'Normal', 'High', 'Critical')
   )
-);
-
-create table if not exists public.customers (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  phone text,
-  email text,
-  address text,
-  town text,
-  state text,
-  zip text,
-  notes text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.visits (

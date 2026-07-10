@@ -63,7 +63,9 @@ Legacy web / Capacitor folders may still exist in the repo history for reference
 
 - Local data lives in Room (`wildlife_fieldops.db`).
 - **Settings → Sync Now** pushes unsynced jobs/customers/inspections and pulls cloud rows.
-- Requires a working Supabase project with `supabase/schema.sql` applied.
+- Cloud project: `wildlife_app` (`hgdzmwfcghtilyqagjak`).
+- Schema applied: `supabase/migrations/20260710153000_native_sync_fix.sql` (customers table + RLS/grants for `anon`).
+- Verified: REST insert/select/delete for `customers` + `jobs` works with the app anon key.
 
 ## AI
 
