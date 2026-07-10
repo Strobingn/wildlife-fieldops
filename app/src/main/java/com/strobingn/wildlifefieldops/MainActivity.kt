@@ -203,19 +203,21 @@ private fun AppNavHost(
         composable(
             route = Screen.InspectionDetail.route,
             arguments = listOf(navArgument("inspectionId") { type = NavType.StringType })
-        ) {
-            // Placeholder - navigates back
-            LaunchedEffect(Unit) { navController.popBackStack() }
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF22c55e))
-            }
+        ) { backStackEntry ->
+            val inspectionId = backStackEntry.arguments?.getString("inspectionId")
+            InspectionFormScreen(
+                inspectionId = inspectionId,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(
             route = Screen.InspectionForm.route,
             arguments = listOf(navArgument("inspectionId") { type = NavType.StringType; nullable = true; defaultValue = null })
         ) { backStackEntry ->
+            val inspectionId = backStackEntry.arguments?.getString("inspectionId")
             InspectionFormScreen(
+                inspectionId = inspectionId,
                 onBack = { navController.popBackStack() }
             )
         }

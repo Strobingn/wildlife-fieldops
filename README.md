@@ -1,45 +1,71 @@
-# Wildlife Whisperer FieldOps Rockstar
+# Wildlife FieldOps (Native Android)
 
-Included:
-- GPS capture and offline GPS pins
-- AI-style field assistant/species suggestions
-- Voice dictation
-- Smart estimator
-- Property history
-- Digital contract text and signatures
-- Offline-first service worker
-- Persistent local storage
-- Sync queue and Cloudflare Worker sync stub
-- Capacitor Android scaffold
+**Native Android app only** — Kotlin + Jetpack Compose.  
+Not a web app. Not Capacitor. Not a dual stack.
 
-Run on Android Termux:
+## What it is
+
+Field operations app for wildlife removal:
+
+- Jobs, customers, inspections, schedule
+- GPS / maps (Google Maps API key at build time)
+- Invoices / estimates / expenses / inventory
+- Offline-first Room database
+- Cloud sync via Supabase
+- Weather (OpenWeather, optional)
+- AI assistant (Supabase Edge Function + on-device fallback)
+
+## Build the APK (GitHub Actions)
+
+1. Repo secrets (already set on `Strobingn/wildlife-fieldops`):
+
+| Secret | Used for |
+|--------|----------|
+| `VITE_SUPABASE_URL` | Supabase project URL → `SUPABASE_URL` in Gradle |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key → `SUPABASE_ANON_KEY` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Maps + GPS screens |
+| `VITE_OPENWEATHER_API_KEY` | Weather on inspections / field |
+| `VITE_GOOGLE_CALENDAR_CLIENT_ID` | Optional calendar (future) |
+
+> Names still start with `VITE_` for history; the **native** workflow maps them into Android `BuildConfig`.
+
+2. Push to `main` or run **Build Native Android APK (Debug)** in Actions.
+3. Download artifact **wildlife-field-ops-debug-apk**.
+
+## Local build
+
 ```bash
-termux-setup-storage
-pkg install -y python unzip
-cd ~
-cp ~/storage/downloads/wildlife-fieldops-rockstar.zip .
-unzip wildlife-fieldops-rockstar.zip
-cd wildlife-fieldops-rockstar
-python -m http.server 5173
-```
-Open:
-```text
-http://127.0.0.1:5173
+# Windows / macOS / Linux with Android SDK
+export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+export SUPABASE_ANON_KEY="your-anon-key"
+export GOOGLE_MAPS_API_KEY="AIza..."
+export OPENWEATHER_API_KEY="..."
+
+./gradlew :app:assembleDebug
 ```
 
-Build APK later on desktop/cloud machine with Android Studio:
-```bash
-npm install
-npx cap add android
-npx cap sync android
-npx cap open android
+APK: `app/build/outputs/apk/debug/`
+
+## Project layout (what matters)
+
+```
+app/                    # Native Android application module
+build.gradle.kts        # Root Gradle
+settings.gradle.kts
+.github/workflows/      # APK build
+supabase/               # Cloud schema + edge functions (optional backend)
 ```
 
-Cloud sync:
-Paste `cloudflare-worker-sync-stub.js` into a Cloudflare Worker and use that Worker URL in the app.
-For production, connect the Worker to D1/PostgreSQL/Supabase and R2/S3 for photos/contracts/signatures.
+Legacy web / Capacitor folders may still exist in the repo history for reference.  
+**They are not the product.** Do not run `npm` / Capacitor for this app.
 
+## Sync
 
-## GitHub APK Build
+- Local data lives in Room (`wildlife_fieldops.db`).
+- **Settings → Sync Now** pushes unsynced jobs/customers/inspections and pulls cloud rows.
+- Requires a working Supabase project with `supabase/schema.sql` applied.
 
-See `GITHUB_APK_BUILD.md`. The workflow is at `.github/workflows/build-android.yml`.
+## AI
+
+- Prefer Supabase function `ai-assistant` (set LLM keys in Supabase Edge Function secrets).
+- If the function is offline, the app uses built-in field knowledge so the chat still works.

@@ -38,4 +38,10 @@ interface InspectionDao {
 
     @Query("SELECT COUNT(*) FROM inspections")
     suspend fun count(): Int
+
+    @Query("UPDATE inspections SET isSynced = 1 WHERE id = :id")
+    suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM inspections")
+    suspend fun deleteAll()
 }

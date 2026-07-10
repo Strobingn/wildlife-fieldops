@@ -17,40 +17,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.ui.theme.*
-import kotlinx.coroutines.launch
-
-data class ChatMessage(val text: String, val isUser: Boolean, val timestamp: Long = System.currentTimeMillis())
+import com.strobingn.wildlifefieldops.ui.viewmodel.AiAssistantViewModel
+import com.strobingn.wildlifefieldops.ui.viewmodel.ChatMessage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AIAssistantScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: AiAssistantViewModel = hiltViewModel()
 ) {
-    var messages by remember { mutableStateOf(listOf(
-        ChatMessage("Hello! I'm your Wildlife FieldOps AI assistant. I can help you with:\n\n- Species identification tips\n- Wildlife handling procedures\n- Regulatory compliance\n- Equipment recommendations\n- Safety protocols\n\nWhat would you like to know?", false)
-    )) }
+    val messages by viewModel.messages.collectAsState()
+    val isTyping by viewModel.isTyping.collectAsState()
     var inputText by remember { mutableStateOf("") }
-    var isTyping by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
-    val sendMessage: () -> Unit = {
-        val userMessage = inputText.trim()
-        messages = messages + ChatMessage(userMessage, true)
-        inputText = ""
-        isTyping = true
-
-        // Simulate AI response
-        coroutineScope.launch {
-            kotlinx.coroutines.delay(1000 + (500..2000).random().toLong())
-            val response = generateAIResponse(userMessage)
-            messages = messages + ChatMessage(response, false)
-            isTyping = false
-        }
-    }
-
-    // Auto-scroll to bottom
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
@@ -62,7 +44,12 @@ fun AIAssistantScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Psychology, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(24.dp))
+                        Icon(
+                            Icons.Default.Psychology,
+                            contentDescription = null,
+                            tint = AccentPurple,
+                            modifier = Modifier.size(24.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("AI Assistant", color = TextPrimary)
                     }
@@ -82,7 +69,6 @@ fun AIAssistantScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Quick Actions
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -100,7 +86,6 @@ fun AIAssistantScreen(
                 }
             }
 
-            // Chat Messages
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 state = listState,
@@ -122,13 +107,12 @@ fun AIAssistantScreen(
                                 strokeWidth = 2.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Thinking...", color = TextTertiary, style = MaterialTheme.typography.bodySmall)
+                            Text("Thinking…", color = TextTertiary, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
             }
 
-            // Input
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -139,7 +123,7 @@ fun AIAssistantScreen(
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
-                    placeholder = { Text("Ask me anything...", color = TextTertiary) },
+                    placeholder = { Text("Ask me anything…", color = TextTertiary) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = AccentPurple,
                         unfocusedBorderColor = BorderDark,
@@ -152,12 +136,20 @@ fun AIAssistantScreen(
                     shape = RoundedCornerShape(20.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
-                        if (inputText.isNotBlank()) sendMessage()
+                        if (inputText.isNotBlank()) {
+                            viewModel.send(inputText)
+                            inputText = ""
+                        }
                     }),
                     maxLines = 3
                 )
                 IconButton(
-                    onClick = { if (inputText.isNotBlank()) sendMessage() },
+                    onClick = {
+                        if (inputText.isNotBlank()) {
+                            viewModel.send(inputText)
+                            inputText = ""
+                        }
+                    },
                     enabled = inputText.isNotBlank() && !isTyping,
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = AccentPurple,
@@ -173,31 +165,12 @@ fun AIAssistantScreen(
     }
 }
 
-private fun generateAIResponse(userMessage: String): String {
-    val lowerMessage = userMessage.lowercase()
-    return when {
-        lowerMessage.contains("species") || lowerMessage.contains("identif") || lowerMessage.contains("raccoon") || lowerMessage.contains("squirrel") || lowerMessage.contains("skunk") ->
-            "Here are key identification tips:\n\n**Raccoons**: Black mask, ringed tail, dexterous front paws. Nocturnal. Average 10-30 lbs.\n\n**Gray Squirrels**: Bushy tail, gray/brown fur. Active dawn/dusk. Look for chewed entry points.\n\n**Skunks**: Black with white stripes/spots. Warning: Can spray 10-15 feet! Approach with caution.\n\n**Bats**: Small, winged mammals. Often found in attics/belfries. Protected species in many areas - check regulations before removal.\n\nWould you like specific details about any species?"
-
-        lowerMessage.contains("safety") || lowerMessage.contains("protocol") || lowerMessage.contains("protect") ->
-            "**Wildlife Removal Safety Protocols:**\n\n1. **PPE Required**: Thick gloves, eye protection, long sleeves, respirator for attics\n2. **Rabies Vector Species**: Raccoons, bats, skunks, foxes - minimize direct contact\n3. **Ladder Safety**: Always have a spotter for elevated entries\n4. **Containment**: Use secure transfer cages with solid dividers\n5. **Documentation**: Photo all entry points before and after\n6. **Release Protocol**: Check local regulations for relocation distances (typically 10+ miles)\n\nAlways have your rabies pre-exposure vaccination current!"
-
-        lowerMessage.contains("equipment") || lowerMessage.contains("tool") || lowerMessage.contains("trap") ->
-            "**Essential Wildlife Control Equipment:**\n\n**Trapping**: Live cage traps (32\" raccoon, 24\" squirrel, 10\" rat), trap dividers, bait (sardines, peanut butter, marshmallows)\n\n**Exclusion**: Heavy-gauge wire mesh (1/4\" or 1/2\"), chimney caps, vent covers, foam sealant\n\n**Safety**: Kevlar gloves, respirator (N95 minimum), headlamp, snake tongs\n\n**Inspection**: Borescope/camera for void spaces, moisture meter, UV light for droppings\n\n**Documentation**: Camera with flash, measuring tape, GPS unit\n\nDo you need recommendations for a specific situation?"
-
-        lowerMessage.contains("regulation") || lowerMessage.contains("legal") || lowerMessage.contains("permit") ->
-            "**Important Regulatory Considerations:**\n\n- **Federal**: Migratory Bird Treaty Act protects most birds. Endangered Species Act may apply.\n- **State**: Wildlife removal permits often required. Check your state DNR requirements.\n- **Local**: Some municipalities have specific ordinances about trapping and relocation.\n- **Protected Species**: Bats (during maternity season), migratory birds, and some turtles require special handling.\n- **Relocation**: Many states require animals be relocated on the same property or within the county.\n\nAlways verify current regulations with your state wildlife agency before proceeding."
-
-        lowerMessage.contains("price") || lowerMessage.contains("cost") || lowerMessage.contains("charge") || lowerMessage.contains("estimate") ->
-            "**Typical Wildlife Service Pricing:**\n\n**Inspection**: $150-$300 (often credited toward work)\n**Squirrel Removal**: $300-$600 (includes entry sealing)\n**Raccoon Removal**: $400-$800 (varies by location complexity)\n**Bat Exclusion**: $500-$2,000+ (depends on colony size/structure)\n**Bird Control**: $200-$1,500 (netting, spikes, exclusion)\n**Dead Animal**: $200-$500 (location dependent)\n\nFactors affecting price: accessibility, number of entry points, repairs needed, warranty length. Most companies offer 1-year warranties on exclusion work."
-
-        else ->
-            "That's a great question about wildlife operations. Based on my knowledge:\n\nFor wildlife control work, I always recommend following these core principles:\n\n1. **Humane treatment** - Use live traps when possible\n2. **Complete exclusion** - Seal all entry points to prevent re-entry\n3. **Habitat modification** - Remove attractants (food sources, shelter)\n4. **Documentation** - Thorough records for warranty and compliance\n5. **Customer education** - Teach prevention strategies\n\nCould you provide more details about your specific situation? I can give more targeted advice about species identification, trapping strategies, or exclusion techniques."
-    }
-}
-
 @Composable
-private fun QuickChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun QuickChip(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit
+) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = AccentPurple.copy(alpha = 0.15f),
@@ -218,7 +191,6 @@ private fun QuickChip(label: String, icon: androidx.compose.ui.graphics.vector.I
 private fun ChatBubble(message: ChatMessage) {
     val backgroundColor = if (message.isUser) AccentPurple.copy(alpha = 0.2f) else BackgroundElevated
     val alignment = if (message.isUser) Alignment.CenterEnd else Alignment.CenterStart
-    val textColor = if (message.isUser) TextPrimary else TextPrimary
 
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
         Card(
@@ -236,14 +208,24 @@ private fun ChatBubble(message: ChatMessage) {
                     modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Psychology, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.Psychology,
+                        contentDescription = null,
+                        tint = AccentPurple,
+                        modifier = Modifier.size(16.dp)
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("AI Assistant", style = MaterialTheme.typography.labelSmall, color = AccentPurple, fontWeight = FontWeight.Medium)
+                    Text(
+                        "AI Assistant",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentPurple,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
             Text(
                 text = message.text,
-                color = textColor,
+                color = TextPrimary,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(12.dp)
             )

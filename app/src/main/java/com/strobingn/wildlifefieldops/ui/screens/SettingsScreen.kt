@@ -32,6 +32,9 @@ fun SettingsScreen(
     val defaultTaxRate by viewModel.defaultTaxRate.collectAsState(initial = 0f)
     val offlineMode by viewModel.offlineMode.collectAsState(initial = false)
     val highAccuracyGps by viewModel.highAccuracyGps.collectAsState(initial = true)
+    val connectionStatus by viewModel.connectionStatus.collectAsState()
+    val syncMessage by viewModel.syncMessage.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
     var showClearDataDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -56,6 +59,23 @@ fun SettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            SettingsSectionTitle("Connections")
+            SettingsCard {
+                Text(connectionStatus, color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Keys are baked into the APK at build time from GitHub Secrets.",
+                    color = TextTertiary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (!syncMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(syncMessage!!, color = PrimaryGreen, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Company Info
             SettingsSectionTitle("Company Information")
             SettingsCard {
@@ -155,12 +175,21 @@ fun SettingsScreen(
                 Button(
                     onClick = { viewModel.triggerManualSync() },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSyncing,
                     colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Sync, contentDescription = null)
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.Sync, contentDescription = null)
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sync Now", fontWeight = FontWeight.Bold)
+                    Text(if (isSyncing) "Syncing…" else "Sync Now", fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

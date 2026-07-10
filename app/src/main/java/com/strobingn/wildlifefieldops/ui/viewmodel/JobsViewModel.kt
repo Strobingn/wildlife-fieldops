@@ -60,11 +60,11 @@ class JobsViewModel @Inject constructor(
     }
 
     fun saveJob(job: Job) = viewModelScope.launch {
-        jobDao.insert(job)
+        jobDao.insert(job.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
     }
 
     fun updateJob(job: Job) = viewModelScope.launch {
-        jobDao.update(job.copy(updatedAt = System.currentTimeMillis()))
+        jobDao.update(job.copy(updatedAt = System.currentTimeMillis(), isSynced = false))
     }
 
     fun deleteJob(job: Job) = viewModelScope.launch {

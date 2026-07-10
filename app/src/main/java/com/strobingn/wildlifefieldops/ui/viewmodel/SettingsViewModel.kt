@@ -5,6 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import com.strobingn.wildlifefieldops.BuildConfig
+import com.strobingn.wildlifefieldops.data.local.AppDatabase
+import com.strobingn.wildlifefieldops.data.remote.SupabaseService
+import com.strobingn.wildlifefieldops.data.remote.WeatherService
+import com.strobingn.wildlifefieldops.data.repository.SyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -15,7 +20,11 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val syncRepository: SyncRepository,
+    private val supabaseService: SupabaseService,
+    private val weatherService: WeatherService,
+    private val database: AppDatabase
 ) : ViewModel() {
 
     private val dataStore = context.dataStore
@@ -32,7 +41,17 @@ class SettingsViewModel @Inject constructor(
         val HIGH_ACCURACY_GPS = booleanPreferencesKey("high_accuracy_gps")
     }
 
-    val settings = dataStore.data
+    private val _syncMessage = MutableStateFlow<String?>(null)
+    val syncMessage: StateFlow<String?> = _syncMessage.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    val connectionStatus: StateFlow<String> = flow {
+        emit(buildConnectionStatus())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Checking…")
+
+    private val settings = dataStore.data
         .catch { emit(emptyPreferences()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyPreferences())
 
@@ -45,6 +64,16 @@ class SettingsViewModel @Inject constructor(
     val defaultTaxRate = settings.map { it[DEFAULT_TAX_RATE] ?: 0f }
     val offlineMode = settings.map { it[OFFLINE_MODE] ?: false }
     val highAccuracyGps = settings.map { it[HIGH_ACCURACY_GPS] ?: true }
+
+    private fun buildConnectionStatus(): String {
+        val cloud = if (supabaseService.isConfigured) "Supabase OK" else "Supabase missing"
+        val maps = if (
+            BuildConfig.GOOGLE_MAPS_API_KEY.isNotBlank() &&
+            !BuildConfig.GOOGLE_MAPS_API_KEY.contains("YOUR_")
+        ) "Maps OK" else "Maps missing"
+        val weather = if (weatherService.isConfigured) "Weather OK" else "Weather optional"
+        return "$cloud · $maps · $weather"
+    }
 
     fun setDarkTheme(enabled: Boolean) = viewModelScope.launch {
         dataStore.edit { it[DARK_THEME] = enabled }
@@ -83,18 +112,34 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun triggerManualSync() = viewModelScope.launch {
-        // Manual sync implementation would go here
+        if (_isSyncing.value) return@launch
+        _isSyncing.value = true
+        _syncMessage.value = "Syncing…"
+        val offline = offlineMode.first()
+        if (offline) {
+            _syncMessage.value = "Offline mode is on. Turn it off to sync."
+            _isSyncing.value = false
+            return@launch
+        }
+        val result = syncRepository.syncAll()
+        _syncMessage.value = result.message
+        _isSyncing.value = false
+    }
+
+    fun clearSyncMessage() {
+        _syncMessage.value = null
     }
 
     fun exportData() = viewModelScope.launch {
-        // Export data implementation
+        _syncMessage.value = "Export: use Share from job/invoice PDFs for now. Full dump coming in a later update."
     }
 
     fun importData() = viewModelScope.launch {
-        // Import data implementation
+        _syncMessage.value = "Import: use Sync Now to pull jobs and customers from Supabase."
     }
 
     fun clearAllData() = viewModelScope.launch {
-        // Clear all data implementation
+        database.clearAllTables()
+        _syncMessage.value = "All local data cleared."
     }
 }

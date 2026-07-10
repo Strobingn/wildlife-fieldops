@@ -42,11 +42,34 @@ fun InspectionFormScreen(
     var notes by remember { mutableStateOf("") }
     var showTypeDropdown by remember { mutableStateOf(false) }
     var showSeverityDropdown by remember { mutableStateOf(false) }
+    val existing by viewModel.getInspectionById(inspectionId.orEmpty())
+        .collectAsState(initial = null)
+
+    LaunchedEffect(existing) {
+        val insp = existing ?: return@LaunchedEffect
+        customerName = insp.customerName
+        inspectorName = insp.inspectorName
+        selectedType = insp.inspectionType
+        findings = insp.findings
+        recommendations = insp.recommendations
+        selectedSeverity = insp.severity
+        speciesIdentified = insp.speciesIdentified
+        entryPoints = insp.entryPoints
+        damageAssessment = insp.damageAssessment
+        followUpRequired = insp.followUpRequired
+        weatherConditions = insp.weatherConditions
+        notes = insp.notes
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("New Inspection", color = TextPrimary) },
+                title = {
+                    Text(
+                        if (inspectionId.isNullOrBlank()) "New Inspection" else "Inspection",
+                        color = TextPrimary
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
@@ -238,23 +261,47 @@ fun InspectionFormScreen(
 
             Button(
                 onClick = {
-                    viewModel.createInspection(
-                        jobId = prefilledJobId,
-                        customerId = "",
-                        customerName = customerName,
-                        inspectorName = inspectorName,
-                        inspectionType = selectedType,
-                        findings = findings,
-                        recommendations = recommendations,
-                        severity = selectedSeverity,
-                        speciesIdentified = speciesIdentified,
-                        entryPoints = entryPoints,
-                        damageAssessment = damageAssessment,
-                        followUpRequired = followUpRequired,
-                        followUpDate = if (followUpRequired) System.currentTimeMillis() + 7 * 86400000L else null,
-                        weatherConditions = weatherConditions,
-                        notes = notes
-                    )
+                    val base = existing
+                    if (base != null) {
+                        viewModel.updateInspection(
+                            base.copy(
+                                customerName = customerName,
+                                inspectorName = inspectorName,
+                                inspectionType = selectedType,
+                                findings = findings,
+                                recommendations = recommendations,
+                                severity = selectedSeverity,
+                                speciesIdentified = speciesIdentified,
+                                entryPoints = entryPoints,
+                                damageAssessment = damageAssessment,
+                                followUpRequired = followUpRequired,
+                                followUpDate = if (followUpRequired) {
+                                    base.followUpDate ?: (System.currentTimeMillis() + 7 * 86400000L)
+                                } else null,
+                                weatherConditions = weatherConditions,
+                                notes = notes,
+                                isSynced = false
+                            )
+                        )
+                    } else {
+                        viewModel.createInspection(
+                            jobId = prefilledJobId,
+                            customerId = "",
+                            customerName = customerName,
+                            inspectorName = inspectorName,
+                            inspectionType = selectedType,
+                            findings = findings,
+                            recommendations = recommendations,
+                            severity = selectedSeverity,
+                            speciesIdentified = speciesIdentified,
+                            entryPoints = entryPoints,
+                            damageAssessment = damageAssessment,
+                            followUpRequired = followUpRequired,
+                            followUpDate = if (followUpRequired) System.currentTimeMillis() + 7 * 86400000L else null,
+                            weatherConditions = weatherConditions,
+                            notes = notes
+                        )
+                    }
                     onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),

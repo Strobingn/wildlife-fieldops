@@ -1,80 +1,26 @@
-# Wildlife Whisperer FieldOps Rockstar - GitHub APK Build
+# Native Android APK — GitHub Actions
 
-This package includes a GitHub Actions workflow that builds a debug Android APK in the cloud.
+This repo builds a **native** debug APK only (Gradle `:app:assembleDebug`).
 
-## Fast Phone-Only GitHub Build
+## Run
 
-### 1. Create a new GitHub repo
+1. Open [Actions](https://github.com/Strobingn/wildlife-fieldops/actions)
+2. **Build Native Android APK (Debug)**
+3. Wait ~5 minutes
+4. Download artifact **wildlife-field-ops-debug-apk**
+5. Install the `.apk` on your phone
 
-Go to GitHub and create a new repository named:
+## Secrets (required for a real cloud-connected app)
 
-```text
-wildlife-fieldops
-```
+| GitHub Secret | Maps to Android |
+|---------------|-----------------|
+| `VITE_SUPABASE_URL` | `SUPABASE_URL` / `BuildConfig.SUPABASE_URL` |
+| `VITE_SUPABASE_ANON_KEY` | `SUPABASE_ANON_KEY` |
+| `VITE_GOOGLE_MAPS_API_KEY` | `GOOGLE_MAPS_API_KEY` + Maps meta-data |
+| `VITE_OPENWEATHER_API_KEY` | `OPENWEATHER_API_KEY` |
 
-Keep it empty. Do not add a README from GitHub.
+No Node / Vite / Capacitor steps. Pure Android.
 
-### 2. Upload these files
+## Install on phone
 
-Upload everything inside this folder to the repo.
-
-Important: make sure this file exists in GitHub:
-
-```text
-.github/workflows/build-android.yml
-```
-
-### 3. Run the APK build
-
-In GitHub:
-
-```text
-Repo → Actions → Build Android APK → Run workflow
-```
-
-Or push to `main`; it will run automatically.
-
-### 4. Download the APK
-
-When the workflow finishes:
-
-```text
-Actions → latest successful run → Artifacts → Wildlife-FieldOps-debug-apk
-```
-
-Download and unzip the artifact. Inside is the debug `.apk`.
-
-### 5. Install on Android
-
-On your Android phone:
-
-```text
-Files → APK → Install
-```
-
-You may need to allow installation from unknown sources.
-
-## Notes
-
-This creates a debug APK for field testing.
-
-For production/release APK:
-
-- create Android signing key
-- add GitHub encrypted secrets
-- use `assembleRelease`
-- sign the APK/AAB
-- optionally publish to Google Play
-
-## Included App Features
-
-- GPS capture and job pins
-- AI-style field assistant/species suggestions
-- Voice dictation
-- Smart estimator
-- Property history
-- Digital contract text and signatures
-- Offline-first storage
-- Sync queue
-- Cloud sync endpoint hook
-- Capacitor Android scaffold
+Allow install from unknown sources if asked. Open the APK after unzipping the artifact.

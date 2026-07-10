@@ -48,4 +48,7 @@ interface JobDao {
 
     @Query("UPDATE jobs SET isSynced = 1 WHERE id = :id")
     suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM jobs")
+    suspend fun deleteAll()
 }

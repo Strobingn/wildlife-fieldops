@@ -17,13 +17,16 @@ import javax.inject.Singleton
 @Singleton
 class SupabaseService @Inject constructor() {
 
-    // Keys now pulled from BuildConfig (set in app/build.gradle.kts from env or fallback)
+    // Keys from BuildConfig (GitHub Actions secrets / local env at build time)
     private val supabaseUrl = BuildConfig.SUPABASE_URL
     private val supabaseKey = BuildConfig.SUPABASE_ANON_KEY
-    private val isConfigured = supabaseUrl.isNotBlank() &&
+
+    val isConfigured: Boolean
+        get() = supabaseUrl.isNotBlank() &&
             !supabaseUrl.contains("your-project") &&
             supabaseKey.isNotBlank() &&
-            supabaseKey != "your-anon-key"
+            supabaseKey != "your-anon-key" &&
+            !supabaseKey.contains("your_supabase", ignoreCase = true)
 
     val client: SupabaseClient? by lazy {
         if (!isConfigured) {

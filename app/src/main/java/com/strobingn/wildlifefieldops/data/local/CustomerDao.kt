@@ -32,4 +32,10 @@ interface CustomerDao {
 
     @Query("SELECT COUNT(*) FROM customers WHERE isActive = 1")
     suspend fun count(): Int
+
+    @Query("UPDATE customers SET isSynced = 1 WHERE id = :id")
+    suspend fun markSynced(id: String)
+
+    @Query("DELETE FROM customers")
+    suspend fun deleteAll()
 }
