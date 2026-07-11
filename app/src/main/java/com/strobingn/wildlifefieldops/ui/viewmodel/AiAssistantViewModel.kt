@@ -21,18 +21,21 @@ class AiAssistantViewModel @Inject constructor(
     private val aiService: AiService
 ) : ViewModel() {
 
-    private val welcome = ChatMessage(
-        text = "Hello! I'm your Wildlife FieldOps AI assistant.\n\n" +
-            "I can help with species ID, safety, equipment, estimates, and field plans.\n\n" +
-            if (aiService.isConfigured) {
-                "Cloud AI is connected (Supabase edge function)."
-            } else {
-                "Running on built-in field knowledge (rebuild APK with Supabase secrets for live AI)."
-            },
-        isUser = false
-    )
+    private val welcomeMessage = buildString {
+        append("Hello! I'm your Wildlife FieldOps AI assistant.\n\n")
+        append("I can help with species ID, safety protocols, equipment, estimates, and field plans.")
+        if (aiService.isConfigured) {
+            append("\n\n✅ Live AI connected.")
+        } else {
+            append("\n\n⚠️ AI not connected.")
+            append("\n\nTo enable live AI, add LLM_API_KEY to your environment variables and rebuild:")
+            append("\n• xAI (Grok): LLM_API_KEY=your-xai-key")
+            append("\n• OpenAI: LLM_API_KEY=your-openai-key LLM_BASE_URL=https://api.openai.com/v1")
+            append("\n\nOr use the Supabase edge function path if you have that set up.")
+        }
+    }
 
-    private val _messages = MutableStateFlow(listOf(welcome))
+    private val _messages = MutableStateFlow(listOf(ChatMessage(welcomeMessage, false)))
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     private val _isTyping = MutableStateFlow(false)
@@ -44,7 +47,13 @@ class AiAssistantViewModel @Inject constructor(
         _messages.value = _messages.value + ChatMessage(trimmed, true)
         _isTyping.value = true
         viewModelScope.launch {
-            val reply = aiService.ask(trimmed)
+            // Always try direct LLM first. Fallback to Supabase edge only if LLM not configured.
+            val reply = if (aiService.isConfigured) {
+                aiService.ask(trimmed)
+            } else {
+                // Try Supabase as fallback
+                aiService.askViaSupabase(trimmed)
+            }
             _messages.value = _messages.value + ChatMessage(reply, false)
             _isTyping.value = false
         }
