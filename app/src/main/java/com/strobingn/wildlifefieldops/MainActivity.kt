@@ -28,6 +28,7 @@ import com.strobingn.wildlifefieldops.navigation.Screen
 import com.strobingn.wildlifefieldops.ui.screens.*
 import com.strobingn.wildlifefieldops.ui.theme.WildlifeFieldOpsTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -94,27 +95,58 @@ fun WildlifeFieldOpsNavHost() {
 
     // Show bottom nav only on main screens
     val showBottomNav = currentRoute in Screen.bottomNavItems.map { it.route }
-    var showDrawer by remember { mutableStateOf(false) }
+
+    // PROPERLY WIRED drawer state — controls open/close programmatically
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     ModalNavigationDrawer(
-        drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
-        gesturesEnabled = showBottomNav,
+        drawerState = drawerState,
+        gesturesEnabled = showBottomNav && drawerState.isOpen,
         drawerContent = {
             if (showBottomNav) {
                 AppDrawer(
                     onNavigate = { route ->
+                        scope.launch { drawerState.close() }
                         navController.navigate(route) {
                             popUpTo(Screen.Dashboard.route) { inclusive = false }
                             launchSingleTop = true
                         }
-                        showDrawer = false
                     },
-                    onClose = { showDrawer = false }
+                    onClose = { scope.launch { drawerState.close() } }
                 )
             }
         }
     ) {
         Scaffold(
+            topBar = {
+                if (showBottomNav) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                text = Screen.bottomNavItems.find { it.route == currentRoute }?.title
+                                    ?: "FieldOps",
+                                color = Color(0xFFf0f0f5),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = { scope.launch { drawerState.open() } }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Open menu",
+                                    tint = Color(0xFF22c55e)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color(0xFF0a0a0f)
+                        )
+                    )
+                }
+            },
             bottomBar = {
                 if (showBottomNav) {
                     BottomNavigationBar(
@@ -125,8 +157,7 @@ fun WildlifeFieldOpsNavHost() {
                                 launchSingleTop = true
                                 restoreState = true
                             }
-                        },
-                        onMenuClick = { showDrawer = true }
+                        }
                     )
                 }
             }
@@ -334,20 +365,12 @@ private fun AppNavHost(
 @Composable
 private fun BottomNavigationBar(
     currentRoute: String,
-    onNavigate: (String) -> Unit,
-    onMenuClick: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
     NavigationBar(
         containerColor = Color(0xFF0f0f1a),
         tonalElevation = 0.dp
     ) {
-        IconButton(
-            onClick = onMenuClick,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        ) {
-            Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color(0xFFa0a0b0))
-        }
-
         Screen.bottomNavItems.forEach { screen ->
             val selected = currentRoute == screen.route
             val color = if (selected) Color(0xFF22c55e) else Color(0xFF6b6b80)
