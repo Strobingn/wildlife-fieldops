@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.ScheduleViewModel
 import java.text.SimpleDateFormat
@@ -130,26 +131,27 @@ fun ScheduleScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (dayJobs.isEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        "No jobs scheduled",
-                        color = TextSecondary,
-                        modifier = Modifier.padding(16.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                EmptyState(
+                    icon = {
+                        Icon(
+                            Icons.Default.EventAvailable,
+                            contentDescription = null,
+                            tint = TextSecondary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    },
+                    title = "No jobs scheduled",
+                    subtitle = "Select a date with dots to see jobs",
+                    modifier = Modifier.fillMaxWidth()
+                )
             } else {
-                dayJobs.forEach { job ->
-                    JobCard(
-                        job = job,
-                        onClick = { onNavigateToJobDetail(job.id) },
-                    )
+                dayJobs.forEachIndexed { index, job ->
+                    FadeSlideIn(index = index) {
+                        JobCard(
+                            job = job,
+                            onClick = { onNavigateToJobDetail(job.id) },
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))

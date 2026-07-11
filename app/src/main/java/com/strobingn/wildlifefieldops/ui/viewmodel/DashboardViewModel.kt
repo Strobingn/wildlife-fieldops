@@ -29,6 +29,9 @@ class DashboardViewModel @Inject constructor(
     private val reminderDao: ReminderDao
 ) : ViewModel() {
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+
     val stats: StateFlow<DashboardStats> = combine(
         jobDao.getAll(),
         customerDao.getAll(),
@@ -63,7 +66,8 @@ class DashboardViewModel @Inject constructor(
                 it.status != JobStatus.PAID
             }
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
+    }.onEach { _isLoading.value = false }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardStats())
 
     val recentJobs = jobDao.getAll()
         .map { it.take(5) }

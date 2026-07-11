@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.FindingSeverity
 import com.strobingn.wildlifefieldops.data.model.Inspection
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.InspectionsViewModel
 import java.text.SimpleDateFormat
@@ -34,6 +36,7 @@ fun InspectionListScreen(
 ) {
     val inspections by viewModel.inspections.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -83,38 +86,42 @@ fun InspectionListScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (inspections.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 64.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.SearchOff, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(48.dp))
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("No inspections found", color = TextSecondary)
-                                TextButton(onClick = onNavigateToInspectionForm) {
-                                    Text("Create inspection", color = PrimaryGreen)
-                                }
+            if (isLoading) {
+                ListShimmer(modifier = Modifier.fillMaxSize())
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (inspections.isEmpty()) {
+                        item {
+                            EmptyState(
+                                icon = {
+                                    Icon(
+                                        Icons.Default.SearchOff,
+                                        contentDescription = null,
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                },
+                                title = "No inspections found",
+                                subtitle = "Create an inspection to get started",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        itemsIndexed(inspections) { index, inspection ->
+                            FadeSlideIn(index = index) {
+                                InspectionListItem(
+                                    inspection = inspection,
+                                    onClick = { onNavigateToInspectionDetail(inspection.id) }
+                                )
                             }
                         }
                     }
-                } else {
-                    items(inspections, key = { it.id }) { inspection ->
-                        InspectionListItem(
-                            inspection = inspection,
-                            onClick = { onNavigateToInspectionDetail(inspection.id) }
-                        )
-                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
     }
@@ -193,16 +200,8 @@ private fun InspectionListItem(inspection: Inspection, onClick: () -> Unit) {
             }
 
             if (inspection.speciesIdentified.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Pets, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "Species: ${inspection.speciesIdentified}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = AccentCyan
-                    )
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+                SpeciesChip(species = inspection.speciesIdentified)
             }
 
             if (inspection.followUpRequired) {

@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -34,6 +36,7 @@ fun JobListScreen(
     val jobs by viewModel.jobs.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var showFilterSheet by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -129,35 +132,42 @@ fun JobListScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (jobs.isEmpty()) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 64.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.WorkOutline, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(48.dp))
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("No jobs found", color = TextSecondary)
-                                TextButton(onClick = onNavigateToJobForm) {
-                                    Text("Create a job", color = PrimaryGreen)
-                                }
+            if (isLoading) {
+                ListShimmer(modifier = Modifier.fillMaxSize())
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (jobs.isEmpty()) {
+                        item {
+                            EmptyState(
+                                icon = {
+                                    Icon(
+                                        Icons.Default.WorkOutline,
+                                        contentDescription = null,
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                },
+                                title = "No jobs found",
+                                subtitle = "Create a job to get started",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        itemsIndexed(jobs) { index, job ->
+                            FadeSlideIn(index = index) {
+                                JobListItem(
+                                    job = job,
+                                    onClick = { onNavigateToJobDetail(job.id) }
+                                )
                             }
                         }
                     }
-                } else {
-                    items(jobs, key = { it.id }) { job ->
-                        JobListItem(job = job, onClick = { onNavigateToJobDetail(job.id) })
-                    }
+                    item { Spacer(modifier = Modifier.height(16.dp)) }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
     }

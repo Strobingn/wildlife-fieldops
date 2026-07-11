@@ -19,6 +19,9 @@ class InspectionsViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+
     val inspections = _searchQuery.flatMapLatest { query ->
         if (query.isBlank()) {
             inspectionDao.getAll()
@@ -31,7 +34,8 @@ class InspectionsViewModel @Inject constructor(
                 }
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.onEach { _isLoading.value = false }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val inspectionCount = inspectionDao.getAll()
         .map { it.size }

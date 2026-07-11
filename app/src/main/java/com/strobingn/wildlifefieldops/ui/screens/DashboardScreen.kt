@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.DashboardViewModel
 import java.text.SimpleDateFormat
@@ -42,6 +44,7 @@ fun DashboardScreen(
     val stats by viewModel.stats.collectAsState()
     val recentJobs by viewModel.recentJobs.collectAsState()
     val reminders by viewModel.pendingReminders.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     Scaffold(
         topBar = {
@@ -72,6 +75,14 @@ fun DashboardScreen(
         },
         containerColor = BackgroundDark
     ) { padding ->
+        if (isLoading) {
+            DashboardShimmer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            )
+            return@Scaffold
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,22 +97,26 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    StatCard(
-                        title = "Active",
-                        value = stats.inProgressJobs.toString(),
-                        icon = Icons.Default.PlayCircle,
-                        color = AccentBlue,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToJobs
-                    )
-                    StatCard(
-                        title = "Pending",
-                        value = stats.pendingJobs.toString(),
-                        icon = Icons.Default.Schedule,
-                        color = StatusPending,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToJobs
-                    )
+                    ScaleIn(delayMillis = 0) {
+                        StatCard(
+                            title = "Active",
+                            value = stats.inProgressJobs,
+                            icon = Icons.Default.PlayCircle,
+                            color = AccentBlue,
+                            modifier = Modifier.weight(1f),
+                            onClick = onNavigateToJobs
+                        )
+                    }
+                    ScaleIn(delayMillis = 100) {
+                        StatCard(
+                            title = "Pending",
+                            value = stats.pendingJobs,
+                            icon = Icons.Default.Schedule,
+                            color = StatusPending,
+                            modifier = Modifier.weight(1f),
+                            onClick = onNavigateToJobs
+                        )
+                    }
                 }
             }
 
@@ -110,22 +125,27 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    StatCard(
-                        title = "Completed",
-                        value = stats.completedJobs.toString(),
-                        icon = Icons.Default.CheckCircle,
-                        color = SuccessGreen,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToJobs
-                    )
-                    StatCard(
-                        title = "Revenue",
-                        value = "$${String.format("%.0f", stats.totalRevenue)}",
-                        icon = Icons.Default.AttachMoney,
-                        color = PrimaryGreen,
-                        modifier = Modifier.weight(1f),
-                        onClick = {}
-                    )
+                    ScaleIn(delayMillis = 200) {
+                        StatCard(
+                            title = "Completed",
+                            value = stats.completedJobs,
+                            icon = Icons.Default.CheckCircle,
+                            color = SuccessGreen,
+                            modifier = Modifier.weight(1f),
+                            onClick = onNavigateToJobs
+                        )
+                    }
+                    ScaleIn(delayMillis = 300) {
+                        StatCard(
+                            title = "Revenue",
+                            value = stats.totalRevenue.toInt(),
+                            valuePrefix = "$",
+                            icon = Icons.Default.AttachMoney,
+                            color = PrimaryGreen,
+                            modifier = Modifier.weight(1f),
+                            onClick = {}
+                        )
+                    }
                 }
             }
 
@@ -182,20 +202,28 @@ fun DashboardScreen(
 
             if (recentJobs.isEmpty()) {
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                    EmptyState(
+                        icon = {
+                            Icon(
+                                Icons.Default.WorkOutline,
+                                contentDescription = null,
+                                tint = TextSecondary,
+                                modifier = Modifier.size(36.dp)
+                            )
+                        },
+                        title = "No jobs yet",
+                        subtitle = "Tap + to create your first job",
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "No jobs yet. Create your first job!",
-                            color = TextSecondary,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
+                    )
                 }
             } else {
-                items(recentJobs) { job ->
-                    JobCard(job = job, onClick = { onNavigateToJobDetail(job.id) })
+                itemsIndexed(recentJobs) { index, job ->
+                    FadeSlideIn(index = index) {
+                        JobCard(
+                            job = job,
+                            onClick = { onNavigateToJobDetail(job.id) }
+                        )
+                    }
                 }
             }
 
@@ -219,7 +247,8 @@ fun DashboardScreen(
 @Composable
 private fun StatCard(
     title: String,
-    value: String,
+    value: Int,
+    valuePrefix: String = "",
     icon: ImageVector,
     color: Color,
     modifier: Modifier = Modifier,
@@ -243,12 +272,21 @@ private fun StatCard(
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(title, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
             }
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                if (valuePrefix.isNotBlank()) {
+                    Text(
+                        valuePrefix,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                AnimatedCounter(
+                    target = value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    durationMillis = 800
+                )
+            }
         }
     }
 }

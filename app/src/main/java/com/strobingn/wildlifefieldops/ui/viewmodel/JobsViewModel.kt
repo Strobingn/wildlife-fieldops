@@ -21,6 +21,9 @@ class JobsViewModel @Inject constructor(
     private val _selectedStatus = MutableStateFlow<JobStatus?>(null)
     val selectedStatus = _selectedStatus.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+
     val jobs = combine(_searchQuery, _selectedStatus) { query, status ->
         Pair(query, status)
     }.flatMapLatest { (query, status) ->
@@ -29,7 +32,8 @@ class JobsViewModel @Inject constructor(
             status != null -> jobDao.getByStatus(status)
             else -> jobDao.getAll()
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.onEach { _isLoading.value = false }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingCount = jobDao.getByStatus(JobStatus.PENDING)
         .map { it.size }

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.AiAssistantViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.ChatMessage
@@ -93,7 +94,9 @@ fun AIAssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages) { message ->
-                    ChatBubble(message = message)
+                    ScaleIn {
+                        ChatBubble(message = message)
+                    }
                 }
                 if (isTyping) {
                     item {
@@ -101,11 +104,7 @@ fun AIAssistantScreen(
                             modifier = Modifier.padding(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = AccentPurple,
-                                strokeWidth = 2.dp
-                            )
+                            PulsingDot(color = AccentPurple)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Thinking…", color = TextTertiary, style = MaterialTheme.typography.bodySmall)
                         }
