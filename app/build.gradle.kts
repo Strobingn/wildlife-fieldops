@@ -28,6 +28,12 @@ android {
         val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
 
+        // LLM API key for AI Assistant (xAI, OpenAI, etc.)
+        val llmKey = System.getenv("LLM_API_KEY") ?: ""
+        val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
+        buildConfigField("String", "LLM_API_KEY", "\"$llmKey\"")
+        buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
+
         // Manifest placeholder for Google Maps meta-data
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
             System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
