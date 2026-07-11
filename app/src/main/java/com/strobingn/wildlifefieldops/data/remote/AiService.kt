@@ -92,7 +92,7 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
 
             if (code !in 200..299) {
                 android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
-                return@withContext "API error (HTTP $code). Check your LLM_API_KEY is valid and LLM_BASE_URL is correct."
+                return@withContext "⚠️ AI connection issue (HTTP $code).\n\nThe API key or endpoint may be mismatched. If you changed API providers, update LLM_BASE_URL in your GitHub secrets or rebuild."
             }
 
             parseLlmResponse(body) ?: "No response from AI. Try again."

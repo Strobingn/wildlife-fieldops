@@ -30,7 +30,7 @@ android {
 
         // LLM API key for AI Assistant (xAI, OpenAI, etc.)
         val llmKey = System.getenv("LLM_API_KEY") ?: ""
-        val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
+        val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.openai.com/v1"
         buildConfigField("String", "LLM_API_KEY", "\"$llmKey\"")
         buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
 

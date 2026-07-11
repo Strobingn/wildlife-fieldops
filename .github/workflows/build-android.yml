@@ -14,7 +14,7 @@ jobs:
       GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
       OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_BASE_URL: "https://api.openai.com/v1"
     steps:
       - uses: actions/checkout@v4
 
