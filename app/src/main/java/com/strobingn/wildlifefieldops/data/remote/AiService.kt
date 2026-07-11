@@ -28,12 +28,7 @@ private data class LlmRequest(
     val temperature: Double = 0.4
 )
 
-@Serializable
-private data class AiEdgeRequest(
-    val mode: String,
-    val observation: String,
-    val species: String = ""
-)
+// AiEdgeRequest is defined in RemoteDtos.kt (same package) — do not redeclare
 
 @Singleton
 class AiService @Inject constructor() {
