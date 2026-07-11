@@ -1,10 +1,15 @@
 package com.strobingn.wildlifefieldops.ui.components
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -77,14 +82,14 @@ fun SpeciesChip(
     modifier: Modifier = Modifier
 ) {
     val style = SpeciesTheme.forSpecies(species)
-    androidx.compose.material3.Surface(
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    Surface(
+        shape = RoundedCornerShape(8.dp),
         color = style.color.copy(alpha = 0.15f),
         modifier = modifier
     ) {
-        androidx.compose.foundation.layout.Row(
+        Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = style.icon,
@@ -92,8 +97,8 @@ fun SpeciesChip(
                 tint = style.color,
                 modifier = Modifier.size(14.dp)
             )
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(4.dp))
-            androidx.compose.material3.Text(
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
                 text = species ?: "Unknown",
                 style = MaterialTheme.typography.labelSmall,
                 color = style.color
