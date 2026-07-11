@@ -40,7 +40,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.WildlifeFieldOps"
+            android:theme="@style/Theme.WildlifeFieldOps.Splash"
             android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTop">

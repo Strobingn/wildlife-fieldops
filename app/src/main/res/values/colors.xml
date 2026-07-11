@@ -5,4 +5,8 @@
     <color name="surface_dark">#FF13131f</color>
     <color name="text_primary">#FFf0f0f5</color>
     <color name="text_secondary">#FFa0a0b0</color>
+    <color name="ic_launcher_background">#FF0a0a0f</color>
+    <color name="splash_background">#FF0a0a0f</color>
+    <color name="accent_purple">#FF8b5cf6</color>
+    <color name="accent_blue">#FF3b82f6</color>
 </resources>

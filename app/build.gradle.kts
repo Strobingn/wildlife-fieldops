@@ -150,6 +150,9 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // Splash screen + animations
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
     val supabaseVersion = "2.6.1"
     implementation("io.github.jan-tennert.supabase:postgrest-kt:$supabaseVersion")
     implementation("io.github.jan-tennert.supabase:gotrue-kt:$supabaseVersion")
