@@ -3,6 +3,7 @@ package com.strobingn.wildlifefieldops.data.remote
 import com.strobingn.wildlifefieldops.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
@@ -13,30 +14,139 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@Serializable
+private data class LlmMessage(
+    val role: String,
+    val content: String
+)
+
+@Serializable
+private data class LlmRequest(
+    val model: String,
+    val messages: List<LlmMessage>,
+    val max_tokens: Int = 600,
+    val temperature: Double = 0.4
+)
+
+@Serializable
+private data class AiEdgeRequest(
+    val mode: String,
+    val observation: String,
+    val species: String = ""
+)
+
 @Singleton
 class AiService @Inject constructor() {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
     val isConfigured: Boolean
-        get() {
-            val url = BuildConfig.SUPABASE_URL
-            val key = BuildConfig.SUPABASE_ANON_KEY
-            return url.isNotBlank() &&
-                !url.contains("your-project") &&
-                key.isNotBlank() &&
-                key != "your-anon-key"
-        }
+        get() = BuildConfig.LLM_API_KEY.isNotBlank()
 
     /**
-     * Calls Supabase Edge Function `ai-assistant` (uses server-side LLM secrets when set).
-     * Falls back to on-device field knowledge if the function is unavailable.
+     * Calls the configured LLM API directly (xAI, OpenAI, or compatible).
+     * Falls back to a clear message if no API key is configured.
      */
     suspend fun ask(userMessage: String, species: String = ""): String = withContext(Dispatchers.IO) {
         if (!isConfigured) {
-            return@withContext localFieldKnowledge(userMessage)
+            return@withContext "⚠️ AI not connected.\n\nAdd your LLM_API_KEY to BuildConfig (via env var or local.properties) and rebuild.\n\nSupports: xAI (Grok), OpenAI (GPT), or any OpenAI-compatible API.\n\nSet LLM_API_KEY and optionally LLM_BASE_URL env vars before building."
         }
+
+        val systemPrompt = """You are a professional wildlife removal field assistant with 20+ years of hands-on experience. You help technicians in the field with:
+- Species identification from behavioral clues, droppings, damage patterns, and sounds
+- Safety protocols for rabies-vector species (raccoons, bats, skunks, foxes)
+- Equipment and trapping strategies for specific situations
+- Pricing/estimate guidance for nuisance wildlife jobs
+- Exclusion techniques and repair recommendations
+- Legal compliance (state/federal wildlife regulations)
+
+Keep responses concise, actionable, and field-ready. Use bullet points. If the user mentions a species, tailor advice to that species. Be direct and practical — technicians are reading this on job sites."""
+
+        val userPrompt = buildString {
+            if (species.isNotBlank()) append("Species: $species\n")
+            append(userMessage)
+        }
+
+        val baseUrl = BuildConfig.LLM_BASE_URL.trimEnd('/')
+        val endpoint = URL("$baseUrl/chat/completions")
+        val payload = json.encodeToString(
+            LlmRequest(
+                model = detectModel(),
+                messages = listOf(
+                    LlmMessage(role = "system", content = systemPrompt),
+                    LlmMessage(role = "user", content = userPrompt)
+                )
+            )
+        )
+
+        val connection = (endpoint.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 25_000
+            readTimeout = 45_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Authorization", "Bearer ${BuildConfig.LLM_API_KEY}")
+        }
+
+        try {
+            connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }
+                .orEmpty()
+
+            if (code !in 200..299) {
+                android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
+                return@withContext "API error (HTTP $code). Check your LLM_API_KEY is valid and LLM_BASE_URL is correct."
+            }
+
+            parseLlmResponse(body) ?: "No response from AI. Try again."
+        } catch (e: Exception) {
+            android.util.Log.e("AiService", "LLM request failed", e)
+            "Network error: ${e.message}. Check your internet connection."
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun detectModel(): String {
+        val base = BuildConfig.LLM_BASE_URL
+        return when {
+            base.contains("x.ai") || base.contains("grok") -> "grok-2-latest"
+            base.contains("openai") -> "gpt-4o-mini"
+            base.contains("anthropic") || base.contains("claude") -> "claude-3-haiku-20240307"
+            else -> "grok-2-latest"
+        }
+    }
+
+    private fun parseLlmResponse(body: String): String? {
+        return try {
+            val root = json.parseToJsonElement(body).jsonObject
+            root["choices"]
+                ?.jsonArray
+                ?.firstOrNull()
+                ?.jsonObject
+                ?.get("message")
+                ?.jsonObject
+                ?.get("content")
+                ?.jsonPrimitive
+                ?.content
+                ?.trim()
+        } catch (e: Exception) {
+            android.util.Log.w("AiService", "Parse LLM response failed", e)
+            null
+        }
+    }
+
+    /**
+     * Legacy Supabase edge function path — kept for backward compatibility.
+     * Only used if SUPABASE_URL is configured AND LLM_API_KEY is not.
+     */
+    suspend fun askViaSupabase(userMessage: String, species: String = ""): String = withContext(Dispatchers.IO) {
         val base = BuildConfig.SUPABASE_URL.trimEnd('/')
+        if (base.contains("your-project") || BuildConfig.SUPABASE_ANON_KEY == "your-anon-key") {
+            return@withContext "⚠️ No AI backend configured. Add LLM_API_KEY to enable AI assistance."
+        }
         val endpoint = URL("$base/functions/v1/ai-assistant")
         val payload = json.encodeToString(
             AiEdgeRequest(
@@ -61,13 +171,13 @@ class AiService @Inject constructor() {
                 ?.bufferedReader()?.use { it.readText() }
                 .orEmpty()
             if (code !in 200..299) {
-                android.util.Log.w("AiService", "AI edge HTTP $code: ${body.take(300)}")
-                return@withContext localFieldKnowledge(userMessage)
+                android.util.Log.w("AiService", "Supabase edge HTTP $code: ${body.take(300)}")
+                return@withContext "Supabase edge function error (HTTP $code). Check your edge function is deployed."
             }
-            formatEdgeResponse(body) ?: localFieldKnowledge(userMessage)
+            formatEdgeResponse(body) ?: "Empty response from edge function."
         } catch (e: Exception) {
-            android.util.Log.e("AiService", "AI request failed", e)
-            localFieldKnowledge(userMessage)
+            android.util.Log.e("AiService", "Supabase request failed", e)
+            "Network error: ${e.message}"
         } finally {
             connection.disconnect()
         }
@@ -76,7 +186,6 @@ class AiService @Inject constructor() {
     private fun formatEdgeResponse(body: String): String? {
         return try {
             val root = json.parseToJsonElement(body).jsonObject
-            // Function may return { data: {...} } or the object directly
             val data = root["data"]?.jsonObject ?: root["result"]?.jsonObject ?: root
             val summary = data["summary"]?.jsonPrimitive?.content
             if (summary.isNullOrBlank()) return null
@@ -98,56 +207,8 @@ class AiService @Inject constructor() {
                 }
             }.trim()
         } catch (e: Exception) {
-            android.util.Log.w("AiService", "Parse AI JSON failed", e)
+            android.util.Log.w("AiService", "Parse edge response failed", e)
             null
-        }
-    }
-
-    fun localFieldKnowledge(userMessage: String): String {
-        val lower = userMessage.lowercase()
-        return when {
-            lower.contains("species") || lower.contains("identif") ||
-                lower.contains("raccoon") || lower.contains("squirrel") || lower.contains("skunk") ||
-                lower.contains("bat") || lower.contains("bird") ->
-                "Identification tips:\n\n" +
-                    "• Raccoons: black mask, ringed tail, nocturnal, 10–30 lbs.\n" +
-                    "• Gray squirrels: bushy tail, chewed entry points, dawn/dusk active.\n" +
-                    "• Skunks: white stripes/spots — can spray 10–15 ft.\n" +
-                    "• Bats: often attics; many protections — verify season rules before exclusion.\n" +
-                    "• Birds: Migratory Bird Treaty Act may apply — check before nest removal."
-
-            lower.contains("safety") || lower.contains("protocol") || lower.contains("ppe") ->
-                "Safety protocols:\n\n" +
-                    "1. PPE: heavy gloves, eye protection, long sleeves, respirator in attics.\n" +
-                    "2. Rabies-vector species (raccoon, bat, skunk, fox): minimize contact.\n" +
-                    "3. Ladder work: use a spotter.\n" +
-                    "4. Secure transfer cages with solid dividers.\n" +
-                    "5. Photo entry points before and after work.\n" +
-                    "6. Keep rabies pre-exposure vaccination current."
-
-            lower.contains("equipment") || lower.contains("trap") || lower.contains("tool") ->
-                "Core equipment:\n\n" +
-                    "• Live traps sized for target species + bait.\n" +
-                    "• Exclusion: hardware cloth, chimney caps, vent covers, sealant.\n" +
-                    "• Inspection: borescope, headlamp, moisture meter.\n" +
-                    "• Docs: camera, tape measure, GPS."
-
-            lower.contains("price") || lower.contains("estimate") || lower.contains("cost") ->
-                "Typical pricing guidance (verify locally):\n\n" +
-                    "• Inspection: \$150–\$300\n" +
-                    "• Squirrel: \$300–\$600\n" +
-                    "• Raccoon: \$400–\$800\n" +
-                    "• Bat exclusion: \$500–\$2,000+\n" +
-                    "Factors: access, entry points, repairs, warranty length."
-
-            else ->
-                "Field guidance:\n\n" +
-                    "1. Document evidence and entry points with photos.\n" +
-                    "2. Prefer humane live trapping when allowed.\n" +
-                    "3. Seal all access after removal (full exclusion).\n" +
-                    "4. Remove attractants (food, shelter).\n" +
-                    "5. Confirm local/state wildlife rules before relocation.\n\n" +
-                    "Ask about a species, safety, equipment, or estimates for more detail."
         }
     }
 }
