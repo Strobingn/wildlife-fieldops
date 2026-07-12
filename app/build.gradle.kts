@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 8
-        versionName = "2.0.1-drawer-services"
+        versionCode = 9
+        versionName = "2.0.2-edit-jobs-services"
 
         // Real keys from env/secrets (Supabase + Maps hooked)
         val supabaseUrl = System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"

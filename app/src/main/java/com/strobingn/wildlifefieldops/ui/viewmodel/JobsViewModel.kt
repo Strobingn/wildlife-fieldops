@@ -59,8 +59,15 @@ class JobsViewModel @Inject constructor(
         _selectedStatus.value = status
     }
 
-    fun getJobById(id: String): Flow<Job?> = flow {
-        emit(jobDao.getById(id))
+    fun getJobById(id: String): Flow<Job?> {
+        if (id.isBlank() || id == "new") return flowOf(null)
+        // Live observation so detail/edit screens stay in sync after saves.
+        return jobDao.observeById(id)
+    }
+
+    suspend fun loadJobOnce(id: String): Job? {
+        if (id.isBlank() || id == "new") return null
+        return jobDao.getById(id)
     }
 
     fun saveJob(job: Job) = viewModelScope.launch {
@@ -68,7 +75,49 @@ class JobsViewModel @Inject constructor(
     }
 
     fun updateJob(job: Job) = viewModelScope.launch {
-        jobDao.update(job.copy(updatedAt = System.currentTimeMillis(), isSynced = false))
+        // REPLACE insert so edits always persist even if row shape drifted.
+        jobDao.insert(
+            job.copy(
+                updatedAt = System.currentTimeMillis(),
+                isSynced = false
+            )
+        )
+    }
+
+    /**
+     * Patch editable fields on an existing job while preserving status, photos,
+     * costs, schedule, and other system-owned data.
+     */
+    fun updateJobDetails(
+        jobId: String,
+        title: String,
+        description: String,
+        customerId: String,
+        customerName: String,
+        address: String,
+        type: String,
+        priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
+        estimatedValue: Double,
+        notes: String,
+        scheduledDate: Long? = null
+    ) = viewModelScope.launch {
+        val existing = jobDao.getById(jobId) ?: return@launch
+        jobDao.insert(
+            existing.copy(
+                title = title,
+                description = description,
+                customerId = customerId,
+                customerName = customerName,
+                address = address,
+                type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
+                priority = priority,
+                estimatedValue = estimatedValue,
+                notes = notes,
+                scheduledDate = scheduledDate ?: existing.scheduledDate,
+                updatedAt = System.currentTimeMillis(),
+                isSynced = false
+            )
+        )
     }
 
     fun deleteJob(job: Job) = viewModelScope.launch {

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -19,7 +20,8 @@ private val Context.serviceTypeDataStore by preferencesDataStore(name = "service
  */
 @Singleton
 class ServiceTypeRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val jobDao: JobDao
 ) {
     private val dataStore = context.serviceTypeDataStore
 
@@ -64,12 +66,41 @@ class ServiceTypeRepository @Inject constructor(
         return true
     }
 
-    suspend fun removeCustomType(label: String) {
+    /**
+     * Remove a custom service type from the catalog.
+     * @param reassignJobsTo if set, jobs using this type are updated to the new label.
+     * @return number of jobs that referenced this type
+     */
+    suspend fun removeCustomType(
+        label: String,
+        reassignJobsTo: String? = DefaultServiceTypes.all.first()
+    ): Int {
         val n = DefaultServiceTypes.normalize(label)
+        if (DefaultServiceTypes.all.any { it.equals(n, ignoreCase = true) }) {
+            // Built-ins cannot be deleted
+            return 0
+        }
+        val usage = jobDao.countByServiceType(n)
+        // Also match case-insensitive variants via exact Room match first
+        val reassigned = if (reassignJobsTo != null && usage > 0) {
+            val target = DefaultServiceTypes.display(reassignJobsTo)
+            jobDao.reassignServiceType(n, target)
+        } else {
+            0
+        }
         dataStore.edit { prefs ->
             val current = prefs[customKey].orEmpty().toMutableSet()
             current.removeAll { it.equals(n, ignoreCase = true) }
             prefs[customKey] = current
         }
+        return maxOf(usage, reassigned)
     }
+
+    suspend fun countJobsUsing(label: String): Int {
+        val n = DefaultServiceTypes.normalize(label)
+        return jobDao.countByServiceType(n)
+    }
+
+    fun isBuiltIn(label: String): Boolean =
+        DefaultServiceTypes.all.any { it.equals(DefaultServiceTypes.normalize(label), ignoreCase = true) }
 }

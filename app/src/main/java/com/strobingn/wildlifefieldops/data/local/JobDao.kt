@@ -16,6 +16,15 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE id = :id")
     suspend fun getById(id: String): Job?
 
+    @Query("SELECT * FROM jobs WHERE id = :id")
+    fun observeById(id: String): Flow<Job?>
+
+    @Query("SELECT COUNT(*) FROM jobs WHERE type = :serviceType")
+    suspend fun countByServiceType(serviceType: String): Int
+
+    @Query("UPDATE jobs SET type = :newType, isSynced = 0, updatedAt = :updatedAt WHERE type = :oldType")
+    suspend fun reassignServiceType(oldType: String, newType: String, updatedAt: Long = System.currentTimeMillis()): Int
+
     @Query("SELECT * FROM jobs WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun getByCustomer(customerId: String): Flow<List<Job>>
 

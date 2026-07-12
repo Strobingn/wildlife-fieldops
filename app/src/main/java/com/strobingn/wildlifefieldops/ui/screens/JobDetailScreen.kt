@@ -134,6 +134,21 @@ fun JobDetailScreen(
                     }
                 }
 
+                // Primary edit — always available after a job is entered
+                Button(
+                    onClick = { onNavigateToEdit(currentJob.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryGreen,
+                        contentColor = androidx.compose.ui.graphics.Color.Black
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Edit job", fontWeight = FontWeight.Bold)
+                }
+
                 // Actions
                 Text("Actions", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -163,7 +178,8 @@ fun JobDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    "Created: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(currentJob.createdAt))}",
+                    "Created: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(currentJob.createdAt))}" +
+                        " · Updated: ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(currentJob.updatedAt))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextTertiary
                 )

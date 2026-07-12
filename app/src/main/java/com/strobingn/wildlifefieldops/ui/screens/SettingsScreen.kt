@@ -123,10 +123,12 @@ fun SettingsScreen(
                 val serviceTypesVm: com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel =
                     androidx.hilt.navigation.compose.hiltViewModel()
                 val customTypes by serviceTypesVm.customTypes.collectAsState(initial = emptyList())
+                val serviceMsg by serviceTypesVm.lastMessage.collectAsState(initial = null)
                 var newService by remember { mutableStateOf("") }
+                var pendingDelete by remember { mutableStateOf<String?>(null) }
 
                 Text(
-                    "Built-in wildlife services are always available on jobs. Add your own types below.",
+                    "Built-in wildlife services are always available on jobs. Add your own types below. Deleting a custom type reassigns any jobs using it to “Inspection”.",
                     color = TextTertiary,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -136,7 +138,7 @@ fun SettingsScreen(
                     onValueChange = { newService = it },
                     label = { Text("New service type") },
                     placeholder = { Text("e.g. Gutter guard install") },
-                    leadingIcon = { Icon(Icons.Default.Handyman, contentDescription = null, tint = TextSecondary) },
+                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null, tint = TextSecondary) },
                     colors = settingFieldColors(),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -159,10 +161,14 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Add service type", fontWeight = FontWeight.Bold)
                 }
+                if (!serviceMsg.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(serviceMsg!!, color = PrimaryGreen, style = MaterialTheme.typography.bodySmall)
+                }
                 if (customTypes.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        "Your custom types",
+                        "Your custom types (tap trash to delete)",
                         style = MaterialTheme.typography.labelMedium,
                         color = TextSecondary
                     )
@@ -176,7 +182,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(type, color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
-                            IconButton(onClick = { serviceTypesVm.removeCustomType(type) }) {
+                            IconButton(onClick = { pendingDelete = type }) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Remove $type",
@@ -185,6 +191,33 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+
+                if (pendingDelete != null) {
+                    AlertDialog(
+                        onDismissRequest = { pendingDelete = null },
+                        title = { Text("Delete service type?", color = TextPrimary) },
+                        text = {
+                            Text(
+                                "Remove “$pendingDelete” from your list? Any jobs using this service will be set to “Inspection”. You can change them again when editing the job.",
+                                color = TextSecondary
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                serviceTypesVm.removeCustomType(pendingDelete!!)
+                                pendingDelete = null
+                            }) {
+                                Text("Delete", color = ErrorRed)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { pendingDelete = null }) {
+                                Text("Cancel", color = TextSecondary)
+                            }
+                        },
+                        containerColor = BackgroundCard
+                    )
                 }
             }
 

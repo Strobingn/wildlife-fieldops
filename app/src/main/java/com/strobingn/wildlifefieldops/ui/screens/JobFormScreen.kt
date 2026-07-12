@@ -20,6 +20,7 @@ import com.strobingn.wildlifefieldops.data.model.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +31,9 @@ fun JobFormScreen(
     serviceTypesViewModel: ServiceTypesViewModel = hiltViewModel()
 ) {
     val serviceTypes by serviceTypesViewModel.allTypes.collectAsState()
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf("") }
@@ -44,30 +48,44 @@ fun JobFormScreen(
     var showAddServiceDialog by remember { mutableStateOf(false) }
     var newServiceName by remember { mutableStateOf("") }
     var isEditing by remember { mutableStateOf(false) }
+    var loaded by remember { mutableStateOf(jobId == null) }
+    var existingJob by remember { mutableStateOf<Job?>(null) }
+    var isSaving by remember { mutableStateOf(false) }
 
+    // Load job once when editing so party-entered jobs can be revised later.
     LaunchedEffect(jobId) {
-        jobId?.let { id ->
-            viewModel.getJobById(id).collect { job ->
-                job?.let {
-                    isEditing = true
-                    title = it.title
-                    description = it.description
-                    customerId = it.customerId
-                    customerName = it.customerName
-                    address = it.address
-                    selectedType = DefaultServiceTypes.display(it.type)
-                    selectedPriority = it.priority
-                    estimatedValue = if (it.estimatedValue > 0) it.estimatedValue.toString() else ""
-                    notes = it.notes
-                }
-            }
+        if (jobId.isNullOrBlank()) {
+            isEditing = false
+            loaded = true
+            return@LaunchedEffect
         }
+        val job = viewModel.loadJobOnce(jobId)
+        if (job != null) {
+            isEditing = true
+            existingJob = job
+            title = job.title
+            description = job.description
+            customerId = job.customerId
+            customerName = job.customerName
+            address = job.address
+            selectedType = DefaultServiceTypes.display(job.type)
+            selectedPriority = job.priority
+            estimatedValue = if (job.estimatedValue > 0) job.estimatedValue.toString() else ""
+            notes = job.notes
+        }
+        loaded = true
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditing) "Edit Job" else "New Job", color = TextPrimary) },
+                title = {
+                    Text(
+                        if (isEditing) "Edit Job" else "New Job",
+                        color = TextPrimary
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
@@ -78,6 +96,40 @@ fun JobFormScreen(
         },
         containerColor = BackgroundDark
     ) { padding ->
+        if (!loaded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PrimaryGreen)
+            }
+            return@Scaffold
+        }
+
+        if (jobId != null && existingJob == null && loaded) {
+            // jobId provided but not found
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp)
+            ) {
+                Text("Job not found", color = TextPrimary, style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "This job may have been deleted. You can create a new one instead.",
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onBack, colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)) {
+                    Text("Go back", color = Color.Black)
+                }
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -86,6 +138,14 @@ fun JobFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (isEditing) {
+                Text(
+                    "Update any field, then tap Save. Status, photos, and invoices are kept.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+            }
+
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -247,47 +307,72 @@ fun JobFormScreen(
 
             Button(
                 onClick = {
+                    if (title.isBlank() || isSaving) return@Button
+                    isSaving = true
                     val estVal = estimatedValue.toDoubleOrNull() ?: 0.0
                     val service = DefaultServiceTypes.display(selectedType)
                     if (isEditing && jobId != null) {
-                        val updatedJob = Job(
-                            id = jobId,
-                            title = title,
-                            description = description,
+                        viewModel.updateJobDetails(
+                            jobId = jobId,
+                            title = title.trim(),
+                            description = description.trim(),
                             customerId = customerId,
-                            customerName = customerName,
-                            address = address,
+                            customerName = customerName.trim(),
+                            address = address.trim(),
                             type = service,
                             priority = selectedPriority,
                             estimatedValue = estVal,
-                            notes = notes,
-                            createdAt = System.currentTimeMillis()
+                            notes = notes.trim()
                         )
-                        viewModel.updateJob(updatedJob)
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Job updated")
+                            isSaving = false
+                            onBack()
+                        }
                     } else {
                         viewModel.createJob(
-                            title = title,
-                            description = description,
+                            title = title.trim(),
+                            description = description.trim(),
                             customerId = customerId,
-                            customerName = customerName,
-                            address = address,
+                            customerName = customerName.trim(),
+                            address = address.trim(),
                             type = service,
                             priority = selectedPriority,
                             estimatedValue = estVal,
                             scheduledDate = null,
-                            notes = notes
+                            notes = notes.trim()
                         )
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Job created")
+                            isSaving = false
+                            onBack()
+                        }
                     }
-                    onBack()
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
                 shape = RoundedCornerShape(12.dp),
-                enabled = title.isNotBlank()
+                enabled = title.isNotBlank() && !isSaving
             ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (isEditing) "Update Job" else "Create Job", fontWeight = FontWeight.Bold)
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.Black,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                } else {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    when {
+                        isSaving -> "Saving…"
+                        isEditing -> "Save changes"
+                        else -> "Create Job"
+                    },
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             if (isEditing) {

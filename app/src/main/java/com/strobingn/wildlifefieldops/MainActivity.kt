@@ -221,7 +221,7 @@ private fun AppNavHost(
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             JobDetailScreen(
                 jobId = jobId,
-                onNavigateToEdit = { navController.navigate(Screen.JobForm.createRoute(jobId)) },
+                onNavigateToEdit = { id -> navController.navigate(Screen.JobForm.createRoute(id)) },
                 onNavigateToInvoice = { navController.navigate(Screen.Invoice.createRoute(jobId)) },
                 onNavigateToEstimate = { navController.navigate(Screen.Estimate.createRoute(jobId)) },
                 onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
@@ -231,9 +231,10 @@ private fun AppNavHost(
 
         composable(
             route = Screen.JobForm.route,
-            arguments = listOf(navArgument("jobId") { type = NavType.StringType; nullable = true; defaultValue = null })
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
         ) { backStackEntry ->
-            val jobId = backStackEntry.arguments?.getString("jobId")
+            val rawId = backStackEntry.arguments?.getString("jobId")
+            val jobId = rawId?.takeUnless { it.isBlank() || it == "new" }
             JobFormScreen(
                 jobId = jobId,
                 onBack = { navController.popBackStack() }

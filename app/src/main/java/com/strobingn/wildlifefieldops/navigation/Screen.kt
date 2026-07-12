@@ -16,9 +16,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object JobDetail : Screen("job_detail/{jobId}", "Job Detail") {
         fun createRoute(jobId: String) = "job_detail/$jobId"
     }
-    object JobForm : Screen("job_form?jobId={jobId}", "Job Form") {
-        fun createRoute(jobId: String? = null) =
-            if (jobId != null) "job_form?jobId=$jobId" else "job_form"
+    /** Use path segment "new" for create; real UUID for edit (query params were flaky). */
+    object JobForm : Screen("job_form/{jobId}", "Job Form") {
+        fun createRoute(jobId: String? = null) = "job_form/${jobId ?: "new"}"
     }
 
     // Customer Screens
