@@ -23,8 +23,20 @@ class Converters {
     @TypeConverter
     fun fromJobType(value: JobType): String = value.name
 
+    /** Accepts enum names or free-form service labels from older / custom rows. */
     @TypeConverter
-    fun toJobType(value: String): JobType = JobType.valueOf(value)
+    fun toJobType(value: String): JobType = try {
+        JobType.valueOf(value)
+    } catch (_: IllegalArgumentException) {
+        JobType.fromLabel(value)
+    }
+
+    /** Jobs now store service type as a plain string label. */
+    @TypeConverter
+    fun fromServiceTypeLabel(value: String?): String = value?.ifBlank { "Inspection" } ?: "Inspection"
+
+    @TypeConverter
+    fun toServiceTypeLabel(value: String?): String = value?.ifBlank { "Inspection" } ?: "Inspection"
 
     @TypeConverter
     fun fromCustomerType(value: CustomerType): String = value.name

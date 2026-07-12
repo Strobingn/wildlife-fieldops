@@ -94,7 +94,7 @@ fun JobDetailScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             PriorityBadge(priority = currentJob.priority)
                             Spacer(modifier = Modifier.width(8.dp))
-                            TypeBadge(type = currentJob.type.name)
+                            TypeBadge(type = currentJob.type)
                         }
                     }
                 }

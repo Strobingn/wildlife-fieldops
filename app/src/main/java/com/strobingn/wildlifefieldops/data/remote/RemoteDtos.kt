@@ -5,7 +5,6 @@ import com.strobingn.wildlifefieldops.data.model.Inspection
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobPriority
 import com.strobingn.wildlifefieldops.data.model.JobStatus
-import com.strobingn.wildlifefieldops.data.model.JobType
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -154,7 +153,7 @@ fun RemoteJobDto.toLocal(): Job {
         longitude = longitude?.toDoubleOrNull(),
         status = status.fromRemoteStatus(),
         priority = priority.fromRemotePriority(),
-        type = JobType.INSPECTION,
+        type = "Inspection",
         estimatedValue = estimate ?: 0.0,
         actualCost = grandTotal ?: 0.0,
         assignedTo = assignedTech.orEmpty(),

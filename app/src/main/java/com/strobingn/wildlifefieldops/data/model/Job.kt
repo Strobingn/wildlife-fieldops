@@ -12,10 +12,6 @@ enum class JobPriority {
     LOW, MEDIUM, HIGH, URGENT
 }
 
-enum class JobType {
-    INSPECTION, REMOVAL, REPAIR, PREVENTION, CLEANUP, CONSULTATION, EMERGENCY
-}
-
 @Entity(tableName = "jobs")
 data class Job(
     @PrimaryKey
@@ -29,7 +25,8 @@ data class Job(
     val longitude: Double? = null,
     val status: JobStatus = JobStatus.PENDING,
     val priority: JobPriority = JobPriority.MEDIUM,
-    val type: JobType = JobType.INSPECTION,
+    /** Free-form service type label (built-in or user-defined). */
+    val type: String = DefaultServiceTypes.all.first(),
     val estimatedValue: Double = 0.0,
     val actualCost: Double = 0.0,
     val assignedTo: String = "",

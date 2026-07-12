@@ -44,7 +44,7 @@ class MapViewModel @Inject constructor(
                         latitude = job.latitude!!,
                         longitude = job.longitude!!,
                         status = job.status,
-                        type = job.type.name
+                        type = job.type
                     )
                 }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

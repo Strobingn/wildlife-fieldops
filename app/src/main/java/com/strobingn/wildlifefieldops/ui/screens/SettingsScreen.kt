@@ -117,6 +117,79 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Service types
+            SettingsSectionTitle("Service Types")
+            SettingsCard {
+                val serviceTypesVm: com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel =
+                    androidx.hilt.navigation.compose.hiltViewModel()
+                val customTypes by serviceTypesVm.customTypes.collectAsState(initial = emptyList())
+                var newService by remember { mutableStateOf("") }
+
+                Text(
+                    "Built-in wildlife services are always available on jobs. Add your own types below.",
+                    color = TextTertiary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = newService,
+                    onValueChange = { newService = it },
+                    label = { Text("New service type") },
+                    placeholder = { Text("e.g. Gutter guard install") },
+                    leadingIcon = { Icon(Icons.Default.Handyman, contentDescription = null, tint = TextSecondary) },
+                    colors = settingFieldColors(),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        if (newService.isNotBlank()) {
+                            serviceTypesVm.addType(newService)
+                            newService = ""
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = newService.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Add service type", fontWeight = FontWeight.Bold)
+                }
+                if (customTypes.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Your custom types",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    customTypes.forEach { type ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(type, color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                            IconButton(onClick = { serviceTypesVm.removeCustomType(type) }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Remove $type",
+                                    tint = ErrorRed
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Appearance
             SettingsSectionTitle("Appearance")
             SettingsCard {
@@ -237,7 +310,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                "Wildlife FieldOps v1.1",
+                "Wildlife FieldOps v2.0.1",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary,
                 modifier = Modifier.align(Alignment.CenterHorizontally)

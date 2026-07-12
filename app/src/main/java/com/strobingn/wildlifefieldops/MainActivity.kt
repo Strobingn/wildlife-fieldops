@@ -3,12 +3,14 @@ package com.strobingn.wildlifefieldops
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -100,23 +102,45 @@ fun WildlifeFieldOpsNavHost() {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val drawerOpen = drawerState.currentValue == DrawerValue.Open ||
+        drawerState.targetValue == DrawerValue.Open
+
+    // Always close the drawer when leaving main tabs — prevents stuck scrim
+    // if navigation runs before the close animation finishes.
+    LaunchedEffect(showBottomNav) {
+        if (!showBottomNav && drawerState.isOpen) {
+            drawerState.close()
+        }
+    }
+
+    // System back closes the drawer first instead of trapping the user under the scrim.
+    BackHandler(enabled = drawerOpen) {
+        scope.launch { drawerState.close() }
+    }
+
+    fun navigateFromDrawer(route: String) {
+        scope.launch {
+            // Wait for close so ModalNavigationDrawer clears the scrim before route change.
+            drawerState.close()
+            navController.navigate(route) {
+                popUpTo(Screen.Dashboard.route) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        gesturesEnabled = showBottomNav && drawerState.isOpen,
+        // Allow open + close gestures on main tabs (not only while already open).
+        gesturesEnabled = showBottomNav,
+        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f),
         drawerContent = {
-            if (showBottomNav) {
-                AppDrawer(
-                    onNavigate = { route ->
-                        scope.launch { drawerState.close() }
-                        navController.navigate(route) {
-                            popUpTo(Screen.Dashboard.route) { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    },
-                    onClose = { scope.launch { drawerState.close() } }
-                )
-            }
+            // Always compose drawer content — an empty drawerContent while Open
+            // was leaving a permanent dim overlay with no sheet to dismiss.
+            AppDrawer(
+                onNavigate = { route -> navigateFromDrawer(route) },
+                onClose = { scope.launch { drawerState.close() } }
+            )
         }
     ) {
         Scaffold(
@@ -128,10 +152,13 @@ fun WildlifeFieldOpsNavHost() {
                     ModernBottomBar(
                         currentRoute = currentRoute ?: Screen.Dashboard.route,
                         onNavigate = { route ->
-                            navController.navigate(route) {
-                                popUpTo(Screen.Dashboard.route) { inclusive = false }
-                                launchSingleTop = true
-                                restoreState = true
+                            scope.launch {
+                                if (drawerState.isOpen) drawerState.close()
+                                navController.navigate(route) {
+                                    popUpTo(Screen.Dashboard.route) { inclusive = false }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         }
                     )
@@ -142,7 +169,11 @@ fun WildlifeFieldOpsNavHost() {
             AppNavHost(
                 navController = navController,
                 modifier = Modifier.padding(padding),
-                onOpenDrawer = { scope.launch { drawerState.open() } }
+                onOpenDrawer = {
+                    scope.launch {
+                        if (drawerState.isClosed) drawerState.open() else drawerState.close()
+                    }
+                }
             )
         }
     }
@@ -389,85 +420,101 @@ private fun AppDrawer(
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         drawerContentColor = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.widthIn(max = 320.dp)
+        // Fixed width so the sheet never covers the full screen (scrim stays tappable).
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(300.dp)
     ) {
-        // Brand header
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(GradientStart, MaterialTheme.colorScheme.surfaceContainerLow)
-                    )
-                )
-                .padding(horizontal = 20.dp, vertical = 28.dp)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BrandMark(size = 48)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(
-                        "Wildlife FieldOps",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
+            // Brand header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(GradientStart, MaterialTheme.colorScheme.surfaceContainerLow)
+                        )
                     )
-                    Text(
-                        "Field operations center",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.75f)
-                    )
+                    .padding(horizontal = 20.dp, vertical = 28.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BrandMark(size = 48)
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Wildlife FieldOps",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "Field operations center",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    }
+                    IconButton(onClick = onClose) {
+                        Text(
+                            "✕",
+                            color = Color.White.copy(alpha = 0.9f),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            "TOOLS",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-        )
+            Text(
+                "TOOLS",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            )
 
-        Screen.drawerItems.forEach { screen ->
-            NavigationDrawerItem(
-                icon = {
-                    screen.icon?.let {
-                        Icon(it, contentDescription = screen.title)
-                    }
-                },
-                label = {
-                    Text(screen.title, style = MaterialTheme.typography.bodyLarge)
-                },
-                selected = false,
-                onClick = { onNavigate(screen.route) },
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                shape = FieldShapes.button,
-                colors = NavigationDrawerItemDefaults.colors(
-                    unselectedContainerColor = Color.Transparent,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    selectedIconColor = MaterialTheme.colorScheme.primary
+            Screen.drawerItems.forEach { screen ->
+                NavigationDrawerItem(
+                    icon = {
+                        screen.icon?.let {
+                            Icon(it, contentDescription = screen.title)
+                        }
+                    },
+                    label = {
+                        Text(screen.title, style = MaterialTheme.typography.bodyLarge)
+                    },
+                    selected = false,
+                    onClick = { onNavigate(screen.route) },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                    shape = FieldShapes.button,
+                    colors = NavigationDrawerItemDefaults.colors(
+                        unselectedContainerColor = Color.Transparent,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        selectedIconColor = MaterialTheme.colorScheme.primary
+                    )
                 )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+
+            Text(
+                "v2.0.1 · Modern UI",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(20.dp)
             )
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            color = MaterialTheme.colorScheme.outlineVariant
-        )
-
-        Text(
-            "v2.0 · Modern UI",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(20.dp)
-        )
     }
 }

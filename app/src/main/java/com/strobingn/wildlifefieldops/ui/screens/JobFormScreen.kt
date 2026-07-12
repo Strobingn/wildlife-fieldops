@@ -19,25 +19,30 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
+import com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JobFormScreen(
     jobId: String? = null,
     onBack: () -> Unit,
-    viewModel: JobsViewModel = hiltViewModel()
+    viewModel: JobsViewModel = hiltViewModel(),
+    serviceTypesViewModel: ServiceTypesViewModel = hiltViewModel()
 ) {
+    val serviceTypes by serviceTypesViewModel.allTypes.collectAsState()
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var customerId by remember { mutableStateOf("") }
     var customerName by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(JobType.INSPECTION) }
+    var selectedType by remember { mutableStateOf(DefaultServiceTypes.all.first()) }
     var selectedPriority by remember { mutableStateOf(JobPriority.MEDIUM) }
     var estimatedValue by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var showTypeDropdown by remember { mutableStateOf(false) }
     var showPriorityDropdown by remember { mutableStateOf(false) }
+    var showAddServiceDialog by remember { mutableStateOf(false) }
+    var newServiceName by remember { mutableStateOf("") }
     var isEditing by remember { mutableStateOf(false) }
 
     LaunchedEffect(jobId) {
@@ -50,7 +55,7 @@ fun JobFormScreen(
                     customerId = it.customerId
                     customerName = it.customerName
                     address = it.address
-                    selectedType = it.type
+                    selectedType = DefaultServiceTypes.display(it.type)
                     selectedPriority = it.priority
                     estimatedValue = if (it.estimatedValue > 0) it.estimatedValue.toString() else ""
                     notes = it.notes
@@ -81,7 +86,6 @@ fun JobFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -94,7 +98,6 @@ fun JobFormScreen(
                 singleLine = true
             )
 
-            // Customer
             OutlinedTextField(
                 value = customerName,
                 onValueChange = { customerName = it },
@@ -106,7 +109,6 @@ fun JobFormScreen(
                 singleLine = true
             )
 
-            // Address
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
@@ -119,7 +121,7 @@ fun JobFormScreen(
                 singleLine = true
             )
 
-            // Type and Priority
+            // Service type + Priority
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExposedDropdownMenuBox(
                     expanded = showTypeDropdown,
@@ -127,10 +129,10 @@ fun JobFormScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     OutlinedTextField(
-                        value = selectedType.name.replace("_", " "),
+                        value = selectedType,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Type") },
+                        label = { Text("Service type") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showTypeDropdown) },
                         colors = fieldColors(),
                         modifier = Modifier.menuAnchor(),
@@ -141,15 +143,32 @@ fun JobFormScreen(
                         onDismissRequest = { showTypeDropdown = false },
                         modifier = Modifier.exposedDropdownSize()
                     ) {
-                        JobType.entries.forEach { type ->
+                        serviceTypes.forEach { type ->
                             DropdownMenuItem(
-                                text = { Text(type.name.replace("_", " "), color = TextPrimary) },
+                                text = { Text(type, color = TextPrimary) },
                                 onClick = {
                                     selectedType = type
                                     showTypeDropdown = false
                                 }
                             )
                         }
+                        HorizontalDivider(color = BorderDark)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "+ Add new service type",
+                                    color = PrimaryGreen,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            },
+                            onClick = {
+                                showTypeDropdown = false
+                                showAddServiceDialog = true
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryGreen)
+                            }
+                        )
                     }
                 }
 
@@ -186,7 +205,6 @@ fun JobFormScreen(
                 }
             }
 
-            // Estimated Value
             OutlinedTextField(
                 value = estimatedValue,
                 onValueChange = { estimatedValue = it.filter { c -> c.isDigit() || c == '.' } },
@@ -199,7 +217,6 @@ fun JobFormScreen(
                 singleLine = true
             )
 
-            // Description
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -213,7 +230,6 @@ fun JobFormScreen(
                 maxLines = 4
             )
 
-            // Notes
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
@@ -229,10 +245,10 @@ fun JobFormScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Save Button
             Button(
                 onClick = {
                     val estVal = estimatedValue.toDoubleOrNull() ?: 0.0
+                    val service = DefaultServiceTypes.display(selectedType)
                     if (isEditing && jobId != null) {
                         val updatedJob = Job(
                             id = jobId,
@@ -241,7 +257,7 @@ fun JobFormScreen(
                             customerId = customerId,
                             customerName = customerName,
                             address = address,
-                            type = selectedType,
+                            type = service,
                             priority = selectedPriority,
                             estimatedValue = estVal,
                             notes = notes,
@@ -255,7 +271,7 @@ fun JobFormScreen(
                             customerId = customerId,
                             customerName = customerName,
                             address = address,
-                            type = selectedType,
+                            type = service,
                             priority = selectedPriority,
                             estimatedValue = estVal,
                             scheduledDate = null,
@@ -287,6 +303,60 @@ fun JobFormScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+
+    if (showAddServiceDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddServiceDialog = false
+                newServiceName = ""
+            },
+            title = { Text("New service type", color = TextPrimary) },
+            text = {
+                Column {
+                    Text(
+                        "Add a service your crew performs (e.g. “Gutter guard install”).",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newServiceName,
+                        onValueChange = { newServiceName = it },
+                        label = { Text("Service name") },
+                        singleLine = true,
+                        colors = fieldColors(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = DefaultServiceTypes.normalize(newServiceName)
+                        if (name.isNotBlank()) {
+                            serviceTypesViewModel.addType(name)
+                            selectedType = name
+                            showAddServiceDialog = false
+                            newServiceName = ""
+                        }
+                    },
+                    enabled = newServiceName.isNotBlank()
+                ) {
+                    Text("Add", color = PrimaryGreen)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddServiceDialog = false
+                    newServiceName = ""
+                }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = BackgroundCard
+        )
     }
 }
 
