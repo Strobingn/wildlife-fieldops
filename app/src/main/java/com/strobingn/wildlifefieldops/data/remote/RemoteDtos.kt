@@ -35,11 +35,11 @@ data class RemoteCustomerDto(
 data class RemoteJobDto(
     val id: String,
     /** Live DB required column */
-    @SerialName("customer_name") val customerName: String,
+    @SerialName("customer_name") val customerName: String = "",
     /** Compatibility column used by older web clients */
     val customer: String? = null,
-    /** Live DB required column */
-    val title: String,
+    /** Live DB required column — default so partial rows don't crash decode */
+    val title: String = "",
     /** Live DB required column */
     val species: String = "Wildlife",
     @SerialName("customer_id") val customerId: String? = null,
@@ -54,10 +54,15 @@ data class RemoteJobDto(
     @SerialName("assigned_tech") val assignedTech: String? = null,
     val notes: String? = null,
     val scope: String? = null,
+    @Serializable(with = FlexibleStringSerializer::class)
     val latitude: String? = null,
+    @Serializable(with = FlexibleStringSerializer::class)
     val longitude: String? = null,
+    @Serializable(with = FlexibleDoubleSerializer::class)
     val estimate: Double? = 0.0,
-    @SerialName("grand_total") val grandTotal: Double? = 0.0,
+    @SerialName("grand_total")
+    @Serializable(with = FlexibleDoubleSerializer::class)
+    val grandTotal: Double? = 0.0,
     @SerialName("scheduled_start") val scheduledStart: String? = null,
     @SerialName("completed_at") val completedAt: String? = null
 )
@@ -115,7 +120,12 @@ fun RemoteCustomerDto.toLocal(): Customer {
 fun Job.toRemoteDto(): RemoteJobDto {
     val name = customerName.ifBlank { title.ifBlank { "Customer" } }
     val jobTitle = title.ifBlank { name }
-    val speciesGuess = description.ifBlank { "Wildlife" }
+    // Prefer service type as species when description is long notes; keep short species labels
+    val speciesGuess = when {
+        type.isNotBlank() && type.length <= 40 -> type
+        description.isNotBlank() && description.length <= 60 -> description
+        else -> "Wildlife"
+    }
     return RemoteJobDto(
         id = id.ifBlank { UUID.randomUUID().toString() },
         customerName = name,

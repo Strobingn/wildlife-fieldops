@@ -12,8 +12,10 @@ import com.strobingn.wildlifefieldops.data.remote.WeatherService
 import com.strobingn.wildlifefieldops.data.repository.SyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -115,15 +117,25 @@ class SettingsViewModel @Inject constructor(
         if (_isSyncing.value) return@launch
         _isSyncing.value = true
         _syncMessage.value = "Syncing…"
-        val offline = offlineMode.first()
-        if (offline) {
-            _syncMessage.value = "Offline mode is on. Turn it off to sync."
+        try {
+            val offline = offlineMode.first()
+            if (offline) {
+                _syncMessage.value = "Offline mode is on. Turn it off to sync."
+                return@launch
+            }
+            if (!syncRepository.isCloudConfigured()) {
+                _syncMessage.value =
+                    "Cloud not configured. Rebuild APK with Supabase secrets set (Settings shows connection status)."
+                return@launch
+            }
+            val result = syncRepository.syncAll()
+            _syncMessage.value = result.message
+        } catch (t: Throwable) {
+            android.util.Log.e("SettingsViewModel", "Sync UI crash prevented", t)
+            _syncMessage.value = "Sync error: ${t.message ?: t.javaClass.simpleName}"
+        } finally {
             _isSyncing.value = false
-            return@launch
         }
-        val result = syncRepository.syncAll()
-        _syncMessage.value = result.message
-        _isSyncing.value = false
     }
 
     fun clearSyncMessage() {
@@ -139,7 +151,15 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun clearAllData() = viewModelScope.launch {
-        database.clearAllTables()
-        _syncMessage.value = "All local data cleared."
+        try {
+            // clearAllTables is NOT suspend — must leave main thread or Room crashes.
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+            }
+            _syncMessage.value = "All local data cleared."
+        } catch (t: Throwable) {
+            android.util.Log.e("SettingsViewModel", "Clear data failed", t)
+            _syncMessage.value = "Clear failed: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 }

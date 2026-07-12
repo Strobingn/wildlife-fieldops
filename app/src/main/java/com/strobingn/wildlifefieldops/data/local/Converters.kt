@@ -12,13 +12,21 @@ class Converters {
     fun fromJobStatus(value: JobStatus): String = value.name
 
     @TypeConverter
-    fun toJobStatus(value: String): JobStatus = JobStatus.valueOf(value)
+    fun toJobStatus(value: String): JobStatus = try {
+        JobStatus.valueOf(value)
+    } catch (_: Exception) {
+        JobStatus.PENDING
+    }
 
     @TypeConverter
     fun fromJobPriority(value: JobPriority): String = value.name
 
     @TypeConverter
-    fun toJobPriority(value: String): JobPriority = JobPriority.valueOf(value)
+    fun toJobPriority(value: String): JobPriority = try {
+        JobPriority.valueOf(value)
+    } catch (_: Exception) {
+        JobPriority.MEDIUM
+    }
 
     @TypeConverter
     fun fromJobType(value: JobType): String = value.name
