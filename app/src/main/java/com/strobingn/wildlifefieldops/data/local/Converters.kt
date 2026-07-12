@@ -31,13 +31,6 @@ class Converters {
         JobType.fromLabel(value)
     }
 
-    /** Jobs now store service type as a plain string label. */
-    @TypeConverter
-    fun fromServiceTypeLabel(value: String?): String = value?.ifBlank { "Inspection" } ?: "Inspection"
-
-    @TypeConverter
-    fun toServiceTypeLabel(value: String?): String = value?.ifBlank { "Inspection" } ?: "Inspection"
-
     @TypeConverter
     fun fromCustomerType(value: CustomerType): String = value.name
 
