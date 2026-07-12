@@ -1,20 +1,17 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,7 +20,6 @@ import com.strobingn.wildlifefieldops.data.model.JobStatus
 import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
-import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,105 +27,92 @@ fun JobListScreen(
     onNavigateToJobDetail: (String) -> Unit,
     onNavigateToJobForm: () -> Unit,
     onBack: () -> Unit,
+    showBack: Boolean = true,
     viewModel: JobsViewModel = hiltViewModel()
 ) {
     val jobs by viewModel.jobs.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    var showFilterSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Jobs", color = TextPrimary) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-                    }
-                },
+            FieldTopBar(
+                title = "Jobs",
+                onBack = if (showBack) onBack else null,
                 actions = {
-                    IconButton(onClick = { showFilterSheet = true }) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Filter", tint = TextSecondary)
+                    IconButton(onClick = onNavigateToJobForm) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add job",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
+                }
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToJobForm,
-                containerColor = PrimaryGreen,
-                contentColor = Color.Black
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = FieldShapes.fab
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Job")
             }
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Search bar
-            OutlinedTextField(
+            FieldSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::setSearchQuery,
-                placeholder = { Text("Search jobs...", color = TextTertiary) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextSecondary)
-                        }
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryGreen,
-                    unfocusedBorderColor = BorderDark,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    focusedContainerColor = BackgroundCard,
-                    unfocusedContainerColor = BackgroundCard
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                placeholder = "Search jobs, customers, addresses…",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
             // Status filter chips
-            if (selectedStatus != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AssistChip(
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 4.dp)
+            ) {
+                item {
+                    FilterChip(
+                        selected = selectedStatus == null,
                         onClick = { viewModel.setStatusFilter(null) },
-                        label = {
-                            Text(
-                                "${selectedStatus!!.name.replace("_", " ")} ",
-                                color = TextPrimary
-                            )
+                        label = { Text("All") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+                items(JobStatus.entries) { status ->
+                    val selected = selectedStatus == status
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            viewModel.setStatusFilter(if (selected) null else status)
                         },
-                        trailingIcon = {
-                            Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp), tint = TextSecondary)
-                        },
-                        colors = AssistChipDefaults.assistChipColors(containerColor = SurfaceVariant)
+                        label = { Text(status.name.replace("_", " ")) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        )
                     )
                 }
             }
 
-            // Job count
             Text(
                 "${jobs.size} job${if (jobs.size != 1) "s" else ""}",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
             if (isLoading) {
@@ -137,8 +120,8 @@ fun JobListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     if (jobs.isEmpty()) {
                         item {
@@ -147,17 +130,17 @@ fun JobListScreen(
                                     Icon(
                                         Icons.Default.WorkOutline,
                                         contentDescription = null,
-                                        tint = TextSecondary,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(36.dp)
                                     )
                                 },
                                 title = "No jobs found",
-                                subtitle = "Create a job to get started",
+                                subtitle = "Create a job or clear filters",
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
                     } else {
-                        itemsIndexed(jobs) { index, job ->
+                        itemsIndexed(jobs, key = { _, job -> job.id }) { index, job ->
                             FadeSlideIn(index = index) {
                                 JobListItem(
                                     job = job,
@@ -166,45 +149,8 @@ fun JobListScreen(
                             }
                         }
                     }
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
+                    item { Spacer(modifier = Modifier.height(88.dp)) }
                 }
-            }
-        }
-    }
-
-    // Filter bottom sheet
-    if (showFilterSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showFilterSheet = false },
-            containerColor = BackgroundCard
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Filter by Status", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                Spacer(modifier = Modifier.height(16.dp))
-                JobStatus.entries.forEach { status ->
-                    ListItem(
-                        headlineContent = {
-                            Text(status.name.replace("_", " "), color = TextPrimary)
-                        },
-                        modifier = Modifier.clickable {
-                            viewModel.setStatusFilter(status)
-                            showFilterSheet = false
-                        },
-                        colors = ListItemDefaults.colors(containerColor = BackgroundCard)
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        viewModel.setStatusFilter(null)
-                        showFilterSheet = false
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceVariant)
-                ) {
-                    Text("Clear Filter", color = TextPrimary)
-                }
-                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -221,72 +167,71 @@ private fun JobListItem(job: Job, onClick: () -> Unit) {
         JobStatus.PAID -> PrimaryGreen
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(12.dp)
+    FieldCard(
+        onClick = onClick,
+        accentColor = statusColor
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        job.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    if (job.customerName.isNotBlank()) {
-                        Text(
-                            job.customerName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
-                }
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(statusColor.copy(alpha = 0.15f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        job.status.name.replace("_", " "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    job.address.ifBlank { "No address" },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextTertiary,
-                    maxLines = 1
+                    job.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
                 )
-            }
-
-            if (job.estimatedValue > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AttachMoney, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                if (job.customerName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        "Est: $${String.format("%.2f", job.estimatedValue)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary
+                        job.customerName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            StatusChip(
+                text = job.status.name.replace("_", " "),
+                color = statusColor
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                job.address.ifBlank { "No address" },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+
+        if (job.estimatedValue > 0) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.AttachMoney,
+                    contentDescription = null,
+                    tint = PrimaryGreen,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(2.dp))
+                Text(
+                    String.format("%.2f est.", job.estimatedValue),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = PrimaryGreen,
+                    fontWeight = FontWeight.Medium
+                )
             }
         }
     }

@@ -1,21 +1,22 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.Customer
+import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.CustomersViewModel
 
@@ -31,81 +32,62 @@ fun CustomerListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Customers", color = TextPrimary) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
+            FieldTopBar(
+                title = "Customers",
+                onBack = onBack
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            ExtendedFloatingActionButton(
                 onClick = { onNavigateToCustomerForm(null) },
-                containerColor = PrimaryGreen,
-                contentColor = Color.Black
-            ) {
-                Icon(Icons.Default.PersonAdd, contentDescription = "Add Customer")
-            }
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = FieldShapes.fab,
+                icon = { Icon(Icons.Default.PersonAdd, contentDescription = null) },
+                text = { Text("Add", fontWeight = FontWeight.SemiBold) }
+            )
         },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            OutlinedTextField(
+            FieldSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::setSearchQuery,
-                placeholder = { Text("Search customers...", color = TextTertiary) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextSecondary)
-                        }
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryGreen,
-                    unfocusedBorderColor = BorderDark,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    focusedContainerColor = BackgroundCard,
-                    unfocusedContainerColor = BackgroundCard
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+                placeholder = "Search customers…",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+
+            Text(
+                "${customers.size} customer${if (customers.size != 1) "s" else ""}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 if (customers.isEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 64.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.PeopleOutline, contentDescription = null, tint = TextTertiary, modifier = Modifier.size(48.dp))
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text("No customers found", color = TextSecondary)
-                                TextButton(onClick = { onNavigateToCustomerForm(null) }) {
-                                    Text("Add customer", color = PrimaryGreen)
-                                }
-                            }
-                        }
+                        EmptyState(
+                            icon = {
+                                Icon(
+                                    Icons.Default.PeopleOutline,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            },
+                            title = "No customers yet",
+                            subtitle = "Add a customer to start logging jobs",
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 } else {
                     items(customers, key = { it.id }) { customer ->
@@ -115,7 +97,7 @@ fun CustomerListScreen(
                         )
                     }
                 }
-                item { Spacer(modifier = Modifier.height(16.dp)) }
+                item { Spacer(modifier = Modifier.height(88.dp)) }
             }
         }
     }
@@ -123,60 +105,57 @@ fun CustomerListScreen(
 
 @Composable
 private fun CustomerListItem(customer: Customer, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(12.dp)
-    ) {
+    FieldCard(onClick = onClick) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .padding(end = 12.dp),
+                    .clip(CircleShape)
+                    .background(AccentPurple.copy(alpha = 0.16f)),
                 contentAlignment = Alignment.Center
             ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = AccentPurple.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = "${customer.firstName.firstOrNull() ?: ""}${customer.lastName.firstOrNull() ?: ""}",
-                        modifier = Modifier.padding(12.dp),
-                        color = AccentPurple,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                Text(
+                    text = "${customer.firstName.firstOrNull() ?: ""}${customer.lastName.firstOrNull() ?: ""}",
+                    color = AccentPurple,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
+
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     customer.fullName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
                 )
                 if (customer.phone.isNotBlank()) {
-                    Text(customer.phone, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    Text(
+                        customer.phone,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 if (customer.address.isNotBlank()) {
                     Text(
                         "${customer.address}, ${customer.city}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1
                     )
                 }
             }
 
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextTertiary)
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

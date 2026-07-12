@@ -2,49 +2,55 @@ package com.strobingn.wildlifefieldops.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary - Green accent matching PWA
-val PrimaryGreen = Color(0xFF22c55e)
-val PrimaryGreenDark = Color(0xFF16a34a)
-val PrimaryGreenLight = Color(0xFF4ade80)
+// ── Brand (forest field ops) ──────────────────────────────────────────────
+// Cooler emerald + moss — reads modern on OLED without neon PWA green.
+val PrimaryGreen = Color(0xFF3DDC84)
+val PrimaryGreenDark = Color(0xFF1FA855)
+val PrimaryGreenLight = Color(0xFF6EE7A8)
+val PrimaryContainer = Color(0xFF0F3D28)
+val OnPrimaryContainer = Color(0xFFB8F5D0)
 
-// Background - Dark theme matching PWA #0a0a0f
-val BackgroundDark = Color(0xFF0a0a0f)
-val BackgroundCard = Color(0xFF13131f)
-val BackgroundElevated = Color(0xFF1a1a2e)
+// ── Surfaces (layered dark) ───────────────────────────────────────────────
+val BackgroundDark = Color(0xFF0B0F0D)
+val BackgroundCard = Color(0xFF141A17)
+val BackgroundElevated = Color(0xFF1B2320)
+val SurfaceDark = Color(0xFF141A17)
+val SurfaceVariant = Color(0xFF222B27)
+val SurfaceBright = Color(0xFF2A3530)
 
-// Surface
-val SurfaceDark = Color(0xFF13131f)
-val SurfaceVariant = Color(0xFF1e1e32)
+// ── Text ──────────────────────────────────────────────────────────────────
+val TextPrimary = Color(0xFFF2F7F4)
+val TextSecondary = Color(0xFFA8B5AE)
+val TextTertiary = Color(0xFF6F7C75)
 
-// Text
-val TextPrimary = Color(0xFFf0f0f5)
-val TextSecondary = Color(0xFFa0a0b0)
-val TextTertiary = Color(0xFF6b6b80)
+// ── Status ────────────────────────────────────────────────────────────────
+val StatusPending = Color(0xFFF5B942)
+val StatusInProgress = Color(0xFF5B9DFF)
+val StatusCompleted = Color(0xFF3DDC84)
+val StatusCancelled = Color(0xFFFF6B6B)
+val StatusUrgent = Color(0xFFFF4D4D)
 
-// Status colors
-val StatusPending = Color(0xFFf59e0b)
-val StatusInProgress = Color(0xFF3b82f6)
-val StatusCompleted = Color(0xFF22c55e)
-val StatusCancelled = Color(0xFFef4444)
-val StatusUrgent = Color(0xFFdc2626)
+// ── Accents ───────────────────────────────────────────────────────────────
+val AccentBlue = Color(0xFF5B9DFF)
+val AccentPurple = Color(0xFFB794F6)
+val AccentOrange = Color(0xFFFF9F43)
+val AccentCyan = Color(0xFF2DD4BF)
+val AccentPink = Color(0xFFF472B6)
+val AccentAmber = Color(0xFFFBBF24)
 
-// Accent colors
-val AccentBlue = Color(0xFF3b82f6)
-val AccentPurple = Color(0xFF8b5cf6)
-val AccentOrange = Color(0xFFf97316)
-val AccentCyan = Color(0xFF06b6d4)
-val AccentPink = Color(0xFFec4899)
+// ── Borders / chrome ──────────────────────────────────────────────────────
+val BorderDark = Color(0xFF2E3A34)
+val DividerDark = Color(0xFF1F2924)
+val ScrimDark = Color(0xCC000000)
 
-// Border/Divider
-val BorderDark = Color(0xFF2a2a3f)
-val DividerDark = Color(0xFF1e1e32)
+// ── Semantic ──────────────────────────────────────────────────────────────
+val ErrorRed = Color(0xFFFF6B6B)
+val ErrorRedDark = Color(0xFFE54848)
+val SuccessGreen = Color(0xFF3DDC84)
+val WarningYellow = Color(0xFFF5B942)
+val InfoBlue = Color(0xFF5B9DFF)
 
-// Error
-val ErrorRed = Color(0xFFef4444)
-val ErrorRedDark = Color(0xFFdc2626)
-
-// Success
-val SuccessGreen = Color(0xFF22c55e)
-
-// Warning
-val WarningYellow = Color(0xFFf59e0b)
+// ── Gradients (hero / brand marks) ────────────────────────────────────────
+val GradientStart = Color(0xFF0F3D28)
+val GradientMid = Color(0xFF1A5C3A)
+val GradientEnd = Color(0xFF3DDC84)

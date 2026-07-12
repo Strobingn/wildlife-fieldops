@@ -16,7 +16,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
 import kotlinx.coroutines.delay
 
 /**
@@ -46,7 +45,7 @@ fun AnimatedCounter(
     Text(
         text = displayed.toString(),
         style = style,
-        color = TextPrimary,
+        color = MaterialTheme.colorScheme.onSurface,
         fontWeight = FontWeight.Bold,
         modifier = modifier
     )
@@ -168,7 +167,7 @@ fun EmptyState(
             modifier = Modifier
                 .size(80.dp)
                 .background(
-                    com.strobingn.wildlifefieldops.ui.theme.SurfaceDark,
+                    MaterialTheme.colorScheme.surfaceContainerHigh,
                     shape = androidx.compose.foundation.shape.CircleShape
                 ),
             contentAlignment = androidx.compose.ui.Alignment.Center
@@ -179,7 +178,7 @@ fun EmptyState(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = TextPrimary,
+            color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Medium
         )
         if (subtitle.isNotBlank()) {
@@ -187,7 +186,7 @@ fun EmptyState(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = com.strobingn.wildlifefieldops.ui.theme.TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
