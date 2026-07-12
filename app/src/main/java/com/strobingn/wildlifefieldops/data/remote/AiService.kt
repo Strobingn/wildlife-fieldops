@@ -1,6 +1,7 @@
 package com.strobingn.wildlifefieldops.data.remote
 
 import com.strobingn.wildlifefieldops.BuildConfig
+import com.strobingn.wildlifefieldops.data.model.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -26,6 +27,24 @@ private data class LlmRequest(
     val messages: List<LlmMessage>,
     val max_tokens: Int = 600,
     val temperature: Double = 0.4
+)
+
+/** Structured estimate fields the calculator can apply. */
+@Serializable
+data class EstimateDraft(
+    val laborHours: Double = 2.0,
+    val laborRate: Double = 85.0,
+    val materialsCost: Double = 0.0,
+    val equipmentCost: Double = 0.0,
+    val permitCost: Double = 0.0,
+    val disposalCost: Double = 0.0,
+    val mileage: Double = 0.0,
+    val mileageRate: Double = 0.65,
+    val taxRate: Double = 8.0,
+    val discountPercent: Double = 0.0,
+    val rationale: String = "",
+    val lineItemNotes: String = "",
+    val fromAi: Boolean = true
 )
 
 // AiEdgeRequest is defined in RemoteDtos.kt (same package) — do not redeclare
@@ -54,24 +73,106 @@ class AiService @Inject constructor() {
      */
     suspend fun ask(userMessage: String, species: String = ""): String = withContext(Dispatchers.IO) {
         if (!isConfigured) {
-            return@withContext buildString {
-                append("⚠️ AI not connected.\n\n")
-                append("This app defaults to SpaceXAI (xAI Grok).\n\n")
-                append("1. Get a key: https://console.x.ai\n")
-                append("2. Set GitHub secret XAI_API_KEY (or LLM_API_KEY)\n")
-                append("3. Rebuild the APK\n\n")
-                append("Defaults: base https://api.x.ai/v1 · model grok-4.5\n\n")
-                append("Offline field tips still work — try a species name.")
-            }
+            return@withContext notConfiguredMessage()
         }
-
-        val systemPrompt = WILDLIFE_SYSTEM_PROMPT
-
         val userPrompt = buildString {
             if (species.isNotBlank()) append("Species context: $species\n")
             append(userMessage)
         }
+        when (val result = completeChat(WILDLIFE_SYSTEM_PROMPT, userPrompt, maxTokens = 900, temperature = 0.35)) {
+            is ChatResult.Ok -> result.text
+            is ChatResult.Err -> result.message + "\n\n" + localFieldKnowledge(userMessage)
+        }
+    }
 
+    /**
+     * Draft estimate numbers from job title, type, description, and notes.
+     * Fills the Estimate Calculator fields. Falls back to heuristics offline.
+     */
+    suspend fun draftEstimateFromJob(job: Job): EstimateDraft = withContext(Dispatchers.IO) {
+        if (!isConfigured) {
+            return@withContext heuristicEstimate(job).copy(
+                rationale = "Offline draft (no SpaceXAI key). Review and adjust before quoting.",
+                fromAi = false
+            )
+        }
+        val system = """
+You are a wildlife removal estimator. Return ONLY valid JSON (no markdown fences) with these number fields:
+laborHours, laborRate, materialsCost, equipmentCost, permitCost, disposalCost, mileage, mileageRate, taxRate, discountPercent
+Plus string fields: rationale, lineItemNotes
+
+Rules:
+- Use realistic US nuisance wildlife pricing
+- Prefer laborHours 1–8 and laborRate 75–125 unless notes say otherwise
+- Materials/equipment/disposal scale with exclusion, attic cleanout, multi-entry, dead animal, etc.
+- mileage is one-way miles if address distance unknown use 0–25 guess or 0
+- taxRate default 8 unless notes specify
+- discountPercent usually 0
+- Keep rationale under 3 sentences
+""".trimIndent()
+        val user = buildJobContext(job) + "\n\nProduce an estimate draft JSON for this job."
+        when (val result = completeChat(system, user, maxTokens = 700, temperature = 0.25)) {
+            is ChatResult.Ok -> parseEstimateDraft(result.text) ?: heuristicEstimate(job).copy(
+                rationale = "AI response unparseable — used offline defaults.\n\n${result.text.take(280)}",
+                fromAi = false
+            )
+            is ChatResult.Err -> heuristicEstimate(job).copy(
+                rationale = "${result.message}\n\nUsing offline estimate defaults.",
+                fromAi = false
+            )
+        }
+    }
+
+    /**
+     * Auto job summary for handoff, invoice notes, or office review.
+     */
+    suspend fun summarizeJob(job: Job): String = withContext(Dispatchers.IO) {
+        if (!isConfigured) {
+            return@withContext heuristicSummary(job)
+        }
+        val system = """
+You write concise wildlife-control job summaries for field/office handoff.
+Structure with short headings:
+• Overview
+• Customer / site
+• Service type & priority
+• Work notes
+• Risks / safety
+• Suggested next steps
+Max ~180 words. Bullet-first. No fluff.
+""".trimIndent()
+        val user = buildJobContext(job) + "\n\nWrite the job summary now."
+        when (val result = completeChat(system, user, maxTokens = 500, temperature = 0.3)) {
+            is ChatResult.Ok -> result.text
+            is ChatResult.Err -> heuristicSummary(job) + "\n\n(${result.message})"
+        }
+    }
+
+    private fun buildJobContext(job: Job): String = buildString {
+        appendLine("Job title: ${job.title.ifBlank { "(none)" }}")
+        appendLine("Service type: ${job.type}")
+        appendLine("Status: ${job.status}")
+        appendLine("Priority: ${job.priority}")
+        appendLine("Customer: ${job.customerName.ifBlank { "(none)" }}")
+        appendLine("Address: ${job.address.ifBlank { "(none)" }}")
+        if (job.estimatedValue > 0) appendLine("Existing estimate value: $${job.estimatedValue}")
+        if (job.actualCost > 0) appendLine("Actual cost so far: $${job.actualCost}")
+        appendLine("Description: ${job.description.ifBlank { "(none)" }}")
+        appendLine("Notes: ${job.notes.ifBlank { "(none)" }}")
+        if (job.assignedTo.isNotBlank()) appendLine("Assigned to: ${job.assignedTo}")
+    }
+
+    private sealed class ChatResult {
+        data class Ok(val text: String) : ChatResult()
+        data class Err(val message: String) : ChatResult()
+    }
+
+    private fun completeChat(
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int,
+        temperature: Double
+    ): ChatResult {
         val baseUrl = BuildConfig.LLM_BASE_URL.trimEnd('/')
         val endpoint = URL("$baseUrl/chat/completions")
         val payload = json.encodeToString(
@@ -81,11 +182,10 @@ class AiService @Inject constructor() {
                     LlmMessage(role = "system", content = systemPrompt),
                     LlmMessage(role = "user", content = userPrompt)
                 ),
-                max_tokens = 900,
-                temperature = 0.35
+                max_tokens = maxTokens,
+                temperature = temperature
             )
         )
-
         val connection = (endpoint.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 30_000
@@ -94,31 +194,139 @@ class AiService @Inject constructor() {
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer ${BuildConfig.LLM_API_KEY}")
         }
-
-        try {
+        return try {
             connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
             val code = connection.responseCode
             val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
                 ?.bufferedReader()?.use { it.readText() }
                 .orEmpty()
-
             if (code !in 200..299) {
                 android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
-                return@withContext when (code) {
-                    429 -> "⚠️ AI rate limit (HTTP 429). Wait a minute and retry.\n\n" + localFieldKnowledge(userMessage)
-                    401 -> "⚠️ Invalid API key (HTTP 401).\n\nCheck XAI_API_KEY / LLM_API_KEY secret and rebuild."
-                    404 -> "⚠️ Endpoint not found (HTTP 404).\n\nExpected base: https://api.x.ai/v1 (chat/completions)."
-                    else -> "⚠️ AI error (HTTP $code).\n\n" + localFieldKnowledge(userMessage)
-                }
+                ChatResult.Err(
+                    when (code) {
+                        429 -> "⚠️ AI rate limit (HTTP 429)."
+                        401 -> "⚠️ Invalid API key (HTTP 401)."
+                        404 -> "⚠️ Endpoint not found (HTTP 404)."
+                        else -> "⚠️ AI error (HTTP $code)."
+                    }
+                )
+            } else {
+                val text = parseLlmResponse(body)
+                if (text.isNullOrBlank()) ChatResult.Err("Empty AI response.")
+                else ChatResult.Ok(text)
             }
-
-            parseLlmResponse(body) ?: "No response from AI. Try again."
         } catch (e: Exception) {
             android.util.Log.e("AiService", "LLM request failed", e)
-            "Network error: ${e.message}. Check internet, then retry.\n\n" + localFieldKnowledge(userMessage)
+            ChatResult.Err("Network error: ${e.message}")
         } finally {
             connection.disconnect()
         }
+    }
+
+    private fun parseEstimateDraft(raw: String): EstimateDraft? {
+        return try {
+            val cleaned = raw
+                .trim()
+                .removePrefix("```json")
+                .removePrefix("```JSON")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+            val start = cleaned.indexOf('{')
+            val end = cleaned.lastIndexOf('}')
+            if (start < 0 || end <= start) return null
+            val obj = cleaned.substring(start, end + 1)
+            json.decodeFromString(EstimateDraft.serializer(), obj)
+        } catch (e: Exception) {
+            android.util.Log.w("AiService", "parseEstimateDraft failed", e)
+            null
+        }
+    }
+
+    fun heuristicEstimate(job: Job): EstimateDraft {
+        val blob = "${job.title} ${job.type} ${job.description} ${job.notes}".lowercase()
+        var hours = 2.0
+        var materials = 40.0
+        var equipment = 25.0
+        var disposal = 0.0
+        when {
+            blob.contains("bat") -> {
+                hours = 4.0; materials = 180.0; equipment = 60.0; disposal = 75.0
+            }
+            blob.contains("raccoon") || blob.contains("coon") -> {
+                hours = 3.0; materials = 90.0; equipment = 45.0; disposal = 40.0
+            }
+            blob.contains("squirrel") -> {
+                hours = 2.5; materials = 70.0; equipment = 30.0
+            }
+            blob.contains("skunk") -> {
+                hours = 2.0; materials = 50.0; equipment = 35.0
+            }
+            blob.contains("attic") || blob.contains("cleanout") || blob.contains("guano") -> {
+                hours = 5.0; materials = 120.0; equipment = 80.0; disposal = 150.0
+            }
+            blob.contains("exclusion") || blob.contains("seal") -> {
+                hours = 3.5; materials = 140.0; equipment = 40.0
+            }
+            blob.contains("dead") -> {
+                hours = 1.5; materials = 30.0; disposal = 60.0
+            }
+            blob.contains("inspect") -> {
+                hours = 1.0; materials = 0.0; equipment = 0.0
+            }
+        }
+        if (job.priority.name.contains("URGENT") || job.priority.name.contains("HIGH")) {
+            hours += 0.5
+        }
+        val rate = 85.0
+        val totalLabor = hours * rate
+        val sub = totalLabor + materials + equipment + disposal
+        return EstimateDraft(
+            laborHours = hours,
+            laborRate = rate,
+            materialsCost = materials,
+            equipmentCost = equipment,
+            permitCost = 0.0,
+            disposalCost = disposal,
+            mileage = 12.0,
+            mileageRate = 0.65,
+            taxRate = 8.0,
+            discountPercent = 0.0,
+            rationale = "Heuristic draft based on service type/keywords. Labor ~$${String.format("%.0f", totalLabor)}, soft subtotal ~$${String.format("%.0f", sub)} before tax.",
+            lineItemNotes = "Review exclusion materials, multi-entry points, and return visits.",
+            fromAi = false
+        )
+    }
+
+    fun heuristicSummary(job: Job): String = buildString {
+        appendLine("Overview")
+        appendLine("• ${job.title.ifBlank { "Untitled job" }} — ${job.type} (${job.status.name.replace('_', ' ')})")
+        appendLine()
+        appendLine("Customer / site")
+        appendLine("• ${job.customerName.ifBlank { "No customer" }}")
+        appendLine("• ${job.address.ifBlank { "No address" }}")
+        appendLine()
+        appendLine("Work notes")
+        appendLine("• ${(job.description.ifBlank { job.notes }.ifBlank { "No description/notes yet" }).take(400)}")
+        if (job.notes.isNotBlank() && job.description.isNotBlank()) {
+            appendLine("• Notes: ${job.notes.take(300)}")
+        }
+        appendLine()
+        appendLine("Suggested next steps")
+        appendLine("• Confirm scope and safety PPE")
+        appendLine("• Document photos / entry points")
+        appendLine("• Complete estimate and schedule follow-up if needed")
+        append("\n(Offline summary — enable XAI_API_KEY for SpaceXAI-generated detail)")
+    }
+
+    private fun notConfiguredMessage(): String = buildString {
+        append("⚠️ AI not connected.\n\n")
+        append("This app defaults to SpaceXAI (xAI Grok).\n\n")
+        append("1. Get a key: https://console.x.ai\n")
+        append("2. Set GitHub secret XAI_API_KEY (or LLM_API_KEY)\n")
+        append("3. Rebuild the APK\n\n")
+        append("Defaults: base https://api.x.ai/v1 · model grok-4.5\n\n")
+        append("Offline field tips still work — try a species name.")
     }
 
     private fun detectModel(): String {

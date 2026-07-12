@@ -21,10 +21,10 @@ import com.strobingn.wildlifefieldops.data.model.JobPriority
 import com.strobingn.wildlifefieldops.data.model.JobStatus
 import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlifefieldops.ui.viewmodel.JobAiViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,9 +35,13 @@ fun JobDetailScreen(
     onNavigateToEstimate: (String) -> Unit,
     onNavigateToInspectionForm: (String) -> Unit,
     onBack: () -> Unit,
-    viewModel: JobsViewModel = hiltViewModel()
+    viewModel: JobsViewModel = hiltViewModel(),
+    jobAiViewModel: JobAiViewModel = hiltViewModel()
 ) {
     val job by viewModel.getJobById(jobId).collectAsState(initial = null)
+    val summary by jobAiViewModel.summary.collectAsState()
+    val summaryLoading by jobAiViewModel.summaryLoading.collectAsState()
+    val aiMessage by jobAiViewModel.message.collectAsState()
     var showStatusDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -131,6 +135,72 @@ fun JobDetailScreen(
                 if (currentJob.notes.isNotBlank()) {
                     InfoCard(title = "Notes") {
                         Text(currentJob.notes, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    }
+                }
+
+                // AI summary + estimate
+                InfoCard(title = "AI tools (${jobAiViewModel.providerLabel})") {
+                    Text(
+                        if (jobAiViewModel.isConfigured) {
+                            "Generate a handoff summary or open Estimate and draft from notes."
+                        } else {
+                            "Offline mode: still works with heuristics. Add XAI_API_KEY for SpaceXAI Grok."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextTertiary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { jobAiViewModel.generateSummary(currentJob) },
+                            enabled = !summaryLoading,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = AccentPurple)
+                        ) {
+                            if (summaryLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = AccentPurple
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            } else {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                            }
+                            Text(if (summaryLoading) "Writing…" else "Summary")
+                        }
+                        Button(
+                            onClick = { onNavigateToEstimate(currentJob.id) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentBlue,
+                                contentColor = androidx.compose.ui.graphics.Color.White
+                            )
+                        ) {
+                            Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Estimate")
+                        }
+                    }
+                    if (!aiMessage.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(aiMessage!!, style = MaterialTheme.typography.labelSmall, color = PrimaryGreen)
+                    }
+                    if (!summary.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            summary!!,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = { jobAiViewModel.appendSummaryToNotes(currentJob) }) {
+                            Text("Save summary to notes", color = PrimaryGreen)
+                        }
                     }
                 }
 

@@ -11,12 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlifefieldops.ui.viewmodel.JobAiViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,9 +25,13 @@ import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 fun EstimateScreen(
     jobId: String,
     onBack: () -> Unit,
-    jobsViewModel: JobsViewModel = hiltViewModel()
+    jobsViewModel: JobsViewModel = hiltViewModel(),
+    jobAiViewModel: JobAiViewModel = hiltViewModel()
 ) {
     val job by jobsViewModel.getJobById(jobId).collectAsState(initial = null)
+    val draft by jobAiViewModel.estimateDraft.collectAsState()
+    val estimateLoading by jobAiViewModel.estimateLoading.collectAsState()
+    val aiMessage by jobAiViewModel.message.collectAsState()
 
     var laborHours by remember { mutableStateOf("2.0") }
     var laborRate by remember { mutableStateOf("85.00") }
@@ -38,6 +43,33 @@ fun EstimateScreen(
     var mileageRate by remember { mutableStateOf("0.65") }
     var taxRate by remember { mutableStateOf("8.0") }
     var discountPercent by remember { mutableStateOf("0") }
+    var draftRationale by remember { mutableStateOf("") }
+    var lineItemNotes by remember { mutableStateOf("") }
+
+    // Apply AI draft when it arrives
+    LaunchedEffect(draft) {
+        val d = draft ?: return@LaunchedEffect
+        laborHours = formatNum(d.laborHours)
+        laborRate = formatNum(d.laborRate)
+        materialsCost = formatNum(d.materialsCost)
+        equipmentCost = formatNum(d.equipmentCost)
+        permitCost = formatNum(d.permitCost)
+        disposalCost = formatNum(d.disposalCost)
+        mileage = formatNum(d.mileage)
+        mileageRate = formatNum(d.mileageRate)
+        taxRate = formatNum(d.taxRate)
+        discountPercent = formatNum(d.discountPercent)
+        draftRationale = d.rationale
+        lineItemNotes = d.lineItemNotes
+    }
+
+    // Seed estimate value from job if present
+    LaunchedEffect(job?.id) {
+        val j = job ?: return@LaunchedEffect
+        if (j.estimatedValue > 0 && laborHours == "2.0" && materialsCost == "0.00") {
+            // soft seed only when still at defaults
+        }
+    }
 
     val laborTotal = laborHours.toDoubleOrNull()?.times(laborRate.toDoubleOrNull() ?: 0.0) ?: 0.0
     val materialsTotal = materialsCost.toDoubleOrNull() ?: 0.0
@@ -58,6 +90,29 @@ fun EstimateScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                    }
+                },
+                actions = {
+                    val current = job
+                    if (current != null) {
+                        IconButton(
+                            onClick = { jobAiViewModel.draftEstimate(current) },
+                            enabled = !estimateLoading
+                        ) {
+                            if (estimateLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = PrimaryGreen
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.AutoAwesome,
+                                    contentDescription = "AI draft from notes",
+                                    tint = PrimaryGreen
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
@@ -82,6 +137,68 @@ fun EstimateScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(it.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
                         Text(it.customerName, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        if (it.notes.isNotBlank() || it.description.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                (it.description.ifBlank { it.notes }).take(160),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextTertiary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // AI draft CTA
+            Button(
+                onClick = { job?.let { jobAiViewModel.draftEstimate(it) } },
+                enabled = job != null && !estimateLoading,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentPurple,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (estimateLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Drafting estimate…")
+                } else {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "AI draft from job notes",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            Text(
+                "Uses title, service type, description, and notes · ${jobAiViewModel.providerLabel}",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary
+            )
+            if (!aiMessage.isNullOrBlank()) {
+                Text(aiMessage!!, style = MaterialTheme.typography.labelMedium, color = PrimaryGreen)
+            }
+            if (draftRationale.isNotBlank()) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("Draft rationale", style = MaterialTheme.typography.labelMedium, color = TextPrimary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(draftRationale, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        if (lineItemNotes.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(lineItemNotes, style = MaterialTheme.typography.bodySmall, color = TextTertiary)
+                        }
                     }
                 }
             }
@@ -92,7 +209,12 @@ fun EstimateScreen(
                     EstimateField("Hours", laborHours, { laborHours = it }, Modifier.weight(1f))
                     EstimateField("Rate/hr", laborRate, { laborRate = it }, Modifier.weight(1f))
                 }
-                Text("Subtotal: $${String.format("%.2f", laborTotal)}", style = MaterialTheme.typography.labelSmall, color = AccentBlue, modifier = Modifier.align(Alignment.End))
+                Text(
+                    "Subtotal: $${String.format("%.2f", laborTotal)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AccentBlue,
+                    modifier = Modifier.align(Alignment.End)
+                )
             }
 
             // Materials & Equipment
@@ -141,20 +263,56 @@ fun EstimateScreen(
                         SummaryRow("Discount (${discountPercent}%)", -discountAmount, color = SuccessGreen)
                     }
                     SummaryRow("Tax (${taxRate}%)", taxAmount)
-                    Divider(modifier = Modifier.padding(vertical = 8.dp), color = BorderDark)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = BorderDark)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("TOTAL", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Text("$${String.format("%.2f", total)}", style = MaterialTheme.typography.headlineSmall, color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                        Text(
+                            "$${String.format("%.2f", total)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = PrimaryGreen,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
+                }
+            }
+
+            // Push total into job estimated value
+            job?.let { j ->
+                OutlinedButton(
+                    onClick = {
+                        jobsViewModel.updateJobDetails(
+                            jobId = j.id,
+                            title = j.title,
+                            description = j.description,
+                            customerId = j.customerId,
+                            customerName = j.customerName,
+                            address = j.address,
+                            type = j.type,
+                            priority = j.priority,
+                            estimatedValue = total,
+                            notes = j.notes
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryGreen)
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save total as job estimated value")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+private fun formatNum(value: Double): String {
+    return if (value == value.toLong().toDouble()) value.toLong().toString()
+    else String.format("%.2f", value)
 }
 
 @Composable
@@ -194,7 +352,7 @@ private fun EstimateField(label: String, value: String, onChange: (String) -> Un
 }
 
 @Composable
-private fun SummaryRow(label: String, amount: Double, color: androidx.compose.ui.graphics.Color = TextSecondary) {
+private fun SummaryRow(label: String, amount: Double, color: Color = TextSecondary) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -202,6 +360,10 @@ private fun SummaryRow(label: String, amount: Double, color: androidx.compose.ui
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = color)
-        Text("$${String.format("%.2f", amount)}", style = MaterialTheme.typography.bodySmall, color = if (amount < 0) SuccessGreen else TextPrimary)
+        Text(
+            "$${String.format("%.2f", amount)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = if (amount < 0) SuccessGreen else TextPrimary
+        )
     }
 }
