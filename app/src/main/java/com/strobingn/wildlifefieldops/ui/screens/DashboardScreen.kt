@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +40,7 @@ fun DashboardScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAI: () -> Unit,
+    onOpenDrawer: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val stats by viewModel.stats.collectAsState()
@@ -46,34 +48,32 @@ fun DashboardScreen(
     val reminders by viewModel.pendingReminders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    val greeting = remember {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        when {
+            hour < 12 -> "Good morning"
+            hour < 17 -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }
+    val todayLabel = remember {
+        SimpleDateFormat("EEEE, MMM d", Locale.getDefault()).format(Date())
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Wildlife FieldOps", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BackgroundDark,
-                    titleContentColor = TextPrimary
-                ),
-                actions = {
-                    IconButton(onClick = onNavigateToAI) {
-                        Icon(Icons.Default.Psychology, contentDescription = "AI Assistant", tint = AccentPurple)
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextSecondary)
-                    }
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onNavigateToJobForm,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = FieldShapes.fab,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = {
+                    Text("New job", fontWeight = FontWeight.SemiBold)
                 }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToJobForm,
-                containerColor = PrimaryGreen,
-                contentColor = Color.Black
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Job")
-            }
-        },
-        containerColor = BackgroundDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         if (isLoading) {
             DashboardShimmer(
@@ -83,22 +83,147 @@ fun DashboardScreen(
             )
             return@Scaffold
         }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Stats Cards Row
+            // ── Hero header ───────────────────────────────────────────────
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        IconButton(onClick = onOpenDrawer) {
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = "Open menu",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                        Column {
+                            Text(
+                                greeting,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "FieldOps",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                todayLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row {
+                        IconButton(onClick = onNavigateToAI) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentPurple.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Psychology,
+                                    contentDescription = "AI Assistant",
+                                    tint = AccentPurple,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Today strip ───────────────────────────────────────────────
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = FieldShapes.hero,
+                    color = Color.Transparent
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(GradientStart, GradientMid, PrimaryContainer)
+                                ),
+                                FieldShapes.hero
+                            )
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "Today",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    "${stats.todayJobs} jobs scheduled",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (stats.overdueJobs > 0) {
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    StatusChip(
+                                        text = "${stats.overdueJobs} overdue",
+                                        color = StatusUrgent
+                                    )
+                                }
+                            }
+                            FilledTonalButton(
+                                onClick = onNavigateToSchedule,
+                                colors = ButtonDefaults.filledTonalButtonColors(
+                                    containerColor = Color.White.copy(alpha = 0.18f),
+                                    contentColor = Color.White
+                                ),
+                                shape = FieldShapes.button
+                            ) {
+                                Text("Schedule")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Stats ─────────────────────────────────────────────────────
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     ScaleIn(delayMillis = 0) {
-                        StatCard(
+                        StatPillCard(
                             title = "Active",
                             value = stats.inProgressJobs,
                             icon = Icons.Default.PlayCircle,
@@ -107,8 +232,8 @@ fun DashboardScreen(
                             onClick = onNavigateToJobs
                         )
                     }
-                    ScaleIn(delayMillis = 100) {
-                        StatCard(
+                    ScaleIn(delayMillis = 80) {
+                        StatPillCard(
                             title = "Pending",
                             value = stats.pendingJobs,
                             icon = Icons.Default.Schedule,
@@ -123,11 +248,11 @@ fun DashboardScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    ScaleIn(delayMillis = 200) {
-                        StatCard(
-                            title = "Completed",
+                    ScaleIn(delayMillis = 160) {
+                        StatPillCard(
+                            title = "Done",
                             value = stats.completedJobs,
                             icon = Icons.Default.CheckCircle,
                             color = SuccessGreen,
@@ -135,8 +260,8 @@ fun DashboardScreen(
                             onClick = onNavigateToJobs
                         )
                     }
-                    ScaleIn(delayMillis = 300) {
-                        StatCard(
+                    ScaleIn(delayMillis = 240) {
+                        StatPillCard(
                             title = "Revenue",
                             value = stats.totalRevenue.toInt(),
                             valuePrefix = "$",
@@ -149,55 +274,70 @@ fun DashboardScreen(
                 }
             }
 
-            // Today's Overview
+            // ── Overview grid ─────────────────────────────────────────────
             item {
-                Spacer(modifier = Modifier.height(4.dp))
-                OverviewCard(
-                    title = "Today's Overview",
-                    items = listOf(
-                        OverviewItem("Jobs Today", stats.todayJobs.toString(), Icons.Default.Work, AccentBlue),
-                        OverviewItem("Overdue", stats.overdueJobs.toString(), Icons.Default.Warning, StatusUrgent),
-                        OverviewItem("Customers", stats.totalCustomers.toString(), Icons.Default.People, AccentPurple),
-                        OverviewItem("Inspections", stats.totalInspections.toString(), Icons.Default.Search, AccentCyan),
-                        OverviewItem("Follow-ups", stats.followUpRequired.toString(), Icons.Default.FollowTheSigns, AccentOrange),
-                        OverviewItem("Revenue", "$${String.format("%.0f", stats.totalRevenue)}", Icons.Default.AttachMoney, PrimaryGreen)
-                    )
-                )
-            }
-
-            // Quick Actions
-            item {
-                Text(
-                    "Quick Actions",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    shape = FieldShapes.cardLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
-                    QuickActionButton("New Job", Icons.Default.AddBox, PrimaryGreen, Modifier.weight(1f), onNavigateToJobForm)
-                    QuickActionButton("Customers", Icons.Default.People, AccentPurple, Modifier.weight(1f), onNavigateToCustomers)
-                    QuickActionButton("Map", Icons.Default.Map, AccentBlue, Modifier.weight(1f), onNavigateToMap)
-                    QuickActionButton("Schedule", Icons.Default.CalendarMonth, AccentOrange, Modifier.weight(1f), onNavigateToSchedule)
-                }
-            }
-
-            // Recent Jobs
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Recent Jobs", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                    TextButton(onClick = onNavigateToJobs) {
-                        Text("View All", color = PrimaryGreen)
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "At a glance",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            listOf(
+                                OverviewItem("Customers", stats.totalCustomers.toString(), Icons.Default.People, AccentPurple),
+                                OverviewItem("Inspections", stats.totalInspections.toString(), Icons.Default.Search, AccentCyan),
+                                OverviewItem("Follow-ups", stats.followUpRequired.toString(), Icons.Default.FollowTheSigns, AccentOrange),
+                                OverviewItem("Overdue", stats.overdueJobs.toString(), Icons.Default.Warning, StatusUrgent)
+                            ).chunked(2).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    row.forEach { item ->
+                                        MetricTile(
+                                            label = item.label,
+                                            value = item.value,
+                                            icon = item.icon,
+                                            color = item.color,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            }
+
+            // ── Quick actions ─────────────────────────────────────────────
+            item {
+                SectionHeader(title = "Quick actions")
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    QuickActionTile("New job", Icons.Default.AddBox, PrimaryGreen, Modifier.weight(1f), onNavigateToJobForm)
+                    QuickActionTile("Customers", Icons.Default.People, AccentPurple, Modifier.weight(1f), onNavigateToCustomers)
+                    QuickActionTile("Map", Icons.Default.Map, AccentBlue, Modifier.weight(1f), onNavigateToMap)
+                    QuickActionTile("Inspect", Icons.Default.Search, AccentCyan, Modifier.weight(1f), onNavigateToInspections)
+                }
+            }
+
+            // ── Recent jobs ───────────────────────────────────────────────
+            item {
+                SectionHeader(
+                    title = "Recent jobs",
+                    actionLabel = "View all",
+                    onAction = onNavigateToJobs
+                )
             }
 
             if (recentJobs.isEmpty()) {
@@ -207,12 +347,12 @@ fun DashboardScreen(
                             Icon(
                                 Icons.Default.WorkOutline,
                                 contentDescription = null,
-                                tint = TextSecondary,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(36.dp)
                             )
                         },
                         title = "No jobs yet",
-                        subtitle = "Tap + to create your first job",
+                        subtitle = "Tap New job to create your first one",
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -227,99 +367,16 @@ fun DashboardScreen(
                 }
             }
 
-            // Pending Reminders
             if (reminders.isNotEmpty()) {
                 item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Reminders", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    SectionHeader(title = "Reminders")
                 }
                 items(reminders) { reminder ->
                     ReminderCard(reminder = reminder)
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun StatCard(
-    title: String,
-    value: Int,
-    valuePrefix: String = "",
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .height(90.dp)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(title, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                if (valuePrefix.isNotBlank()) {
-                    Text(
-                        valuePrefix,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                AnimatedCounter(
-                    target = value,
-                    style = MaterialTheme.typography.headlineMedium,
-                    durationMillis = 800
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun OverviewCard(title: String, items: List<OverviewItem>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items.chunked(2).forEach { rowItems ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        rowItems.forEach { item ->
-                            Row(
-                                modifier = Modifier.weight(1f),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(item.icon, contentDescription = null, tint = item.color, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(item.label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-                                    Text(item.value, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            item { Spacer(modifier = Modifier.height(88.dp)) }
         }
     }
 }
@@ -332,28 +389,6 @@ private data class OverviewItem(
 )
 
 @Composable
-private fun QuickActionButton(
-    label: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(BackgroundCard)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(28.dp))
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = TextSecondary)
-    }
-}
-
-@Composable
 fun JobCard(job: Job, onClick: () -> Unit) {
     val statusColor = when (job.status) {
         JobStatus.PENDING -> StatusPending
@@ -364,84 +399,90 @@ fun JobCard(job: Job, onClick: () -> Unit) {
         JobStatus.PAID -> PrimaryGreen
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(12.dp)
+    FieldCard(
+        onClick = onClick,
+        accentColor = statusColor
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     job.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold
                 )
                 if (job.customerName.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         job.customerName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 if (job.address.isNotBlank()) {
-                    Text(
-                        job.address,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            job.address,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(statusColor.copy(alpha = 0.15f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    job.status.name.replace("_", " "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = statusColor
-                )
-            }
+            StatusChip(
+                text = job.status.name.replace("_", " "),
+                color = statusColor
+            )
         }
     }
 }
 
 @Composable
 private fun ReminderCard(reminder: com.strobingn.wildlifefieldops.data.model.Reminder) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-        shape = RoundedCornerShape(8.dp)
-    ) {
+    FieldCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Notifications,
-                contentDescription = null,
-                tint = AccentOrange,
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AccentOrange.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = AccentOrange,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(reminder.title, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                Text(
+                    reminder.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                )
                 Text(
                     SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(reminder.dueDate)),
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

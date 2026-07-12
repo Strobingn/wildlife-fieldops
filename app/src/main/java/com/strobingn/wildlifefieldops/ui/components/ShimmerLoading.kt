@@ -51,7 +51,7 @@ fun ShimmerCard(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(80.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(brush)
     )
 }

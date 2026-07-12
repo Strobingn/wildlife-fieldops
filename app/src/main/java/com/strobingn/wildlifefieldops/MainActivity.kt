@@ -2,33 +2,32 @@ package com.strobingn.wildlifefieldops
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-import androidx.compose.ui.graphics.Color
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.strobingn.wildlifefieldops.navigation.Screen
+import com.strobingn.wildlifefieldops.ui.components.BrandMark
 import com.strobingn.wildlifefieldops.ui.screens.*
-import com.strobingn.wildlifefieldops.ui.theme.WildlifeFieldOpsTheme
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.hilt.navigation.compose.hiltViewModel
+import com.strobingn.wildlifefieldops.ui.theme.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -99,7 +98,6 @@ fun WildlifeFieldOpsNavHost() {
     // Show bottom nav only on main screens
     val showBottomNav = currentRoute in Screen.bottomNavItems.map { it.route }
 
-    // PROPERLY WIRED drawer state — controls open/close programmatically
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -122,37 +120,12 @@ fun WildlifeFieldOpsNavHost() {
         }
     ) {
         Scaffold(
-            topBar = {
-                if (showBottomNav) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = Screen.bottomNavItems.find { it.route == currentRoute }?.title
-                                    ?: "FieldOps",
-                                color = Color(0xFFf0f0f5),
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(
-                                onClick = { scope.launch { drawerState.open() } }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Open menu",
-                                    tint = Color(0xFF22c55e)
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color(0xFF0a0a0f)
-                        )
-                    )
-                }
-            },
+            // Screens own their headers — shell only provides chrome (drawer + bottom bar)
+            // so we avoid double top bars on Home/Jobs/etc.
+            topBar = {},
             bottomBar = {
                 if (showBottomNav) {
-                    BottomNavigationBar(
+                    ModernBottomBar(
                         currentRoute = currentRoute ?: Screen.Dashboard.route,
                         onNavigate = { route ->
                             navController.navigate(route) {
@@ -163,11 +136,13 @@ fun WildlifeFieldOpsNavHost() {
                         }
                     )
                 }
-            }
+            },
+            containerColor = MaterialTheme.colorScheme.background
         ) { padding ->
             AppNavHost(
                 navController = navController,
-                modifier = Modifier.padding(padding)
+                modifier = Modifier.padding(padding),
+                onOpenDrawer = { scope.launch { drawerState.open() } }
             )
         }
     }
@@ -176,14 +151,14 @@ fun WildlifeFieldOpsNavHost() {
 @Composable
 private fun AppNavHost(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenDrawer: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
         startDestination = Screen.Dashboard.route,
         modifier = modifier
     ) {
-        // Main screens
         composable(Screen.Dashboard.route) {
             DashboardScreen(
                 onNavigateToJobs = { navController.navigate(Screen.JobList.route) },
@@ -194,7 +169,8 @@ private fun AppNavHost(
                 onNavigateToCustomers = { navController.navigate(Screen.CustomerList.route) },
                 onNavigateToMap = { navController.navigate(Screen.Map.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                onNavigateToAI = { navController.navigate(Screen.AIAssistant.route) }
+                onNavigateToAI = { navController.navigate(Screen.AIAssistant.route) },
+                onOpenDrawer = onOpenDrawer
             )
         }
 
@@ -202,7 +178,8 @@ private fun AppNavHost(
             JobListScreen(
                 onNavigateToJobDetail = { id -> navController.navigate(Screen.JobDetail.createRoute(id)) },
                 onNavigateToJobForm = { navController.navigate(Screen.JobForm.createRoute()) },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                showBack = false
             )
         }
 
@@ -277,7 +254,6 @@ private fun AppNavHost(
             )
         }
 
-        // Drawer screens
         composable(Screen.CustomerList.route) {
             CustomerListScreen(
                 onNavigateToCustomerForm = { id ->
@@ -367,40 +343,38 @@ private fun AppNavHost(
 }
 
 @Composable
-private fun BottomNavigationBar(
+private fun ModernBottomBar(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
     NavigationBar(
-        containerColor = Color(0xFF0f0f1a),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp
     ) {
         Screen.bottomNavItems.forEach { screen ->
             val selected = currentRoute == screen.route
-            val color = if (selected) Color(0xFF22c55e) else Color(0xFF6b6b80)
-
             NavigationBarItem(
                 icon = {
                     screen.icon?.let {
-                        Icon(it, contentDescription = screen.title, tint = color)
+                        Icon(it, contentDescription = screen.title)
                     }
                 },
                 label = {
                     Text(
                         screen.title,
-                        color = color,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
                     )
                 },
                 selected = selected,
                 onClick = { onNavigate(screen.route) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color(0xFF22c55e),
-                    selectedTextColor = Color(0xFF22c55e),
-                    indicatorColor = Color(0xFF22c55e).copy(alpha = 0.15f),
-                    unselectedIconColor = Color(0xFF6b6b80),
-                    unselectedTextColor = Color(0xFF6b6b80)
+                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         }
@@ -413,68 +387,87 @@ private fun AppDrawer(
     onClose: () -> Unit
 ) {
     ModalDrawerSheet(
-        drawerContainerColor = Color(0xFF13131f),
-        drawerContentColor = Color(0xFFf0f0f5)
+        drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        drawerContentColor = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.widthIn(max = 320.dp)
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        // Brand header
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(GradientStart, MaterialTheme.colorScheme.surfaceContainerLow)
+                    )
+                )
+                .padding(horizontal = 20.dp, vertical = 28.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BrandMark(size = 48)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        "Wildlife FieldOps",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Field operations center",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                }
+            }
+        }
 
-        // Drawer Header
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            "Wildlife FieldOps",
-            style = MaterialTheme.typography.headlineSmall,
-            color = Color(0xFF22c55e),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        Text(
-            "Field Operations Center",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF6b6b80),
-            modifier = Modifier.padding(horizontal = 16.dp)
+            "TOOLS",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
         )
 
-        Divider(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            color = Color(0xFF2a2a3f)
-        )
-
-        // Drawer Items
         Screen.drawerItems.forEach { screen ->
             NavigationDrawerItem(
                 icon = {
                     screen.icon?.let {
-                        Icon(it, contentDescription = screen.title, tint = Color(0xFFa0a0b0))
+                        Icon(it, contentDescription = screen.title)
                     }
                 },
                 label = {
-                    Text(
-                        screen.title,
-                        color = Color(0xFFf0f0f5)
-                    )
+                    Text(screen.title, style = MaterialTheme.typography.bodyLarge)
                 },
                 selected = false,
                 onClick = { onNavigate(screen.route) },
-                modifier = Modifier.padding(horizontal = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                shape = FieldShapes.button,
                 colors = NavigationDrawerItemDefaults.colors(
                     unselectedContainerColor = Color.Transparent,
-                    unselectedTextColor = Color(0xFFf0f0f5),
-                    unselectedIconColor = Color(0xFFa0a0b0)
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                    selectedIconColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        Divider(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = Color(0xFF2a2a3f)
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
         )
 
         Text(
-            "v1.1 - Rockstar Edition",
+            "v2.0 · Modern UI",
             style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF6b6b80),
-            modifier = Modifier.padding(16.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(20.dp)
         )
     }
 }
