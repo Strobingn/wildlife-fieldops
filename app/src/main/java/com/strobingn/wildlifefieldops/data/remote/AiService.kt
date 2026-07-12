@@ -38,27 +38,37 @@ class AiService @Inject constructor() {
     val isConfigured: Boolean
         get() = BuildConfig.LLM_API_KEY.isNotBlank()
 
+    val providerLabel: String
+        get() {
+            val base = BuildConfig.LLM_BASE_URL.lowercase()
+            return when {
+                base.contains("x.ai") -> "SpaceXAI (Grok)"
+                base.contains("openai") -> "OpenAI"
+                else -> "LLM"
+            }
+        }
+
     /**
-     * Calls the configured LLM API directly (xAI, OpenAI, or compatible).
-     * Falls back to a clear message if no API key is configured.
+     * SpaceXAI (xAI Grok) by default — OpenAI-compatible chat completions.
+     * Env: XAI_API_KEY (preferred) or LLM_API_KEY; base https://api.x.ai/v1; model grok-4.5.
      */
     suspend fun ask(userMessage: String, species: String = ""): String = withContext(Dispatchers.IO) {
         if (!isConfigured) {
-            return@withContext "⚠️ AI not connected.\n\nAdd your LLM_API_KEY to BuildConfig (via env var or local.properties) and rebuild.\n\nSupports: xAI (Grok), OpenAI (GPT), or any OpenAI-compatible API.\n\nSet LLM_API_KEY and optionally LLM_BASE_URL env vars before building."
+            return@withContext buildString {
+                append("⚠️ AI not connected.\n\n")
+                append("This app defaults to SpaceXAI (xAI Grok).\n\n")
+                append("1. Get a key: https://console.x.ai\n")
+                append("2. Set GitHub secret XAI_API_KEY (or LLM_API_KEY)\n")
+                append("3. Rebuild the APK\n\n")
+                append("Defaults: base https://api.x.ai/v1 · model grok-4.5\n\n")
+                append("Offline field tips still work — try a species name.")
+            }
         }
 
-        val systemPrompt = """You are a professional wildlife removal field assistant with 20+ years of hands-on experience. You help technicians in the field with:
-- Species identification from behavioral clues, droppings, damage patterns, and sounds
-- Safety protocols for rabies-vector species (raccoons, bats, skunks, foxes)
-- Equipment and trapping strategies for specific situations
-- Pricing/estimate guidance for nuisance wildlife jobs
-- Exclusion techniques and repair recommendations
-- Legal compliance (state/federal wildlife regulations)
-
-Keep responses concise, actionable, and field-ready. Use bullet points. If the user mentions a species, tailor advice to that species. Be direct and practical — technicians are reading this on job sites."""
+        val systemPrompt = WILDLIFE_SYSTEM_PROMPT
 
         val userPrompt = buildString {
-            if (species.isNotBlank()) append("Species: $species\n")
+            if (species.isNotBlank()) append("Species context: $species\n")
             append(userMessage)
         }
 
@@ -70,14 +80,16 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
                 messages = listOf(
                     LlmMessage(role = "system", content = systemPrompt),
                     LlmMessage(role = "user", content = userPrompt)
-                )
+                ),
+                max_tokens = 900,
+                temperature = 0.35
             )
         )
 
         val connection = (endpoint.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
-            connectTimeout = 25_000
-            readTimeout = 45_000
+            connectTimeout = 30_000
+            readTimeout = 90_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer ${BuildConfig.LLM_API_KEY}")
@@ -93,9 +105,9 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
             if (code !in 200..299) {
                 android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
                 return@withContext when (code) {
-                    429 -> "⚠️ AI rate limit hit (HTTP 429).\n\nOpenAI is throttling requests. Wait a minute and try again.\n\n" + localFieldKnowledge(userMessage)
-                    401 -> "⚠️ Invalid API key (HTTP 401).\n\nCheck your LLM_API_KEY secret is correct and rebuild."
-                    404 -> "⚠️ API endpoint not found (HTTP 404).\n\nCheck LLM_BASE_URL is correct."
+                    429 -> "⚠️ AI rate limit (HTTP 429). Wait a minute and retry.\n\n" + localFieldKnowledge(userMessage)
+                    401 -> "⚠️ Invalid API key (HTTP 401).\n\nCheck XAI_API_KEY / LLM_API_KEY secret and rebuild."
+                    404 -> "⚠️ Endpoint not found (HTTP 404).\n\nExpected base: https://api.x.ai/v1 (chat/completions)."
                     else -> "⚠️ AI error (HTTP $code).\n\n" + localFieldKnowledge(userMessage)
                 }
             }
@@ -103,20 +115,51 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
             parseLlmResponse(body) ?: "No response from AI. Try again."
         } catch (e: Exception) {
             android.util.Log.e("AiService", "LLM request failed", e)
-            "Network error: ${e.message}. Check your internet connection."
+            "Network error: ${e.message}. Check internet, then retry.\n\n" + localFieldKnowledge(userMessage)
         } finally {
             connection.disconnect()
         }
     }
 
     private fun detectModel(): String {
-        val base = BuildConfig.LLM_BASE_URL
+        val configured = BuildConfig.LLM_MODEL.trim()
+        if (configured.isNotBlank()) return configured
+        val base = BuildConfig.LLM_BASE_URL.lowercase()
         return when {
-            base.contains("x.ai") || base.contains("grok") -> "grok-2-latest"
+            base.contains("x.ai") || base.contains("grok") -> "grok-4.5"
             base.contains("openai") -> "gpt-4o-mini"
-            base.contains("anthropic") || base.contains("claude") -> "claude-3-haiku-20240307"
-            else -> "grok-2-latest"
+            else -> "grok-4.5"
         }
+    }
+
+    companion object {
+        /**
+         * Full-stack wildlife ops copilot — field + office, not just species tips.
+         */
+        val WILDLIFE_SYSTEM_PROMPT: String = """
+You are FieldOps AI for a professional wildlife removal / nuisance wildlife control business
+(e.g. inspections, trapping, exclusion, cleanup, repairs, follow-ups, invoicing).
+
+You help with EVERY operational area a tech or owner needs:
+1) Field work — species ID (signs, sounds, damage, droppings), trapping/bait, exclusion, one-way doors, cleanup, PPE
+2) Safety & compliance — rabies vectors, histoplasmosis, MBTA, state rules (call out when laws vary by state)
+3) Job management — how to structure jobs, statuses, follow-ups, multi-visit plans, scheduling routes
+4) Inspections — what to document, photos, entry points, severity, recommendations
+5) Estimates & pricing — ballpark ranges, line items (labor, materials, exclusion, sanitation), upsells
+6) Customer communication — clear, professional scripts without scare tactics
+7) Equipment & inventory — traps, sealants, PPE, when to restock
+8) Business ops — daily workflow, SOPs, quality checks before leaving a site
+
+Style:
+- Concise, bullet-first, field-readable on a phone
+- Actionable next steps (1–5 bullets)
+- Flag safety risks clearly
+- If info is missing, ask 1–2 clarifying questions max
+- Prefer practical US nuisance wildlife practice; note regional variation when relevant
+- Never invent licenses or claim illegal methods; prefer legal exclusion/live-trap approaches
+
+You are powered by SpaceXAI (xAI Grok) when the API key is configured.
+""".trimIndent()
     }
 
     private fun parseLlmResponse(body: String): String? {

@@ -22,16 +22,16 @@ class AiAssistantViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val welcomeMessage = buildString {
-        append("Hello! I'm your Wildlife FieldOps AI assistant.\n\n")
-        append("I can help with species ID, safety protocols, equipment, estimates, and field plans.")
+        append("Hello — I'm your Wildlife FieldOps AI (SpaceXAI / Grok).\n\n")
+        append("Ask about inspections, jobs, trapping, exclusion, safety, estimates, customers, or daily workflow.\n")
         if (aiService.isConfigured) {
-            append("\n\n✅ Live AI connected.")
+            append("\n✅ Live AI connected via ${aiService.providerLabel}.")
         } else {
-            append("\n\n⚠️ AI not connected.")
-            append("\n\nTo enable live AI, add LLM_API_KEY to your environment variables and rebuild:")
-            append("\n• xAI (Grok): LLM_API_KEY=your-xai-key")
-            append("\n• OpenAI: LLM_API_KEY=your-openai-key LLM_BASE_URL=https://api.openai.com/v1")
-            append("\n\nOr use the Supabase edge function path if you have that set up.")
+            append("\n⚠️ Live AI not connected yet — offline field tips still work.\n")
+            append("\nTo enable SpaceXAI:")
+            append("\n1. Create a key at https://console.x.ai")
+            append("\n2. Add GitHub secret XAI_API_KEY (or LLM_API_KEY)")
+            append("\n3. Rebuild the APK (defaults: api.x.ai · grok-4.5)")
         }
     }
 
@@ -47,12 +47,20 @@ class AiAssistantViewModel @Inject constructor(
         _messages.value = _messages.value + ChatMessage(trimmed, true)
         _isTyping.value = true
         viewModelScope.launch {
-            // Always try direct LLM first. Fallback to Supabase edge only if LLM not configured.
             val reply = if (aiService.isConfigured) {
                 aiService.ask(trimmed)
             } else {
-                // Try Supabase as fallback
-                aiService.askViaSupabase(trimmed)
+                // Optional Supabase edge; otherwise ask() returns SpaceXAI setup help.
+                val edge = runCatching { aiService.askViaSupabase(trimmed) }.getOrNull()
+                if (!edge.isNullOrBlank() &&
+                    !edge.startsWith("⚠️") &&
+                    !edge.startsWith("Supabase") &&
+                    !edge.startsWith("Network")
+                ) {
+                    edge
+                } else {
+                    aiService.ask(trimmed)
+                }
             }
             _messages.value = _messages.value + ChatMessage(reply, false)
             _isTyping.value = false
