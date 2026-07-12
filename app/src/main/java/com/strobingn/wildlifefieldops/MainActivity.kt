@@ -317,7 +317,8 @@ private fun AppNavHost(
 
         composable(Screen.PhotoGallery.route) {
             PhotoGalleryScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                viewModel = hiltViewModel()
             )
         }
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -128,11 +129,25 @@ fun AIAssistantScreen(
                         unfocusedBorderColor = BorderDark,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary,
+                        disabledTextColor = TextSecondary,
+                        errorTextColor = ErrorRed,
                         focusedContainerColor = BackgroundCard,
-                        unfocusedContainerColor = BackgroundCard
+                        unfocusedContainerColor = BackgroundCard,
+                        disabledContainerColor = BackgroundCard,
+                        errorContainerColor = BackgroundCard,
+                        cursorColor = AccentPurple,
+                        errorCursorColor = ErrorRed,
+                        focusedPlaceholderColor = TextTertiary,
+                        unfocusedPlaceholderColor = TextTertiary,
+                        disabledPlaceholderColor = TextTertiary.copy(alpha = 0.5f),
+                        selectionColors = TextSelectionColors(
+                            handleColor = AccentPurple,
+                            backgroundColor = AccentPurple.copy(alpha = 0.3f)
+                        )
                     ),
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(20.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = {
                         if (inputText.isNotBlank()) {
