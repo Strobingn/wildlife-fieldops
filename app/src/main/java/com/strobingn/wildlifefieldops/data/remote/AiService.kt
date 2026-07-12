@@ -54,8 +54,11 @@ class AiService @Inject constructor() {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+    private val apiKey: String
+        get() = BuildConfig.LLM_API_KEY.trim()
+
     val isConfigured: Boolean
-        get() = BuildConfig.LLM_API_KEY.isNotBlank()
+        get() = apiKey.isNotBlank() && apiKey.length >= 10
 
     val providerLabel: String
         get() {
@@ -66,6 +69,16 @@ class AiService @Inject constructor() {
                 else -> "LLM"
             }
         }
+
+    /** Safe diagnostics for Settings / AI screen (never exposes the key). */
+    fun configDiagnostics(): String = buildString {
+        append("Provider: $providerLabel\n")
+        append("Base: ${BuildConfig.LLM_BASE_URL}\n")
+        append("Model: ${BuildConfig.LLM_MODEL}\n")
+        append("Key baked into APK: ")
+        if (isConfigured) append("yes (${BuildConfig.LLM_KEY_LENGTH} chars)")
+        else append("NO — rebuild after setting secret XAI_API_KEY")
+    }
 
     /**
      * SpaceXAI (xAI Grok) by default — OpenAI-compatible chat completions.
@@ -192,7 +205,7 @@ Max ~180 words. Bullet-first. No fluff.
             readTimeout = 90_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("Authorization", "Bearer ${BuildConfig.LLM_API_KEY}")
+            setRequestProperty("Authorization", "Bearer $apiKey")
         }
         return try {
             connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
@@ -202,12 +215,14 @@ Max ~180 words. Bullet-first. No fluff.
                 .orEmpty()
             if (code !in 200..299) {
                 android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
+                val detail = body.take(180).replace("\n", " ")
                 ChatResult.Err(
                     when (code) {
-                        429 -> "⚠️ AI rate limit (HTTP 429)."
-                        401 -> "⚠️ Invalid API key (HTTP 401)."
-                        404 -> "⚠️ Endpoint not found (HTTP 404)."
-                        else -> "⚠️ AI error (HTTP $code)."
+                        429 -> "⚠️ AI rate limit (HTTP 429). Wait and retry."
+                        401 -> "⚠️ Invalid API key (HTTP 401).\nKey length in APK: ${BuildConfig.LLM_KEY_LENGTH}.\nRebuild after updating secret XAI_API_KEY (no spaces/newlines)."
+                        404 -> "⚠️ Model/endpoint not found (HTTP 404).\nModel: ${BuildConfig.LLM_MODEL}\nBase: ${BuildConfig.LLM_BASE_URL}\n$body".take(280)
+                        400 -> "⚠️ Bad request (HTTP 400). $detail"
+                        else -> "⚠️ AI error (HTTP $code). $detail"
                     }
                 )
             } else {
@@ -320,13 +335,14 @@ Max ~180 words. Bullet-first. No fluff.
     }
 
     private fun notConfiguredMessage(): String = buildString {
-        append("⚠️ AI not connected.\n\n")
-        append("This app defaults to SpaceXAI (xAI Grok).\n\n")
+        append("⚠️ AI not connected — key was not baked into this APK.\n\n")
+        append(configDiagnostics())
+        append("\n\nFix:\n")
         append("1. Get a key: https://console.x.ai\n")
-        append("2. Set GitHub secret XAI_API_KEY (or LLM_API_KEY)\n")
-        append("3. Rebuild the APK\n\n")
-        append("Defaults: base https://api.x.ai/v1 · model grok-4.5\n\n")
-        append("Offline field tips still work — try a species name.")
+        append("2. Repo secret name must be exactly: XAI_API_KEY\n")
+        append("3. Re-run Actions → Build Native Android APK\n")
+        append("4. Install the NEW artifact (old APKs keep the old empty key)\n\n")
+        append("Offline field tips still work.")
     }
 
     private fun detectModel(): String {

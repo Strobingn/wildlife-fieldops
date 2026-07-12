@@ -26,12 +26,15 @@ class AiAssistantViewModel @Inject constructor(
         append("Ask about inspections, jobs, trapping, exclusion, safety, estimates, customers, or daily workflow.\n")
         if (aiService.isConfigured) {
             append("\n✅ Live AI connected via ${aiService.providerLabel}.")
+            append("\n${aiService.configDiagnostics()}")
         } else {
-            append("\n⚠️ Live AI not connected yet — offline field tips still work.\n")
-            append("\nTo enable SpaceXAI:")
+            append("\n⚠️ Live AI not connected — this APK has no usable key baked in.\n")
+            append("\n${aiService.configDiagnostics()}")
+            append("\n\nTo enable SpaceXAI:")
             append("\n1. Create a key at https://console.x.ai")
-            append("\n2. Add GitHub secret XAI_API_KEY (or LLM_API_KEY)")
-            append("\n3. Rebuild the APK (defaults: api.x.ai · grok-4.5)")
+            append("\n2. GitHub secret name: XAI_API_KEY (exact)")
+            append("\n3. Re-run the Android build workflow")
+            append("\n4. Install the new APK (old installs keep empty key)")
         }
     }
 

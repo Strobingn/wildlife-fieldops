@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 13
-        versionName = "2.1.3-no-green"
+        versionCode = 14
+        versionName = "2.1.4-xai-key-bake"
 
         // Real keys from env/secrets (Supabase + Maps hooked)
         val supabaseUrl = System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"
@@ -28,20 +28,36 @@ android {
         val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
 
-        // SpaceXAI (xAI Grok) is the default LLM — OpenAI-compatible API.
-        // Prefer XAI_API_KEY; LLM_API_KEY remains as a fallback alias.
-        val llmKey = System.getenv("XAI_API_KEY")
-            ?: System.getenv("LLM_API_KEY")
-            ?: ""
-        val llmBase = System.getenv("LLM_BASE_URL")
-            ?: System.getenv("XAI_BASE_URL")
-            ?: "https://api.x.ai/v1"
-        val llmModel = System.getenv("LLM_MODEL")
-            ?: System.getenv("XAI_MODEL")
-            ?: "grok-4.5"
-        buildConfigField("String", "LLM_API_KEY", "\"$llmKey\"")
-        buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
-        buildConfigField("String", "LLM_MODEL", "\"$llmModel\"")
+        // SpaceXAI (xAI Grok) — keys are baked in at BUILD time from CI env / secrets.
+        // Prefer XAI_API_KEY; LLM_API_KEY is a fallback alias.
+        fun envTrim(name: String): String =
+            System.getenv(name)?.trim()?.trim('"')?.trim('\'').orEmpty()
+        fun escapeBuildConfig(value: String): String =
+            value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "")
+                .replace("\n", "")
+
+        val llmKey = envTrim("XAI_API_KEY").ifBlank { envTrim("LLM_API_KEY") }
+        val llmBase = envTrim("LLM_BASE_URL")
+            .ifBlank { envTrim("XAI_BASE_URL") }
+            .ifBlank { "https://api.x.ai/v1" }
+        val llmModel = envTrim("LLM_MODEL")
+            .ifBlank { envTrim("XAI_MODEL") }
+            .ifBlank { "grok-4.5" }
+
+        // Log presence only (never the key) so CI makes missing secrets obvious.
+        logger.lifecycle(
+            "LLM config: keyChars=${llmKey.length} base=$llmBase model=$llmModel " +
+                "(XAI_API_KEY ${if (envTrim("XAI_API_KEY").isNotEmpty()) "set" else "empty"}, " +
+                "LLM_API_KEY ${if (envTrim("LLM_API_KEY").isNotEmpty()) "set" else "empty"})"
+        )
+
+        buildConfigField("String", "LLM_API_KEY", "\"${escapeBuildConfig(llmKey)}\"")
+        buildConfigField("String", "LLM_BASE_URL", "\"${escapeBuildConfig(llmBase)}\"")
+        buildConfigField("String", "LLM_MODEL", "\"${escapeBuildConfig(llmModel)}\"")
+        buildConfigField("int", "LLM_KEY_LENGTH", "${llmKey.length}")
 
         // Manifest placeholder for Google Maps meta-data
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =

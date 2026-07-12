@@ -68,6 +68,16 @@ fun SettingsScreen(
                     color = TextTertiary,
                     style = MaterialTheme.typography.bodySmall
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                val aiDiag = remember {
+                    try {
+                        com.strobingn.wildlifefieldops.data.remote.AiService().configDiagnostics()
+                    } catch (_: Exception) {
+                        "AI diagnostics unavailable"
+                    }
+                }
+                Text("AI / Grok", color = TextPrimary, style = MaterialTheme.typography.labelMedium)
+                Text(aiDiag, color = TextTertiary, style = MaterialTheme.typography.bodySmall)
                 if (!syncMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(syncMessage!!, color = PrimaryGreen, style = MaterialTheme.typography.bodySmall)
