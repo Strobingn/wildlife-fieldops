@@ -92,7 +92,12 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
 
             if (code !in 200..299) {
                 android.util.Log.w("AiService", "LLM HTTP $code: ${body.take(400)}")
-                return@withContext "⚠️ AI connection issue (HTTP $code).\n\nThe API key or endpoint may be mismatched. If you changed API providers, update LLM_BASE_URL in your GitHub secrets or rebuild."
+                return@withContext when (code) {
+                    429 -> "⚠️ AI rate limit hit (HTTP 429).\n\nOpenAI is throttling requests. Wait a minute and try again.\n\n" + localFieldKnowledge(userMessage)
+                    401 -> "⚠️ Invalid API key (HTTP 401).\n\nCheck your LLM_API_KEY secret is correct and rebuild."
+                    404 -> "⚠️ API endpoint not found (HTTP 404).\n\nCheck LLM_BASE_URL is correct."
+                    else -> "⚠️ AI error (HTTP $code).\n\n" + localFieldKnowledge(userMessage)
+                }
             }
 
             parseLlmResponse(body) ?: "No response from AI. Try again."
@@ -175,6 +180,121 @@ Keep responses concise, actionable, and field-ready. Use bullet points. If the u
             "Network error: ${e.message}"
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /**
+     * Built-in field knowledge — used as fallback when AI API is rate-limited or unavailable.
+     * Provides practical wildlife removal guidance based on keywords in the user's message.
+     */
+    private fun localFieldKnowledge(userMessage: String): String {
+        val msg = userMessage.lowercase()
+        return when {
+            msg.contains("raccoon") || msg.contains("coon") -> buildString {
+                append("Raccoon Removal Tips:\n")
+                append("• Use live traps (12x12x32) with sardines or marshmallows as bait\n")
+                append("• Check attic entry points — raccoons tear fascia boards\n")
+                append("• Rabies vector species — wear gloves, never handle bare-handed\n")
+                append("• Typical job: $300-600 (trap + exclusion)\n")
+                append("• Babies present Apr-Jun — delay eviction or use eviction fluid")
+            }
+            msg.contains("squirrel") || msg.contains("squirrels") -> buildString {
+                append("Squirrel Removal Tips:\n")
+                append("• Grey squirrels: 5x5x18 single-door live traps, peanut butter bait\n")
+                append("• Flying squirrels: Multiple small traps, entry at dusk\n")
+                append("• Check gable vents, chimney gaps, soffit edges\n")
+                append("• One-way doors work well if no babies present\n")
+                append("• Typical job: $250-450 (trap + seal entry)")
+            }
+            msg.contains("bat") || msg.contains("bats") -> buildString {
+                append("Bat Removal Tips:\n")
+                append("• Federally protected — NEVER kill, use exclusion only\n")
+                append("• Install one-way bat valves at active entry points\n")
+                append("• Active at dusk/dawn — observe flight paths\n")
+                append("• Guano = histoplasmosis risk — wear respirator (N95 min)\n")
+                append("• Typical job: $500-1500 (exclusion + cleanup)\n")
+                append("• Exclusion window: Sept-May (avoid baby season Jun-Aug)")
+            }
+            msg.contains("skunk") || msg.contains("skunks") -> buildString {
+                append("Skunk Removal Tips:\n")
+                append("• Use covered live traps — draped tarp prevents spray\n")
+                append("• Bait: sardines, cat food, or marshmallows\n")
+                append("• Approach slowly, no sudden movements\n")
+                append("• Rabies vector — wear full PPE, gloves required\n")
+                append("• Typical job: $200-400 (trap + relocation)\n")
+                append("• If sprayed: 1qt 3% H2O2 + 1/4c baking soda + 1tsp dish soap")
+            }
+            msg.contains("groundhog") || msg.contains("woodchuck") -> buildString {
+                append("Groundhog Removal Tips:\n")
+                append("• Large live trap (12x12x32), bait with fresh veggies/fruits\n")
+                append("• Check for burrows under sheds, decks, porches\n")
+                append("• Can excavate 50+ ft burrows — check foundation integrity\n")
+                append("• Typical job: $250-500 (trap + burrow fill)")
+            }
+            msg.contains("snake") || msg.contains("snakes") -> buildString {
+                append("Snake Handling Tips:\n")
+                append("• NY native species are protected — check ID before removal\n")
+                append("• Common nuisance: garter snakes, milk snakes, rat snakes\n")
+                append("• Venomous species (timber rattler, copperhead) — call DEC\n")
+                append("• Use snake tongs or pillowcase for transport\n")
+                append("• Typical job: $150-300 (ID + relocation)")
+            }
+            msg.contains("bird") || msg.contains("birds") || msg.contains("pigeon") -> buildString {
+                append("Bird Removal Tips:\n")
+                append("• Federally protected (MBTA) — exclusion only, no kill\n")
+                append("• Pigeons/starlings/sparrows: nets, spikes, exclusion\n")
+                append("• Check vents, chimney caps, roof ledges\n")
+                append("• Typical job: $300-800 (exclusion + cleanup)")
+            }
+            msg.contains("safety") || msg.contains("rabies") || msg.contains("ppe") -> buildString {
+                append("Field Safety Protocols:\n")
+                append("• Rabies vectors: raccoons, bats, skunks, foxes, coyotes\n")
+                append("• Minimum PPE: leather gloves, long sleeves, safety glasses\n")
+                append("• For bats: N95+ respirator (histoplasmosis)\n")
+                append("• Bite protocol: wash 15 min, seek immediate medical care\n")
+                append("• Vaccine: pre-exposure rabies vaccine recommended\n")
+                append("• NEVER handle wildlife bare-handed — always use tools")
+            }
+            msg.contains("trap") || msg.contains("bait") || msg.contains("equipment") -> buildString {
+                append("Trapping Equipment:\n")
+                append("• Live traps: Havahart, Tomahawk, or Safeguard\n")
+                append("• Small (5x5x18): squirrels, chipmunks\n")
+                append("• Medium (10x12x30): raccoons, opossums, cats\n")
+                append("• Large (15x15x42): groundhogs, foxes\n")
+                append("• Baits: peanut butter (universal), sardines (raccoons/skunks),\n")
+                append("  apples (deer), marshmallows (raccoons)\n")
+                append("• Always check traps every 24hrs (NY law)")
+            }
+            msg.contains("estimate") || msg.contains("price") || msg.contains("cost") || msg.contains("charge") -> buildString {
+                append("Typical Wildlife Removal Pricing (NY):\n")
+                append("• Inspection only: $75-150\n")
+                append("• Squirrel removal: $250-450\n")
+                append("• Raccoon removal: $300-600\n")
+                append("• Bat exclusion: $500-1500\n")
+                append("• Skunk removal: $200-400\n")
+                append("• Bird exclusion: $300-800\n")
+                append("• Groundhog: $250-500\n")
+                append("• Dead animal removal: $150-350\n")
+                append("• Cleanup/sanitizing: $200-500 additional")
+            }
+            msg.contains("online") || msg.contains("there") || msg.contains("hello") || msg.contains("hi") -> {
+                "I'm your Wildlife FieldOps assistant. Ask me about:\n" +
+                "• Species ID and removal techniques\n" +
+                "• Safety protocols and PPE\n" +
+                "• Equipment and trapping strategies\n" +
+                "• Pricing and estimates\n" +
+                "• Exclusion and repair methods"
+            }
+            else -> buildString {
+                append("I'm your Wildlife FieldOps assistant. I can help with:\n")
+                append("• Species-specific removal techniques\n")
+                append("• Safety protocols for rabies-vector species\n")
+                append("• Trap selection and bait recommendations\n")
+                append("• Pricing guidance for estimates\n")
+                append("• Exclusion methods and entry point sealing\n\n")
+                append("Try asking about a specific species (raccoon, squirrel, bat, skunk) ")
+                append("or a topic like safety, equipment, or pricing.")
+            }
         }
     }
 
