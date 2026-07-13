@@ -186,7 +186,7 @@ export const PAGES = [
   { id: "jobs", label: "Jobs", icon: "🦝" },
   { id: "gps", label: "GPS", icon: "📍" },
   { id: "ai", label: "AI", icon: "🧠" },
-  { id: "metrics", label: "Metrics", icon: "📊" }
+  { id: "metrics", label: "📊" }
 ];
 
 export const DRAWER_PAGES = [
@@ -237,7 +237,7 @@ export const SEVERITY_MULTIPLIERS = {
 };
 
 // ─── Default tax rate ───
-export const DEFAULT_TAX_RATE = 0.08;
+export const DEFAULT_TAX_RATE = 0.08125;
 
 // ─── App version ───
 export const APP_VERSION = "3.0.0";
