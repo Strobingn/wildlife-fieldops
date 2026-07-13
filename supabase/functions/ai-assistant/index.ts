@@ -1,6 +1,6 @@
 // supabase/functions/ai-assistant/index.ts
 // Wildlife Whisperer FieldOps AI Assistant
-// Supports: OpenRouter, Gemini, OpenAI, DeepSeek, Moonshot
+// Supports: xAI/Grok, OpenRouter, Gemini, OpenAI, DeepSeek, Moonshot
 // Add your preferred API key to Supabase Edge Function Secrets
 
 type AiMode =
@@ -158,6 +158,17 @@ type AiProvider = {
 };
 
 function getProvider(): AiProvider | null {
+  // Prioritize xAI/Grok since you use Grok
+  const xaiKey = Deno.env.get("XAI_API_KEY");
+  if (xaiKey) {
+    return {
+      name: "xai",
+      apiKey: xaiKey,
+      baseUrl: "https://api.x.ai/v1",
+      model: Deno.env.get("XAI_MODEL") || "grok-4.3",  // or grok-4.5 for latest
+    };
+  }
+
   const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
   if (openrouterKey) {
     return {
@@ -227,7 +238,7 @@ async function callAI(payload: AiRequest) {
   };
 
   // Only add response_format if the provider supports it
-  if (provider.name !== "deepseek") {
+  if (provider.name !== "deepseek" && provider.name !== "xai") {
     body.response_format = { type: "json_object" };
   }
 
