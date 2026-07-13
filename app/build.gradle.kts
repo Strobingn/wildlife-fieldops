@@ -14,10 +14,9 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 14
-        versionName = "2.1.4-xai-key-bake"
+        versionCode = 15
+        versionName = "2.2.0-heavy-ai"
 
-        // Real keys from env/secrets (Supabase + Maps hooked)
         val supabaseUrl = System.getenv("SUPABASE_URL") ?: "https://your-project.supabase.co"
         val supabaseKey = System.getenv("SUPABASE_ANON_KEY") ?: "your-anon-key"
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
@@ -28,42 +27,24 @@ android {
         val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
 
-        // SpaceXAI (xAI Grok) — keys are baked in at BUILD time from CI env / secrets.
-        // Prefer XAI_API_KEY; LLM_API_KEY is a fallback alias.
         fun envTrim(name: String): String =
             System.getenv(name)?.trim()?.trim('"')?.trim('\'').orEmpty()
         fun escapeBuildConfig(value: String): String =
-            value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\r", "")
-                .replace("\n", "")
+            value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\r", "").replace("\n", "")
 
         val llmKey = envTrim("XAI_API_KEY").ifBlank { envTrim("LLM_API_KEY") }
-        val llmBase = envTrim("LLM_BASE_URL")
-            .ifBlank { envTrim("XAI_BASE_URL") }
-            .ifBlank { "https://api.x.ai/v1" }
-        val llmModel = envTrim("LLM_MODEL")
-            .ifBlank { envTrim("XAI_MODEL") }
-            .ifBlank { "grok-4.5" }
+        val llmBase = envTrim("LLM_BASE_URL").ifBlank { envTrim("XAI_BASE_URL") }.ifBlank { "https://api.x.ai/v1" }
+        val llmModel = envTrim("LLM_MODEL").ifBlank { envTrim("XAI_MODEL") }.ifBlank { "grok-4.5" }
 
-        // Log presence only (never the key) so CI makes missing secrets obvious.
-        logger.lifecycle(
-            "LLM config: keyChars=${llmKey.length} base=$llmBase model=$llmModel " +
-                "(XAI_API_KEY ${if (envTrim("XAI_API_KEY").isNotEmpty()) "set" else "empty"}, " +
-                "LLM_API_KEY ${if (envTrim("LLM_API_KEY").isNotEmpty()) "set" else "empty"})"
-        )
+        logger.lifecycle("LLM config: keyChars=${llmKey.length} base=$llmBase model=$llmModel")
 
         buildConfigField("String", "LLM_API_KEY", "\"${escapeBuildConfig(llmKey)}\"")
         buildConfigField("String", "LLM_BASE_URL", "\"${escapeBuildConfig(llmBase)}\"")
         buildConfigField("String", "LLM_MODEL", "\"${escapeBuildConfig(llmModel)}\"")
         buildConfigField("int", "LLM_KEY_LENGTH", "${llmKey.length}")
 
-        // Manifest placeholder for Google Maps meta-data
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] =
-            System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY_HERE"
 
-        // Help 16 KB page-size devices (Android 15 / many S24 Ultra builds)
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
@@ -83,7 +64,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false // keep install simple until Play release signing is set
+            isMinifyEnabled = false
             isShrinkResources = false
             val keystorePath = System.getenv("KEYSTORE_PATH")
             if (keystorePath != null && file(keystorePath).exists()) {
@@ -92,7 +73,6 @@ android {
         }
         debug {
             isDebuggable = true
-            // No applicationIdSuffix — one package name for installs on your phone
         }
     }
 
@@ -118,19 +98,9 @@ android {
 
     packaging {
         resources {
-            excludes += setOf(
-                "META-INF/DEPENDENCIES",
-                "META-INF/LICENSE",
-                "META-INF/LICENSE.txt",
-                "META-INF/NOTICE",
-                "META-INF/NOTICE.txt",
-                "META-INF/*.kotlin_module",
-                "META-INF/INDEX.LIST",
-                "META-INF/io.netty.versions.properties"
-            )
+            excludes += setOf("META-INF/DEPENDENCIES", "META-INF/LICENSE", "META-INF/LICENSE.txt", "META-INF/NOTICE", "META-INF/NOTICE.txt", "META-INF/*.kotlin_module", "META-INF/INDEX.LIST", "META-INF/io.netty.versions.properties")
         }
         jniLibs {
-            // Uncompressed native libs — better compatibility on Android 15 page-size devices
             useLegacyPackaging = false
         }
     }
@@ -146,10 +116,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.appcompat:appcompat:1.6.1")
 
-    // Keep BOM aligned with Kotlin 1.9.22 / compose compiler 1.5.10
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
-    androidTestImplementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -175,7 +143,6 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.5.0")
 
-    // Splash screen + animations
     implementation("androidx.core:core-splashscreen:1.0.1")
 
     val supabaseVersion = "2.6.1"
@@ -185,6 +152,16 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.12")
 
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // ========== HEAVY ON-DEVICE AI / ML KIT ==========
+    // On-device species, damage, object detection for analysis + form filling + measurements
+    implementation("com.google.mlkit:image-labeling:17.0.8")
+    implementation("com.google.mlkit:object-detection:16.1.0")
+    // ARCore for real AR measurement of damage/entry points (requires Google Play Services for AR on device)
+    implementation("com.google.ar:core:1.46.0")
+
+    // Future Gemini Nano / ML Kit GenAI (uncomment when device + AICore ready for true on-device LLM form filling)
+    // implementation("com.google.mlkit:genai:16.0.0-beta01") or AICore equivalent
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
