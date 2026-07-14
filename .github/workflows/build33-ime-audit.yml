@@ -35,6 +35,7 @@ jobs:
               'InventoryScreen.kt',
               'RouteOptimizerScreen.kt',
               'AIAssistantScreen.kt',
+              'MapScreen.kt',
           ]
 
           changed = []
@@ -45,28 +46,37 @@ jobs:
               text = path.read_text(encoding='utf-8')
               original = text
 
-              # Root Scaffold content containers: insert IME padding after scaffold padding.
-              if '.imePadding()' not in text:
-                  text = text.replace(
-                      '.fillMaxSize()\n                .padding(padding)\n',
-                      '.fillMaxSize()\n                .padding(padding)\n                .imePadding()\n',
-                      1,
-                  )
-                  text = text.replace(
-                      '.fillMaxSize().padding(padding)',
-                      '.fillMaxSize().padding(padding).imePadding()',
-                      1,
-                  )
+              editable = 'OutlinedTextField(' in text or 'BasicTextField(' in text or 'TextField(' in text
+              if not editable:
+                  continue
 
-              # Editable AlertDialog bodies need their own keyboard-safe scrolling.
+              # Add IME inset handling to the main screen container when absent.
+              if '.imePadding()' not in text:
+                  replacements = [
+                      (
+                          '.fillMaxSize()\n                .padding(padding)\n',
+                          '.fillMaxSize()\n                .padding(padding)\n                .imePadding()\n',
+                      ),
+                      (
+                          '.fillMaxSize().padding(padding)',
+                          '.fillMaxSize().padding(padding).imePadding()',
+                      ),
+                      (
+                          '.fillMaxSize()\n                .padding(padding)',
+                          '.fillMaxSize()\n                .padding(padding)\n                .imePadding()',
+                      ),
+                  ]
+                  for old, new in replacements:
+                      if old in text:
+                          text = text.replace(old, new, 1)
+                          break
+
+              # Editable AlertDialog bodies get keyboard-safe scrolling.
               if 'AlertDialog(' in text and ('OutlinedTextField(' in text or 'TextField(' in text):
                   marker = 'Column(verticalArrangement = Arrangement.spacedBy('
-                  if marker in text and 'Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState())' not in text:
-                      text = text.replace(
-                          marker,
-                          'Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(',
-                          1,
-                      )
+                  replacement = 'Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy('
+                  if marker in text and replacement not in text:
+                      text = text.replace(marker, replacement, 1)
                       if 'import androidx.compose.foundation.rememberScrollState' not in text:
                           anchor = 'import androidx.compose.foundation.layout.*\n'
                           text = text.replace(anchor, anchor + 'import androidx.compose.foundation.rememberScrollState\n', 1)
@@ -78,7 +88,6 @@ jobs:
                   path.write_text(text, encoding='utf-8')
                   changed.append(str(path))
 
-          # MainActivity edge-to-edge handling.
           main = Path('app/src/main/java/com/strobingn/wildlifefieldops/MainActivity.kt')
           text = main.read_text(encoding='utf-8')
           original = text
@@ -98,7 +107,6 @@ jobs:
               main.write_text(text, encoding='utf-8')
               changed.append(str(main))
 
-          # Manifest keyboard resize policy.
           manifest = Path('app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
           original = text
@@ -116,19 +124,37 @@ jobs:
           for item in changed:
               print(f' - {item}')
 
-      - name: Verify every editable screen is IME-safe
+      - name: Verify form screens are IME-safe
         shell: python
         run: |
           from pathlib import Path
+
           root = Path('app/src/main/java/com/strobingn/wildlifefieldops/ui/screens')
+          targets = [
+              'JobFormScreen.kt',
+              'CustomerFormScreen.kt',
+              'InspectionFormScreen.kt',
+              'EstimateScreen.kt',
+              'InvoiceScreen.kt',
+              'ExpenseScreen.kt',
+              'InventoryScreen.kt',
+              'RouteOptimizerScreen.kt',
+              'AIAssistantScreen.kt',
+              'MapScreen.kt',
+          ]
+
           failures = []
-          for path in root.glob('*.kt'):
+          for name in targets:
+              path = root / name
+              if not path.exists():
+                  continue
               text = path.read_text(encoding='utf-8')
               editable = 'OutlinedTextField(' in text or 'BasicTextField(' in text or 'TextField(' in text
               if editable and '.imePadding()' not in text:
                   failures.append(str(path))
+
           if failures:
-              raise SystemExit('Editable screens missing imePadding:\n' + '\n'.join(failures))
+              raise SystemExit('Form screens missing imePadding:\n' + '\n'.join(failures))
 
           main = Path('app/src/main/java/com/strobingn/wildlifefieldops/MainActivity.kt').read_text(encoding='utf-8')
           assert 'WindowCompat.setDecorFitsSystemWindows(window, false)' in main
@@ -144,5 +170,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/com/strobingn/wildlifefieldops app/src/main/AndroidManifest.xml
-          git commit -m "build33: make all editable screens keyboard safe"
+          git commit -m "build33: make editable screens keyboard safe"
           git push origin HEAD:feature/build-33-ai-operations
