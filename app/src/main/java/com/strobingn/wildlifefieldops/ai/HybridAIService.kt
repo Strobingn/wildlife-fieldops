@@ -2,24 +2,25 @@ package com.strobingn.wildlifefieldops.ai
 
 import android.content.Context
 import android.net.Uri
+import com.google.gson.Gson
 import com.strobingn.wildlifefieldops.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 
-// Heavy hybrid AI: ML Kit instant offline tags + Grok 4.x for deep structured reasoning when online
-// Uses your existing XAI_API_KEY / LLM config from BuildConfig (set in GitHub Actions secrets)
 object HybridAIService {
-
     private val client = HttpClient()
     private val gson = Gson()
+
+    private data class ChatEnvelope(val choices: List<Choice> = emptyList())
+    private data class Choice(val message: Message = Message())
+    private data class Message(val content: String = "")
 
     data class GrokFormResponse(
         val species: String = "",
@@ -27,89 +28,103 @@ object HybridAIService {
         val priority: String = "MEDIUM",
         val notes: String = "",
         val recommendedActions: List<String> = emptyList(),
-        val estimatedPriceLow: Double = 150.0,
-        val estimatedPriceHigh: Double = 450.0,
+        val estimatedPriceLow: Double = 0.0,
+        val estimatedPriceHigh: Double = 0.0,
         val complianceFlags: List<String> = emptyList()
     )
 
-    suspend fun analyzePhotoAndFillForm(context: Context, imageUri: Uri, jobContext: String = ""): AiAnalysisResult {
-        // Step 1: Fast on-device ML Kit (always works offline, <1s)
-        val mlkitResult = PhotoAIHelper.analyzePhotoForFormFilling(context, imageUri)
+    suspend fun analyzePhotoAndFillForm(
+        context: Context,
+        imageUri: Uri,
+        jobContext: String = ""
+    ): AiAnalysisResult {
+        val offline = PhotoAIHelper.analyzePhotoForFormFilling(context, imageUri)
+        if (!hasDirectKey()) return offline
 
-        // Step 2: If Grok key exists, enhance with heavy reasoning
-        if (BuildConfig.LLM_API_KEY.isNotBlank()) {
-            return try {
-                val prompt = GrokPrompts.photoToFormFill(
-                    speciesTags = mlkitResult.species.joinToString(),
-                    damageTags = mlkitResult.damageTypes.joinToString(),
-                    location = jobContext
-                )
-                val grokJson = callGrokForJson(prompt)
-                parseGrokFormResponse(grokJson, mlkitResult)
-            } catch (e: Exception) {
-                // Graceful fallback to ML Kit only when no signal or error
-                mlkitResult
-            }
-        }
-        return mlkitResult
+        return runCatching {
+            val prompt = GrokPrompts.photoToFormFill(
+                speciesTags = offline.species.joinToString(),
+                damageTags = offline.damageTypes.joinToString(),
+                location = jobContext
+            )
+            val form = callGrokForForm(prompt)
+            offline.copy(
+                species = form.species.split(',').map { it.trim() }.filter { it.isNotBlank() }
+                    .ifEmpty { offline.species },
+                suggestedServiceType = form.serviceType.ifBlank { offline.suggestedServiceType },
+                suggestedPriority = form.priority.ifBlank { offline.suggestedPriority },
+                suggestedNotes = buildString {
+                    append(form.notes.ifBlank { offline.suggestedNotes })
+                    if (form.recommendedActions.isNotEmpty()) {
+                        append("\nRecommended actions: ")
+                        append(form.recommendedActions.joinToString("; "))
+                    }
+                    if (form.complianceFlags.isNotEmpty()) {
+                        append("\nCompliance flags: ")
+                        append(form.complianceFlags.joinToString("; "))
+                    }
+                },
+                estimatedPriceLow = form.estimatedPriceLow.takeIf { it > 0 } ?: offline.estimatedPriceLow,
+                estimatedPriceHigh = form.estimatedPriceHigh.takeIf { it > 0 } ?: offline.estimatedPriceHigh,
+                estimatedPriceRange = if (form.estimatedPriceLow > 0 && form.estimatedPriceHigh > 0) {
+                    "$${String.format("%.0f", form.estimatedPriceLow)} - $${String.format("%.0f", form.estimatedPriceHigh)}"
+                } else offline.estimatedPriceRange,
+                source = "grok"
+            )
+        }.getOrElse { offline.copy(suggestedNotes = offline.suggestedNotes + "\nLive Grok enhancement unavailable: ${it.message}") }
     }
 
-    suspend fun generateTieredEstimate(context: Context, analysis: AiAnalysisResult, jobContext: String = ""): String {
-        if (BuildConfig.LLM_API_KEY.isBlank()) {
-            return "Grok key not set. Using basic estimate.\nGood: $${analysis.estimatedPriceLow} | Better: $${analysis.estimatedPriceHigh} | Best: $${analysis.estimatedPriceHigh + 200}"
+    suspend fun generateTieredEstimate(
+        context: Context,
+        analysis: AiAnalysisResult,
+        jobContext: String = ""
+    ): String {
+        if (!hasDirectKey()) {
+            return "Offline estimate\nGood: $${analysis.estimatedPriceLow}\nBetter: $${analysis.estimatedPriceHigh}\nBest: $${analysis.estimatedPriceHigh + 200}"
         }
-        return try {
-            val prompt = GrokPrompts.tieredEstimatePrompt(analysis, jobContext)
-            callGrokForJson(prompt)
-        } catch (e: Exception) {
-            "Error calling Grok. Basic estimate: Good $${analysis.estimatedPriceLow}"
+        return runCatching {
+            callGrokText(GrokPrompts.tieredEstimatePrompt(analysis, jobContext))
+        }.getOrElse {
+            "Live estimate unavailable. Offline range: $${analysis.estimatedPriceLow} - $${analysis.estimatedPriceHigh}"
         }
     }
 
     suspend fun analyzeFormForCompliance(formText: String): List<String> {
-        if (BuildConfig.LLM_API_KEY.isBlank()) return listOf("Grok key missing - manual check required")
-        return try {
-            val prompt = GrokPrompts.complianceAuditPrompt(formText)
-            val json = callGrokForJson(prompt)
-            // Parse flags
-            listOf("Rabies protocol checked", "Photos tagged", "GPS attached") // simplified
-        } catch (e: Exception) {
-            listOf("Compliance check failed - check manually")
-        }
+        if (!hasDirectKey()) return listOf("Offline mode: manually verify state rules, permits, protected species, and pesticide labels.")
+        return runCatching {
+            val text = callGrokText(GrokPrompts.complianceAuditPrompt(formText))
+            text.lines().map { it.trim().removePrefix("-").removePrefix("•").trim() }.filter { it.isNotBlank() }
+        }.getOrElse { listOf("Compliance analysis failed: ${it.message}") }
     }
 
-    private suspend fun callGrokForJson(prompt: String): String = withContext(Dispatchers.IO) {
-        val body = mapOf(
+    private fun hasDirectKey(): Boolean = BuildConfig.LLM_API_KEY.trim().length >= 10
+
+    private suspend fun callGrokForForm(prompt: String): GrokFormResponse {
+        val content = callGrokText(prompt, jsonMode = true)
+            .trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        return gson.fromJson(content, GrokFormResponse::class.java)
+    }
+
+    private suspend fun callGrokText(prompt: String, jsonMode: Boolean = false): String = withContext(Dispatchers.IO) {
+        val body = mutableMapOf<String, Any>(
             "model" to BuildConfig.LLM_MODEL,
             "messages" to listOf(
                 mapOf("role" to "system", "content" to GrokPrompts.SYSTEM),
                 mapOf("role" to "user", "content" to prompt)
             ),
-            "response_format" to mapOf("type" to "json_object"),
             "temperature" to 0.2,
-            "max_tokens" to 800
+            "max_tokens" to 900
         )
-        val response: String = client.post("${BuildConfig.LLM_BASE_URL}/chat/completions") {
-            contentType(ContentType.Application.Json)
-            setBody(gson.toJson(body))
-            headers.append("Authorization", "Bearer ${BuildConfig.LLM_API_KEY}")
-        }.body<String>()
-        response
-    }
+        if (jsonMode) body["response_format"] = mapOf("type" to "json_object")
 
-    private fun parseGrokFormResponse(grokJson: String, fallback: AiAnalysisResult): AiAnalysisResult {
-        return try {
-            val type = object : TypeToken<Map<String, Any>>() {}.type
-            val map: Map<String, Any> = gson.fromJson(grokJson, type)
-            // Extract from Grok JSON (adjust keys to match your prompt output)
-            fallback.copy(
-                species = (map["species"] as? String)?.split(",") ?: fallback.species,
-                serviceType = map["serviceType"] as? String ?: fallback.serviceType,
-                priority = map["priority"] as? String ?: fallback.priority,
-                notes = map["notes"] as? String ?: fallback.notes
-            )
-        } catch (e: Exception) {
-            fallback
-        }
+        val response: String = client.post("${BuildConfig.LLM_BASE_URL.trimEnd('/')}/chat/completions") {
+            contentType(ContentType.Application.Json)
+            headers { append("Authorization", "Bearer ${BuildConfig.LLM_API_KEY.trim()}") }
+            setBody(gson.toJson(body))
+        }.body()
+
+        val envelope = gson.fromJson(response, ChatEnvelope::class.java)
+        envelope.choices.firstOrNull()?.message?.content?.takeIf { it.isNotBlank() }
+            ?: error("Empty Grok response")
     }
 }

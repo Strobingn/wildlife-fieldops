@@ -9,8 +9,7 @@ import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import kotlinx.coroutines.tasks.await
 
-// Heavy AI result for form filling, analysis, measurements
- data class AiAnalysisResult(
+data class AiAnalysisResult(
     val species: List<String> = emptyList(),
     val damageTypes: List<String> = emptyList(),
     val confidence: Float = 0f,
@@ -18,8 +17,16 @@ import kotlinx.coroutines.tasks.await
     val suggestedPriority: String = "MEDIUM",
     val suggestedNotes: String = "",
     val estimatedPriceRange: String = "",
-    val objectDetections: List<String> = emptyList() // for measurement hints
-)
+    val estimatedPriceLow: Double = 0.0,
+    val estimatedPriceHigh: Double = 0.0,
+    val objectDetections: List<String> = emptyList(),
+    val source: String = "offline_ml"
+) {
+    val serviceType: String get() = suggestedServiceType
+    val priority: String get() = suggestedPriority
+    val notes: String get() = suggestedNotes
+    val fromGrok: Boolean get() = source == "grok"
+}
 
 object PhotoAIHelper {
     private val labeler = ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
@@ -34,59 +41,52 @@ object PhotoAIHelper {
     suspend fun analyzePhotoForFormFilling(context: Context, imageUri: Uri): AiAnalysisResult {
         return try {
             val image = InputImage.fromFilePath(context, imageUri)
-            
-            // Species + Damage labeling
             val labels = labeler.process(image).await()
-            val wildlifeLabels = labels.filter { it.confidence > 0.55f }
-                .map { it.text.lowercase() }
-                .filter { it in listOf("raccoon", "bat", "squirrel", "opossum", "snake", "bird", "rodent", "damage", "hole", "entry point", "chew marks", "nesting", "droppings", "scratching") }
-
-            val species = wildlifeLabels.filter { it in listOf("raccoon", "bat", "squirrel", "opossum", "snake", "bird", "rodent") }
-            val damage = wildlifeLabels.filter { it in listOf("damage", "hole", "entry point", "chew marks", "nesting", "droppings", "scratching") }
-
-            // Object detection for measurement hints (size estimation)
+            val knownSpecies = setOf("raccoon", "bat", "squirrel", "opossum", "snake", "bird", "rodent")
+            val knownDamage = setOf("damage", "hole", "entry point", "chew marks", "nesting", "droppings", "scratching")
+            val accepted = labels.filter { it.confidence > 0.55f }.map { it.text.lowercase() }
+            val species = accepted.filter { it in knownSpecies }.distinct()
+            val damage = accepted.filter { it in knownDamage }.distinct()
             val objects = objectDetector.process(image).await()
-            val objectNames = objects.mapNotNull { obj ->
-                obj.labels.firstOrNull()?.text?.lowercase()
-            }.distinct()
+            val objectNames = objects.mapNotNull { it.labels.firstOrNull()?.text?.lowercase() }.distinct()
 
-            // Smart form filling logic (heavy AI)
-            val suggestedService = when {
+            val service = when {
                 species.any { it.contains("bat") } -> "Bat Exclusion & Removal"
                 species.any { it.contains("raccoon") } -> "Raccoon Removal & Exclusion"
                 species.any { it.contains("squirrel") } -> "Squirrel Removal & Exclusion"
                 damage.any { it.contains("entry") || it.contains("hole") } -> "Entry Point Sealing & Repair"
                 else -> "Wildlife Inspection & Removal"
             }
-
             val priority = if (species.isNotEmpty() || damage.isNotEmpty()) "HIGH" else "MEDIUM"
-
+            val confidence = labels.maxOfOrNull { it.confidence } ?: 0f
             val notes = buildString {
                 if (species.isNotEmpty()) append("Species observed: ${species.joinToString()}. ")
                 if (damage.isNotEmpty()) append("Damage noted: ${damage.joinToString()}. ")
-                append("AI confidence: ${(labels.maxOfOrNull { it.confidence } ?: 0f) * 100}%. ")
-                append("Recommend on-site inspection + photos of all entry points.")
+                append("On-device confidence: ${String.format("%.0f", confidence * 100)}%. ")
+                append("Verify on site and photograph all entry points.")
             }
-
-            val priceRange = when {
-                suggestedService.contains("Bat") -> "$450 - $1,200 (exclusion + one-way doors)"
-                suggestedService.contains("Raccoon") -> "$350 - $950 (trapping + exclusion)"
-                suggestedService.contains("Squirrel") -> "$275 - $750 (exclusion + repairs)"
-                else -> "$200 - $600 (inspection + remediation)"
+            val prices = when {
+                service.contains("Bat") -> Triple(450.0, 1200.0, "$450 - $1,200")
+                service.contains("Raccoon") -> Triple(350.0, 950.0, "$350 - $950")
+                service.contains("Squirrel") -> Triple(275.0, 750.0, "$275 - $750")
+                else -> Triple(200.0, 600.0, "$200 - $600")
             }
 
             AiAnalysisResult(
                 species = species,
                 damageTypes = damage,
-                confidence = labels.maxOfOrNull { it.confidence } ?: 0f,
-                suggestedServiceType = suggestedService,
+                confidence = confidence,
+                suggestedServiceType = service,
                 suggestedPriority = priority,
                 suggestedNotes = notes,
-                estimatedPriceRange = priceRange,
-                objectDetections = objectNames
+                estimatedPriceRange = prices.third,
+                estimatedPriceLow = prices.first,
+                estimatedPriceHigh = prices.second,
+                objectDetections = objectNames,
+                source = "offline_ml"
             )
         } catch (e: Exception) {
-            AiAnalysisResult(suggestedNotes = "AI analysis failed: ${e.message}. Manual entry required.")
+            AiAnalysisResult(suggestedNotes = "Photo analysis failed: ${e.message}. Manual entry required.")
         }
     }
 }

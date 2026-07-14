@@ -3,6 +3,8 @@ name: Build Native Android APK (Debug)
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -13,7 +15,6 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
       OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
-      # SpaceXAI (xAI Grok). Prefer secret XAI_API_KEY; LLM_API_KEY still accepted by Gradle.
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: https://api.x.ai/v1
@@ -23,7 +24,7 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Setup Android SDK
@@ -31,55 +32,38 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0 platform-tools extras;google;m2repository'
 
-      - name: Grant execute permission for Gradle wrapper
+      - name: Grant execute permission
         run: chmod +x ./gradlew
 
-      - name: Verify AI secrets (no values printed)
+      - name: Normalize AI configuration
+        shell: bash
         run: |
-          set -e
-          # Prefer XAI; fall back to LLM_API_KEY so either secret name works.
-          if [ -z "${XAI_API_KEY}" ] && [ -n "${LLM_API_KEY}" ]; then
-            export XAI_API_KEY="${LLM_API_KEY}"
-            echo "Using LLM_API_KEY as XAI_API_KEY fallback"
+          set -euo pipefail
+          XAI_API_KEY="$(printf '%s' "${XAI_API_KEY:-}" | tr -d '\r\n' | xargs)"
+          LLM_API_KEY="$(printf '%s' "${LLM_API_KEY:-}" | tr -d '\r\n' | xargs)"
+          if [ -z "$XAI_API_KEY" ] && [ -n "$LLM_API_KEY" ]; then
+            XAI_API_KEY="$LLM_API_KEY"
           fi
-          # Trim whitespace/newlines that break BuildConfig / Bearer tokens
-          if [ -n "${XAI_API_KEY}" ]; then
-            export XAI_API_KEY="$(printf '%s' "$XAI_API_KEY" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          fi
-          if [ -n "${LLM_API_KEY}" ]; then
-            export LLM_API_KEY="$(printf '%s' "$LLM_API_KEY" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          fi
-          echo "XAI_API_KEY length: ${#XAI_API_KEY}"
-          echo "LLM_API_KEY length: ${#LLM_API_KEY}"
-          echo "LLM_BASE_URL: ${LLM_BASE_URL}"
-          echo "LLM_MODEL: ${LLM_MODEL}"
-          if [ "${#XAI_API_KEY}" -lt 10 ] && [ "${#LLM_API_KEY}" -lt 10 ]; then
-            echo "::warning::No usable XAI_API_KEY or LLM_API_KEY secret — AI will be offline in this APK. Add repo secret XAI_API_KEY and rebuild."
-          else
-            echo "AI key present for BuildConfig bake-in."
-          fi
-          # Persist trimmed env for the next step
           echo "XAI_API_KEY=$XAI_API_KEY" >> "$GITHUB_ENV"
           echo "LLM_API_KEY=$LLM_API_KEY" >> "$GITHUB_ENV"
+          echo "AI key characters: ${#XAI_API_KEY}"
+          if [ "${#XAI_API_KEY}" -lt 10 ]; then
+            echo "::warning::No usable xAI key. The APK will use offline ML and the Supabase fallback where configured."
+          fi
+
+      - name: Compile tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        timeout-minutes: 20
 
       - name: Build Debug APK
         run: |
           set -o pipefail
           export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          # Ensure Gradle sees the same vars
-          export XAI_API_KEY="${XAI_API_KEY}"
-          export LLM_API_KEY="${LLM_API_KEY}"
-          export LLM_BASE_URL="${LLM_BASE_URL:-https://api.x.ai/v1}"
-          export LLM_MODEL="${LLM_MODEL:-grok-4.5}"
           ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
         timeout-minutes: 30
 
-      - name: Check for APK and list outputs
-        run: |
-          echo "=== Checking for debug APKs ==="
-          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
-          ls -la app/build/outputs/apk/debug/ || echo "debug dir not found or empty"
-          echo "=== End check ==="
+      - name: Verify APK exists
+        run: test -n "$(find app/build/outputs/apk/debug -name '*.apk' -type f -print -quit)"
 
       - name: Upload Debug APK
         if: success()
@@ -95,8 +79,5 @@ jobs:
         with:
           name: build-logs
           path: build.log
+          if-no-files-found: ignore
           retention-days: 7
-
-      - name: Summary
-        if: success()
-        run: echo "Wildlife Field Ops Debug APK built successfully! Maps + Supabase + SpaceXAI (xAI Grok) via env/secrets."
