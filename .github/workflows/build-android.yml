@@ -25,6 +25,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -37,6 +38,19 @@ jobs:
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
 
+      - name: Verify required source files
+        run: |
+          set -euo pipefail
+          required_files=(
+            "app/src/main/java/com/strobingn/wildlifefieldops/data/local/Converters.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/data/local/AppDatabase.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/data/model/InvoiceLineItem.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/data/model/JobType.kt"
+          )
+          for file in "${required_files[@]}"; do
+            test -s "$file" || { echo "Missing or empty required file: $file"; exit 1; }
+          done
+
       - name: Verify AI secrets (no values printed)
         run: |
           set -e
@@ -48,6 +62,9 @@ jobs:
           echo "LLM_MODEL=${LLM_MODEL}" >> "$GITHUB_ENV"
           echo "XAI_API_KEY length: ${#XAI_API_KEY}"
           echo "LLM_API_KEY length: ${#LLM_API_KEY}"
+
+      - name: Clean generated KSP and build state
+        run: ./gradlew clean --no-daemon --stacktrace
 
       - name: Build Debug APK
         run: |
@@ -67,6 +84,7 @@ jobs:
         with:
           name: wildlife-field-ops-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
           retention-days: 7
 
       - name: Upload build logs
@@ -75,6 +93,7 @@ jobs:
         with:
           name: build-logs
           path: build.log
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Summary
