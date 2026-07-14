@@ -91,18 +91,7 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.12")
 
     // --- Supabase (Backend) ---
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.5.4"))
-    implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:storage-kt")
-
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.google.mlkit:image-labeling:17.0.8")
-    implementation("com.google.mlkit:object-detection:16.1.0")
-    implementation("com.google.ar:core:1.46.0")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("com.google.android.gms:play-services-location:21.1.0")
-    implementation("com.google.maps.android:maps-compose:4.3.0")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
-}
+implementation(platform("io.github.jan.supabase:bom:2.6.1"))
+implementation("io.github.jan.supabase:gotrue-kt")
+implementation("io.github.jan.supabase:postgrest-kt")
+implementation("io.github.jan.supabase:storage-kt")
