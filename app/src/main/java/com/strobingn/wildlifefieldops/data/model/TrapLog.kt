@@ -4,15 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class TrapStatus {
-    SET, TRIGGERED, EMPTY, DISABLED, REMOVED, NEEDS_BAIT
-}
-
-enum class CatchType {
-    NONE, RACCOON, SQUIRREL, SKUNK, OPOSSUM, BAT, BIRD, SNAKE, RODENT, FOX,
-    COYOTE, GROUNDHOG, CHIPMUNK, BEAVER, OTHER
-}
-
 @Entity(tableName = "trap_logs")
 data class TrapLog(
     @PrimaryKey
