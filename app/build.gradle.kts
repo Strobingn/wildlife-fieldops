@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 32
-        versionName = "2.3.2-diagnostics"
+        versionCode = 33
+        versionName = "2.4.0-ai-operations"
 
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
         val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
@@ -96,19 +96,13 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.ktor:ktor-client-android:2.3.12")
 
-    // Google Maps and location
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.2.0")
     implementation("com.google.maps.android:maps-compose:4.3.3")
-
-    // AR measurement support
     implementation("com.google.ar:core:1.45.0")
-
-    // On-device photo analysis
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.mlkit:object-detection:17.0.2")
 
-    // Supabase backend
     implementation("io.github.jan-tennert.supabase:gotrue-kt:2.5.4")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:2.5.4")
     implementation("io.github.jan-tennert.supabase:storage-kt:2.5.4")
