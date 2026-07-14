@@ -4,14 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class InspectionType {
-    INITIAL, ROUTINE, FOLLOW_UP, EMERGENCY, PREVENTIVE, COMPLIANCE
-}
-
-enum class FindingSeverity {
-    NONE, LOW, MODERATE, HIGH, CRITICAL
-}
-
 @Entity(tableName = "inspections")
 data class Inspection(
     @PrimaryKey
