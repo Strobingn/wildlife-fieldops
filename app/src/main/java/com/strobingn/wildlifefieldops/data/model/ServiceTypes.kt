@@ -33,7 +33,7 @@ object DefaultServiceTypes {
     )
 
     fun normalize(label: String): String =
-        label.trim().replace(Regex("\s+"), " ")
+        label.trim().replace(Regex("\\s+"), " ")
 
     fun display(label: String): String =
         normalize(label).ifBlank { "Inspection" }
