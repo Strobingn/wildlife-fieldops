@@ -2,8 +2,6 @@ package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
-import com.google.gson.JsonParser
-import com.google.gson.reflect.TypeToken
 import com.strobingn.wildlifefieldops.data.model.CatchType
 import com.strobingn.wildlifefieldops.data.model.CustomerType
 import com.strobingn.wildlifefieldops.data.model.ExpenseCategory
@@ -102,19 +100,10 @@ class Converters {
     @TypeConverter
     fun fromStringList(value: List<String>): String = gson.toJson(value)
     @TypeConverter
-    fun toStringList(value: String): List<String> {
-        return try {
-            val array = JsonParser.parseString(value).asJsonArray
-            array.map { it.asString }
-        } catch (_: Exception) { emptyList() }
-    }
+    fun toStringList(value: String): List<String> = try { gson.fromJson(value, Array<String>::class.java).toList() } catch (_: Exception) { emptyList() }
 
     @TypeConverter
     fun fromInvoiceLineItemList(value: List<InvoiceLineItem>): String = gson.toJson(value)
     @TypeConverter
-    fun toInvoiceLineItemList(value: String): List<InvoiceLineItem> {
-        return try {
-            gson.fromJson(value, Array<InvoiceLineItem>::class.java).toList()
-        } catch (_: Exception) { emptyList() }
-    }
+    fun toInvoiceLineItemList(value: String): List<InvoiceLineItem> = try { gson.fromJson(value, Array<InvoiceLineItem>::class.java).toList() } catch (_: Exception) { emptyList() }
 }
