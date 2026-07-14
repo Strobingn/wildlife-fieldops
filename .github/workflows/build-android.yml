@@ -13,7 +13,6 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
       OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
-      # SpaceXAI (xAI Grok). Prefer secret XAI_API_KEY; LLM_API_KEY still accepted by Gradle.
       XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: https://api.x.ai/v1
@@ -29,7 +28,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platforms;android-35 build-tools;35.0.0 platform-tools extras;google;m2repository'
+          packages: |
+            platforms;android-35
+            build-tools;35.0.0
+            platform-tools
+            extras;google;m2repository
+            extras;google;google_play_services
+            system-images;android-35;google_apis;x86_64
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
@@ -37,12 +42,10 @@ jobs:
       - name: Verify AI secrets (no values printed)
         run: |
           set -e
-          # Prefer XAI; fall back to LLM_API_KEY so either secret name works.
           if [ -z "${XAI_API_KEY}" ] && [ -n "${LLM_API_KEY}" ]; then
             export XAI_API_KEY="${LLM_API_KEY}"
             echo "Using LLM_API_KEY as XAI_API_KEY fallback"
           fi
-          # Trim whitespace/newlines that break BuildConfig / Bearer tokens
           if [ -n "${XAI_API_KEY}" ]; then
             export XAI_API_KEY="$(printf '%s' "$XAI_API_KEY" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
           fi
@@ -51,28 +54,21 @@ jobs:
           fi
           echo "XAI_API_KEY length: ${#XAI_API_KEY}"
           echo "LLM_API_KEY length: ${#LLM_API_KEY}"
-          echo "LLM_BASE_URL: ${LLM_BASE_URL}"
-          echo "LLM_MODEL: ${LLM_MODEL}"
           if [ "${#XAI_API_KEY}" -lt 10 ] && [ "${#LLM_API_KEY}" -lt 10 ]; then
-            echo "::warning::No usable XAI_API_KEY or LLM_API_KEY secret — AI will be offline in this APK. Add repo secret XAI_API_KEY and rebuild."
+            echo "::warning::No usable XAI_API_KEY or LLM_API_KEY secret — AI will be offline in this APK."
           else
             echo "AI key present for BuildConfig bake-in."
           fi
-          # Persist trimmed env for the next step
           echo "XAI_API_KEY=$XAI_API_KEY" >> "$GITHUB_ENV"
           echo "LLM_API_KEY=$LLM_API_KEY" >> "$GITHUB_ENV"
 
       - name: Build Debug APK
         run: |
           set -o pipefail
-          export GRADLE_OPTS="-Xmx6g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
-          # Ensure Gradle sees the same vars
-          export XAI_API_KEY="${XAI_API_KEY}"
-          export LLM_API_KEY="${LLM_API_KEY}"
-          export LLM_BASE_URL="${LLM_BASE_URL:-https://api.x.ai/v1}"
-          export LLM_MODEL="${LLM_MODEL:-grok-4.5}"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace -x test 2>&1 | tee build.log
-        timeout-minutes: 30
+          export GRADLE_OPTS="-Xmx8g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -Dorg.gradle.daemon=false"
+          export JAVA_OPTS="-Xmx8g"
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
+        timeout-minutes: 45
 
       - name: Check for APK and list outputs
         run: |
