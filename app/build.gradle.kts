@@ -108,6 +108,12 @@ dependencies {
     // --- Ktor (HTTP Client) ---
     implementation("io.ktor:ktor-client-android:2.3.12")
 
+    // --- Supabase (Backend) ---
+    implementation(platform("io.github.jan-derogee.supabase:bom:2.6.1"))
+    implementation("io.github.jan-derogee.supabase:gotrue-kt")
+    implementation("io.github.jan-derogee.supabase:postgrest-kt")
+    implementation("io.github.jan-derogee.supabase:storage-kt")
+
     // --- Gson (JSON) ---
     implementation("com.google.code.gson:gson:2.10.1")
 
