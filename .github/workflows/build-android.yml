@@ -17,12 +17,13 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: https://api.x.ai/v1
       LLM_MODEL: grok-4.5
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
       - name: Setup Android SDK
@@ -42,39 +43,25 @@ jobs:
         run: |
           set -e
           if [ -z "${XAI_API_KEY}" ] && [ -n "${LLM_API_KEY}" ]; then
-            export XAI_API_KEY="${LLM_API_KEY}"
-            echo "Using LLM_API_KEY as XAI_API_KEY fallback"
+            echo "Using LLM_API_KEY fallback"
+            echo "XAI_API_KEY=${LLM_API_KEY}" >> "$GITHUB_ENV"
           fi
-          if [ -n "${XAI_API_KEY}" ]; then
-            export XAI_API_KEY="$(printf '%s' "$XAI_API_KEY" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          fi
-          if [ -n "${LLM_API_KEY}" ]; then
-            export LLM_API_KEY="$(printf '%s' "$LLM_API_KEY" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          fi
+          echo "LLM_BASE_URL=${LLM_BASE_URL}" >> "$GITHUB_ENV"
+          echo "LLM_MODEL=${LLM_MODEL}" >> "$GITHUB_ENV"
           echo "XAI_API_KEY length: ${#XAI_API_KEY}"
           echo "LLM_API_KEY length: ${#LLM_API_KEY}"
-          if [ "${#XAI_API_KEY}" -lt 10 ] && [ "${#LLM_API_KEY}" -lt 10 ]; then
-            echo "::warning::No usable XAI_API_KEY or LLM_API_KEY secret — AI will be offline in this APK."
-          else
-            echo "AI key present for BuildConfig bake-in."
-          fi
-          echo "XAI_API_KEY=$XAI_API_KEY" >> "$GITHUB_ENV"
-          echo "LLM_API_KEY=$LLM_API_KEY" >> "$GITHUB_ENV"
 
       - name: Build Debug APK
         run: |
           set -o pipefail
-          export GRADLE_OPTS="-Xmx8g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -Dorg.gradle.daemon=false"
-          export JAVA_OPTS="-Xmx8g"
+          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
+          export JAVA_OPTS="-Xmx4g"
           ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
         timeout-minutes: 45
 
       - name: Check for APK and list outputs
         run: |
-          echo "=== Checking for debug APKs ==="
-          find app/build/outputs -name "*.apk" -type f || echo "No APK files found"
-          ls -la app/build/outputs/apk/debug/ || echo "debug dir not found or empty"
-          echo "=== End check ==="
+          find app/build/outputs -name "*.apk" -type f || echo "No APK found"
 
       - name: Upload Debug APK
         if: success()
@@ -94,4 +81,4 @@ jobs:
 
       - name: Summary
         if: success()
-        run: echo "Wildlife Field Ops Debug APK built successfully! Maps + Supabase + SpaceXAI (xAI Grok) via env/secrets."
+        run: echo "Wildlife Field Ops Debug APK built successfully."
