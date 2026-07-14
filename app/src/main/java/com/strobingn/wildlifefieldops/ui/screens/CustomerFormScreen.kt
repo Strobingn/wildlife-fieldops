@@ -1,6 +1,5 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,6 +10,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -98,11 +98,12 @@ fun CustomerFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = firstName,
                     onValueChange = { firstName = it },
@@ -129,42 +130,39 @@ fun CustomerFormScreen(
                 value = companyName,
                 onValueChange = { companyName = it },
                 label = { Text("Company Name") },
-                leadingIcon = { Icon(Icons.Default.Business, contentDescription = null, tint = TextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Business, null, tint = TextSecondary) },
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
-
             OutlinedTextField(
                 value = phone,
                 onValueChange = { phone = it },
                 label = { Text("Phone") },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = TextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Phone, null, tint = TextSecondary) },
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
-
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = TextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Email, null, tint = TextSecondary) },
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
-
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it },
                 label = { Text("Address") },
-                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = TextSecondary) },
+                leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = TextSecondary) },
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
@@ -172,7 +170,7 @@ fun CustomerFormScreen(
                 singleLine = true
             )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = city,
                     onValueChange = { city = it },
@@ -212,7 +210,7 @@ fun CustomerFormScreen(
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Customer Type") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showTypeDropdown) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(showTypeDropdown) },
                     colors = fieldColors,
                     modifier = Modifier.menuAnchor().fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -234,9 +232,7 @@ fun CustomerFormScreen(
                 }
             }
 
-            // Billing section
             Text("Billing Information", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-
             OutlinedTextField(
                 value = billingAddress,
                 onValueChange = { billingAddress = it },
@@ -246,7 +242,15 @@ fun CustomerFormScreen(
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
-
+            OutlinedTextField(
+                value = billingContact,
+                onValueChange = { billingContact = it },
+                label = { Text("Billing Contact") },
+                colors = fieldColors,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
             OutlinedTextField(
                 value = paymentTerms,
                 onValueChange = { paymentTerms = it },
@@ -256,20 +260,15 @@ fun CustomerFormScreen(
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
-
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
                 label = { Text("Notes") },
                 colors = fieldColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
+                modifier = Modifier.fillMaxWidth().height(100.dp),
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 4
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
@@ -319,11 +318,10 @@ fun CustomerFormScreen(
                 enabled = firstName.isNotBlank() && lastName.isNotBlank()
             ) {
                 Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(if (isEditing) "Update Customer" else "Create Customer", fontWeight = FontWeight.Bold)
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
