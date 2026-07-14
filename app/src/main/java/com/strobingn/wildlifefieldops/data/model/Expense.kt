@@ -4,15 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class ExpenseCategory {
-    FUEL, MATERIALS, TOOLS, PERMITS, LODGING, MEALS, VEHICLE, INSURANCE,
-    MARKETING, OFFICE, SUBCONTRACTOR, EQUIPMENT, OTHER
-}
-
-enum class ExpenseStatus {
-    PENDING, APPROVED, REIMBURSED, DECLINED
-}
-
 @Entity(tableName = "expenses")
 data class Expense(
     @PrimaryKey
