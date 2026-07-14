@@ -4,14 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class JobStatus {
-    PENDING, IN_PROGRESS, COMPLETED, CANCELLED, INVOICED, PAID
-}
-
-enum class JobPriority {
-    LOW, MEDIUM, HIGH, URGENT
-}
-
 @Entity(tableName = "jobs")
 data class Job(
     @PrimaryKey
