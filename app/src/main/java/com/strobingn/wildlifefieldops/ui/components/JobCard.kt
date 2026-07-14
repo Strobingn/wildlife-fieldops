@@ -111,6 +111,8 @@ private fun JobStatusBadge(status: JobStatus) {
         JobStatus.IN_PROGRESS -> AccentBlue to "Active"
         JobStatus.COMPLETED -> SuccessGreen to "Done"
         JobStatus.CANCELLED -> TextTertiary to "Cancelled"
+        JobStatus.INVOICED -> AccentPurple to "Invoiced"
+        JobStatus.PAID -> PrimaryGreen to "Paid"
     }
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(8.dp),

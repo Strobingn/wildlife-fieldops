@@ -25,7 +25,17 @@ android {
         buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
         buildConfigField("String", "LLM_MODEL", "\"$llmModel\"")
 
+        val supabaseUrl = System.getenv("SUPABASE_URL") ?: ""
+        val supabaseKey = System.getenv("SUPABASE_ANON_KEY") ?: ""
+        val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
         val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
+        buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
+        buildConfigField("int", "LLM_KEY_LENGTH", "${llmKey.length}")
+
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
     }
 
