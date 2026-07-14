@@ -4,10 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class InvoiceStatus {
-    DRAFT, SENT, VIEWED, PAID, OVERDUE, CANCELLED
-}
-
 @Entity(tableName = "invoices")
 data class Invoice(
     @PrimaryKey
@@ -39,7 +35,6 @@ data class Invoice(
     val isSynced: Boolean = false
 )
 
-data class InvoiceLineItem(
     val id: String = UUID.randomUUID().toString(),
     val description: String = "",
     val quantity: Double = 1.0,
