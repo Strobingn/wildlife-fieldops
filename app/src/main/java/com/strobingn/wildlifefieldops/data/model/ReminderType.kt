@@ -1,0 +1,6 @@
+package com.strobingn.wildlifefieldops.data.model
+
+enum class ReminderType {
+    FOLLOW_UP, INSPECTION_DUE, PAYMENT_DUE, WARRANTY_EXPIRING, PERMIT_EXPIRING,
+    SCHEDULE_MAINTENANCE, CUSTOMER_CALLBACK, EQUIPMENT_SERVICE, OTHER
+}
