@@ -3,6 +3,7 @@ package com.strobingn.wildlifefieldops.ui.screens
 // Heavy AI focused JobFormScreen with Grok hybrid + ML Kit + AR
 // imePadding fixed, keyboard never blocks fields
 
+ import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.strobingn.wildlifefieldops.ai.AiAnalysisResult
 import com.strobingn.wildlifefieldops.ai.HybridAIService
 import com.strobingn.wildlifefieldops.ai.PhotoAIHelper
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
@@ -52,21 +54,21 @@ fun JobFormScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("HEAVY AI - Grok + ML Kit", style = MaterialTheme.typography.titleMedium)
+                    Text("HEAVY AI - Grok + ML Kit (Hudson Valley Wildlife Ops)", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
 
                     Button(
                         onClick = {
                             scope.launch {
                                 isLoadingAI = true
-                                // TODO: wire real photo picker + uri
-                                // For now demo with placeholder
-                                val demoResult = HybridAIService.analyzePhotoAndFillForm(context, Uri.parse("content://demo"), "Hudson River area")
+                                // Demo with placeholder URI - replace with real photo picker in next iteration
+                                val demoUri = Uri.parse("content://demo")
+                                val demoResult = HybridAIService.analyzePhotoAndFillForm(context, demoUri, "Hudson River / Newburgh area")
                                 species = demoResult.species.joinToString()
-                                serviceType = demoResult.serviceType
-                                priority = demoResult.priority
-                                notes = demoResult.notes
-                                aiResultText = "AI filled: ${demoResult.species} | ${demoResult.serviceType}"
+                                serviceType = demoResult.suggestedServiceType
+                                priority = demoResult.suggestedPriority
+                                notes = demoResult.suggestedNotes
+                                aiResultText = "AI filled: ${demoResult.species} | ${demoResult.suggestedServiceType} | Priority: ${demoResult.suggestedPriority}"
                                 isLoadingAI = false
                             }
                         },
@@ -76,14 +78,14 @@ fun JobFormScreen(
                     }
 
                     Button(
-                        onClick = { /* Wire ARMeasurementHelper here */ },
+                        onClick = { /* TODO: Wire real ARMeasurementHelper.launchARSession() */ },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("AR MEASURE DAMAGE / ENTRY POINT") }
 
                     Button(
                         onClick = {
                             scope.launch {
-                                val estimate = HybridAIService.generateTieredEstimate(context, /* current analysis */ AiAnalysisResult(), "current job")
+                                val estimate = HybridAIService.generateTieredEstimate(context, AiAnalysisResult(), "current job context")
                                 aiResultText = estimate
                             }
                         },
@@ -112,7 +114,7 @@ fun JobFormScreen(
             OutlinedTextField(value = priority, onValueChange = { priority = it }, label = { Text("Priority") }, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Notes (AI + Voice)") }, modifier = Modifier.fillMaxWidth().height(120.dp), maxLines = 5)
 
-            Button(onClick = { /* save logic */ onNavigateBack() }, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = { /* save logic using viewModel */ onNavigateBack() }, modifier = Modifier.fillMaxWidth()) {
                 Text("SAVE JOB")
             }
         }
