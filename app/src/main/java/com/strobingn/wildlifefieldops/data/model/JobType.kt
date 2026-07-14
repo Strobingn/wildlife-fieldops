@@ -37,9 +37,11 @@ enum class JobType {
 
     companion object {
         fun fromLabel(label: String): JobType {
-            val n = label.trim().replace(Regex("\s+"), " ")
-            return entries.firstOrNull { it.label.equals(n, ignoreCase = true) || it.name.equals(n, ignoreCase = true) }
-                ?: OTHER
+            val normalized = label.trim().replace(Regex("\\s+"), " ")
+            return entries.firstOrNull {
+                it.label.equals(normalized, ignoreCase = true) ||
+                    it.name.equals(normalized, ignoreCase = true)
+            } ?: OTHER
         }
     }
 }
