@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 15
-        versionName = "2.2.0-heavy-ai"
+        versionCode = 32
+        versionName = "2.3.2-diagnostics"
 
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
         val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
