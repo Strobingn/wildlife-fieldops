@@ -91,7 +91,7 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.12")
 
     // --- Supabase (Backend) ---
-implementation(platform("io.github.jan.supabase:bom:2.6.1"))
-implementation("io.github.jan.supabase:gotrue-kt")
-implementation("io.github.jan.supabase:postgrest-kt")
-implementation("io.github.jan.supabase:storage-kt")
+    implementation("io.github.jan.supabase:supabase-kt:2.5.4")
+    implementation("io.github.jan.supabase:gotrue-kt:2.5.4")
+    implementation("io.github.jan.supabase:postgrest-kt:2.5.4")
+    implementation("io.github.jan.supabase:storage-kt:2.5.4")
