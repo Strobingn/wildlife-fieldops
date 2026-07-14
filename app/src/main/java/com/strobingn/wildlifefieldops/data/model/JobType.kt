@@ -34,3 +34,12 @@ enum class JobType {
             FOLLOW_UP -> "Follow-Up Visit"
             OTHER -> "Other"
         }
+
+    companion object {
+        fun fromLabel(label: String): JobType {
+            val n = label.trim().replace(Regex("\s+"), " ")
+            return entries.firstOrNull { it.label.equals(n, ignoreCase = true) || it.name.equals(n, ignoreCase = true) }
+                ?: OTHER
+        }
+    }
+}
