@@ -3,7 +3,8 @@ package com.strobingn.wildlifefieldops.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strobingn.wildlifefieldops.data.local.JobDao
-import com.strobingn.wildlifefieldops.data.model.Job
+import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,7 +16,7 @@ data class MapProperty(
     val address: String,
     val latitude: Double,
     val longitude: Double,
-    val status: com.strobingn.wildlifefieldops.data.model.JobStatus,
+    val status: JobStatus,
     val type: String
 )
 
@@ -27,10 +28,13 @@ class MapViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    private val _selectedStatus = MutableStateFlow<JobStatus?>(null)
+    val selectedStatus = _selectedStatus.asStateFlow()
+
     private val _isDrawingBoundary = MutableStateFlow(false)
     val isDrawingBoundary = _isDrawingBoundary.asStateFlow()
 
-    private val _boundaryPoints = MutableStateFlow<List<com.google.android.gms.maps.model.LatLng>>(emptyList())
+    private val _boundaryPoints = MutableStateFlow<List<LatLng>>(emptyList())
     val boundaryPoints = _boundaryPoints.asStateFlow()
 
     val properties: StateFlow<List<MapProperty>> = jobDao.getAll()
@@ -47,18 +51,30 @@ class MapViewModel @Inject constructor(
                         type = job.type
                     )
                 }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val filteredProperties = combine(properties, _searchQuery) { props, query ->
-        if (query.isBlank()) props
-        else props.filter {
-            it.name.contains(query, ignoreCase = true) ||
-            it.address.contains(query, ignoreCase = true)
+    val missingCoordinateCount: StateFlow<Int> = jobDao.getAll()
+        .map { jobs -> jobs.count { it.latitude == null || it.longitude == null } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val filteredProperties = combine(properties, _searchQuery, _selectedStatus) { props, query, status ->
+        props.filter { property ->
+            val matchesQuery = query.isBlank() ||
+                property.name.contains(query, ignoreCase = true) ||
+                property.address.contains(query, ignoreCase = true) ||
+                property.type.contains(query, ignoreCase = true)
+            val matchesStatus = status == null || property.status == status
+            matchesQuery && matchesStatus
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+    }
+
+    fun setStatusFilter(status: JobStatus?) {
+        _selectedStatus.value = status
     }
 
     fun toggleDrawingMode() {
@@ -68,7 +84,7 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    fun addBoundaryPoint(point: com.google.android.gms.maps.model.LatLng) {
+    fun addBoundaryPoint(point: LatLng) {
         if (_isDrawingBoundary.value) {
             _boundaryPoints.value = _boundaryPoints.value + point
         }
