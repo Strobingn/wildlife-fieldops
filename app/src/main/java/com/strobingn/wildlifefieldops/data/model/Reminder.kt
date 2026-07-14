@@ -4,19 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class ReminderType {
-    FOLLOW_UP, INSPECTION_DUE, PAYMENT_DUE, WARRANTY_EXPIRING, PERMIT_EXPIRING,
-    SCHEDULE_MAINTENANCE, CUSTOMER_CALLBACK, EQUIPMENT_SERVICE, OTHER
-}
-
-enum class ReminderPriority {
-    LOW, MEDIUM, HIGH, URGENT
-}
-
-enum class ReminderStatus {
-    PENDING, COMPLETED, SNOOZED, DISMISSED, OVERDUE
-}
-
 @Entity(tableName = "reminders")
 data class Reminder(
     @PrimaryKey
