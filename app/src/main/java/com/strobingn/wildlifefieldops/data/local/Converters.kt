@@ -2,6 +2,7 @@ package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
+import com.google.gson.JsonParser
 import com.google.gson.reflect.TypeToken
 import com.strobingn.wildlifefieldops.data.model.CatchType
 import com.strobingn.wildlifefieldops.data.model.CustomerType
@@ -25,19 +26,16 @@ class Converters {
 
     @TypeConverter
     fun fromJobStatus(value: JobStatus): String = value.name
-
     @TypeConverter
     fun toJobStatus(value: String): JobStatus = try { JobStatus.valueOf(value) } catch (_: Exception) { JobStatus.PENDING }
 
     @TypeConverter
     fun fromJobPriority(value: JobPriority): String = value.name
-
     @TypeConverter
     fun toJobPriority(value: String): JobPriority = try { JobPriority.valueOf(value) } catch (_: Exception) { JobPriority.MEDIUM }
 
     @TypeConverter
     fun fromJobType(value: JobType): String = value.name
-
     @TypeConverter
     fun toJobType(value: String): JobType = try { JobType.valueOf(value) } catch (_: IllegalArgumentException) { JobType.fromLabel(value) }
 
@@ -104,10 +102,19 @@ class Converters {
     @TypeConverter
     fun fromStringList(value: List<String>): String = gson.toJson(value)
     @TypeConverter
-    fun toStringList(value: String): List<String> = gson.fromJson(value, object : TypeToken<List<String>>() {}.type) ?: emptyList()
+    fun toStringList(value: String): List<String> {
+        return try {
+            val array = JsonParser.parseString(value).asJsonArray
+            array.map { it.asString }
+        } catch (_: Exception) { emptyList() }
+    }
 
     @TypeConverter
     fun fromInvoiceLineItemList(value: List<InvoiceLineItem>): String = gson.toJson(value)
     @TypeConverter
-    fun toInvoiceLineItemList(value: String): List<InvoiceLineItem> = gson.fromJson(value, object : TypeToken<List<InvoiceLineItem>>() {}.type) ?: emptyList()
+    fun toInvoiceLineItemList(value: String): List<InvoiceLineItem> {
+        return try {
+            gson.fromJson(value, Array<InvoiceLineItem>::class.java).toList()
+        } catch (_: Exception) { emptyList() }
+    }
 }
