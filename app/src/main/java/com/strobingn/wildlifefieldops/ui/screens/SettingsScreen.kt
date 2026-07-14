@@ -24,14 +24,18 @@ fun SettingsScreen(
     onBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val scrollState = rememberScrollState()
+    var showDiagnostics by remember { mutableStateOf(false) }
+    if (showDiagnostics) {
+        DiagnosticsScreen(onBack = { showDiagnostics = false })
+        return
+    }
+
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncMessage by viewModel.syncMessage.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
     val autoSync by viewModel.autoSync.collectAsState(initial = true)
     val offlineMode by viewModel.offlineMode.collectAsState(initial = false)
     val highAccuracyGps by viewModel.highAccuracyGps.collectAsState(initial = true)
-
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(syncMessage) {
@@ -60,102 +64,55 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(scrollState)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SettingSection(title = "Connection") {
+            SettingSection("Connection") {
+                SettingItem(Icons.Default.Cloud, "Service Status", connectionStatus, showChevron = false)
                 SettingItem(
-                    icon = Icons.Default.Cloud,
-                    title = "Service Status",
-                    subtitle = connectionStatus,
-                    showChevron = false
-                )
-                SettingItem(
-                    icon = Icons.Default.CloudSync,
-                    title = if (isSyncing) "Syncing…" else "Sync Now",
-                    subtitle = if (offlineMode) "Offline mode is enabled" else "Push and pull Supabase data",
+                    Icons.Default.CloudSync,
+                    if (isSyncing) "Syncing…" else "Sync Now",
+                    if (offlineMode) "Offline mode is enabled" else "Push and pull Supabase data",
                     enabled = !isSyncing,
-                    onClick = { viewModel.triggerManualSync() }
+                    onClick = viewModel::triggerManualSync
                 )
-                SettingSwitch(
-                    icon = Icons.Default.Sync,
-                    title = "Automatic Sync",
-                    subtitle = "Keep local and cloud records synchronized",
-                    checked = autoSync,
-                    onCheckedChange = viewModel::setAutoSync
-                )
-                SettingSwitch(
-                    icon = Icons.Default.CloudOff,
-                    title = "Offline Mode",
-                    subtitle = "Disable cloud requests",
-                    checked = offlineMode,
-                    onCheckedChange = viewModel::setOfflineMode
+                SettingSwitch(Icons.Default.Sync, "Automatic Sync", "Keep local and cloud records synchronized", autoSync, viewModel::setAutoSync)
+                SettingSwitch(Icons.Default.CloudOff, "Offline Mode", "Disable cloud requests", offlineMode, viewModel::setOfflineMode)
+            }
+
+            SettingSection("Location") {
+                SettingSwitch(Icons.Default.MyLocation, "High Accuracy GPS", "Use precise location for field work", highAccuracyGps, viewModel::setHighAccuracyGps)
+            }
+
+            SettingSection("Diagnostics") {
+                SettingItem(
+                    Icons.Default.BugReport,
+                    "Developer Diagnostics",
+                    "Test configuration, network, device and full cloud sync",
+                    onClick = { showDiagnostics = true }
                 )
             }
 
-            SettingSection(title = "Location") {
-                SettingSwitch(
-                    icon = Icons.Default.MyLocation,
-                    title = "High Accuracy GPS",
-                    subtitle = "Use precise location for field work",
-                    checked = highAccuracyGps,
-                    onCheckedChange = viewModel::setHighAccuracyGps
-                )
+            SettingSection("Data") {
+                SettingItem(Icons.Default.UploadFile, "Export Data", "Export available job and invoice documents", onClick = viewModel::exportData)
+                SettingItem(Icons.Default.Download, "Import Data", "Pull records from Supabase", onClick = viewModel::importData)
             }
 
-            SettingSection(title = "Data") {
-                SettingItem(
-                    icon = Icons.Default.UploadFile,
-                    title = "Export Data",
-                    subtitle = "Export available job and invoice documents",
-                    onClick = { viewModel.exportData() }
-                )
-                SettingItem(
-                    icon = Icons.Default.Download,
-                    title = "Import Data",
-                    subtitle = "Pull records from Supabase",
-                    onClick = { viewModel.importData() }
-                )
-            }
-
-            SettingSection(title = "App Info") {
-                SettingItem(
-                    icon = Icons.Default.Info,
-                    title = "Wildlife FieldOps",
-                    subtitle = "Version ${BuildConfig.VERSION_NAME}",
-                    showChevron = false
-                )
-                SettingItem(
-                    icon = Icons.Default.Storage,
-                    title = "Local Database",
-                    subtitle = "Room (SQLite)",
-                    showChevron = false
-                )
+            SettingSection("App Info") {
+                SettingItem(Icons.Default.Info, "Wildlife FieldOps", "Version ${BuildConfig.VERSION_NAME}", showChevron = false)
+                SettingItem(Icons.Default.Storage, "Local Database", "Room (SQLite)", showChevron = false)
             }
         }
     }
 }
 
 @Composable
-private fun SettingSection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
-) {
+private fun SettingSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = TextSecondary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Card(
-            colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                content()
-            }
+        Text(title, style = MaterialTheme.typography.titleSmall, color = TextSecondary, modifier = Modifier.padding(bottom = 8.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = BackgroundCard), shape = RoundedCornerShape(12.dp)) {
+            Column(modifier = Modifier.padding(vertical = 4.dp)) { content() }
         }
     }
 }
@@ -169,49 +126,20 @@ private fun SettingItem(
     showChevron: Boolean = true,
     onClick: (() -> Unit)? = null
 ) {
-    val clickModifier = if (onClick != null) {
-        Modifier.clickable(enabled = enabled, onClick = onClick)
-    } else {
-        Modifier
-    }
-
+    val clickModifier = if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(clickModifier)
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().then(clickModifier).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (enabled) PrimaryGreen else TextTertiary,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) TextPrimary else TextTertiary
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
+        Icon(icon, null, tint = if (enabled) PrimaryGreen else TextTertiary, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, color = if (enabled) TextPrimary else TextTertiary)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
         if (showChevron && onClick != null) {
-            if (title == "Syncing…") {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(
-                    Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = TextTertiary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            if (title == "Syncing…") CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            else Icon(Icons.Default.ChevronRight, null, tint = TextTertiary, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -225,20 +153,12 @@ private fun SettingSwitch(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = PrimaryGreen,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Icon(icon, null, tint = PrimaryGreen, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
