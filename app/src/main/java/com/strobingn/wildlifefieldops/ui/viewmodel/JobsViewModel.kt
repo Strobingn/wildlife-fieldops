@@ -92,7 +92,7 @@ class JobsViewModel @Inject constructor(
         type: String,
         priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
         estimatedValue: Double,
-        actualCost: Double,
+        actualCost: Double? = null,
         notes: String,
         scheduledDate: Long? = null
     ) = viewModelScope.launch {
@@ -107,7 +107,7 @@ class JobsViewModel @Inject constructor(
                 type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
                 priority = priority,
                 estimatedValue = estimatedValue,
-                actualCost = actualCost,
+                actualCost = actualCost ?: existing.actualCost,
                 notes = notes,
                 scheduledDate = scheduledDate ?: existing.scheduledDate,
                 updatedAt = System.currentTimeMillis(),
