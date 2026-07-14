@@ -4,10 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class CustomerType {
-    RESIDENTIAL, COMMERCIAL, INDUSTRIAL, GOVERNMENT, AGRICULTURAL
-}
-
 @Entity(tableName = "customers")
 data class Customer(
     @PrimaryKey
