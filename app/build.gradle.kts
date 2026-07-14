@@ -24,6 +24,9 @@ android {
         buildConfigField("String", "LLM_API_KEY", "\"${llmKey.replace("\"", "\\\"")}\"")
         buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
         buildConfigField("String", "LLM_MODEL", "\"$llmModel\"")
+
+        val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
     }
 
     buildFeatures {
