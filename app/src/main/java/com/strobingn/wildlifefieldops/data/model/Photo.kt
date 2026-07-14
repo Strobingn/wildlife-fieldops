@@ -4,10 +4,6 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-enum class PhotoCategory {
-    INSPECTION, JOB_SITE, DAMAGE, REPAIR, WILDLIFE, EVIDENCE, BEFORE, AFTER, DOCUMENT, SIGNATURE
-}
-
 @Entity(tableName = "photos")
 data class Photo(
     @PrimaryKey
