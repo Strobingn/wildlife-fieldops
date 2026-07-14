@@ -33,7 +33,7 @@ class JobsViewModel @Inject constructor(
             else -> jobDao.getAll()
         }
     }.onEach { _isLoading.value = false }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingCount = jobDao.getByStatus(JobStatus.PENDING)
         .map { it.size }
@@ -61,7 +61,6 @@ class JobsViewModel @Inject constructor(
 
     fun getJobById(id: String): Flow<Job?> {
         if (id.isBlank() || id == "new") return flowOf(null)
-        // Live observation so detail/edit screens stay in sync after saves.
         return jobDao.observeById(id)
     }
 
@@ -75,7 +74,6 @@ class JobsViewModel @Inject constructor(
     }
 
     fun updateJob(job: Job) = viewModelScope.launch {
-        // REPLACE insert so edits always persist even if row shape drifted.
         jobDao.insert(
             job.copy(
                 updatedAt = System.currentTimeMillis(),
@@ -84,10 +82,6 @@ class JobsViewModel @Inject constructor(
         )
     }
 
-    /**
-     * Patch editable fields on an existing job while preserving status, photos,
-     * costs, schedule, and other system-owned data.
-     */
     fun updateJobDetails(
         jobId: String,
         title: String,
@@ -98,6 +92,7 @@ class JobsViewModel @Inject constructor(
         type: String,
         priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
         estimatedValue: Double,
+        actualCost: Double,
         notes: String,
         scheduledDate: Long? = null
     ) = viewModelScope.launch {
@@ -112,6 +107,7 @@ class JobsViewModel @Inject constructor(
                 type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
                 priority = priority,
                 estimatedValue = estimatedValue,
+                actualCost = actualCost,
                 notes = notes,
                 scheduledDate = scheduledDate ?: existing.scheduledDate,
                 updatedAt = System.currentTimeMillis(),
