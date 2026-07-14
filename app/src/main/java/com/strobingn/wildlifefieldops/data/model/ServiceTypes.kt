@@ -33,22 +33,8 @@ object DefaultServiceTypes {
     )
 
     fun normalize(label: String): String =
-        label.trim().replace(Regex("\\s+"), " ")
+        label.trim().replace(Regex("\s+"), " ")
 
     fun display(label: String): String =
         normalize(label).ifBlank { "Inspection" }
-}
-
-/**
- * Legacy enum kept for Room converters / older rows.
- * New code should prefer free-form service type strings via [DefaultServiceTypes].
- */
-
-    companion object {
-        fun fromLabel(label: String): JobType {
-            val n = DefaultServiceTypes.normalize(label)
-            return entries.firstOrNull { it.label.equals(n, ignoreCase = true) || it.name.equals(n, ignoreCase = true) }
-                ?: OTHER
-        }
-    }
 }
