@@ -34,7 +34,6 @@ jobs:
             platform-tools
             extras;google;m2repository
             extras;google;google_play_services
-            system-images;android-35;google_apis;x86_64
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
