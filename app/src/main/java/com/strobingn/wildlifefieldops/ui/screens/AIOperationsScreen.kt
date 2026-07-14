@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.strobingn.wildlifefieldops.ai.operations.AIOperationsEngine
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.AIOperationsViewModel
 import java.util.Locale
@@ -73,15 +72,18 @@ fun AIOperationsScreen(
                     Text("${item.visitCount} visits · Repeat risk ${item.repeatRiskPercent}%", color = TextSecondary)
                     Text(item.serviceTypes.joinToString().ifBlank { "No service type" }, color = PrimaryGreen)
                     Text(item.recommendation, color = TextPrimary)
-                    Divider()
+                    HorizontalDivider()
                 }
             }
 
             Section("AI Quality Control") {
                 data.qualityChecks.take(10).forEach { item ->
                     ItemTitle("${item.score}/100 · ${item.title}")
-                    Text(if (item.missing.isEmpty()) "Complete" else "Missing: ${item.missing.joinToString()}", color = if (item.missing.isEmpty()) PrimaryGreen else WarningOrange)
-                    Divider()
+                    Text(
+                        if (item.missing.isEmpty()) "Complete" else "Missing: ${item.missing.joinToString()}",
+                        color = if (item.missing.isEmpty()) PrimaryGreen else MaterialTheme.colorScheme.tertiary
+                    )
+                    HorizontalDivider()
                 }
             }
 
@@ -91,7 +93,7 @@ fun AIOperationsScreen(
                     ItemTitle(item.title)
                     Text("Estimate ${money(item.estimated)} · Actual ${money(item.actual)} · Variance ${money(item.variance)}", color = TextSecondary)
                     Text(item.marginSignal, color = PrimaryGreen)
-                    Divider()
+                    HorizontalDivider()
                 }
             }
 
@@ -100,7 +102,7 @@ fun AIOperationsScreen(
                     ItemTitle("Score ${item.score} · ${item.title}")
                     Text(item.address.ifBlank { "Address missing" }, color = TextSecondary)
                     Text(item.reason, color = PrimaryGreen)
-                    Divider()
+                    HorizontalDivider()
                 }
             }
 
@@ -109,7 +111,7 @@ fun AIOperationsScreen(
                     ItemTitle(item.item)
                     Text("Expected weekly use: ${item.expectedWeeklyUse} · Confidence ${item.confidencePercent}%", color = TextSecondary)
                     Text(item.reason, color = TextPrimary)
-                    Divider()
+                    HorizontalDivider()
                 }
             }
 
@@ -119,7 +121,7 @@ fun AIOperationsScreen(
                     Text(item.activityWindow, color = PrimaryGreen)
                     Text(item.fieldPriority, color = TextPrimary)
                     Text(item.exclusionNote, color = TextSecondary)
-                    Divider()
+                    HorizontalDivider()
                 }
             }
         }
