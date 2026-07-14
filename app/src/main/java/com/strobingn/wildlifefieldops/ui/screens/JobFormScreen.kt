@@ -50,6 +50,7 @@ fun JobFormScreen(
     var selectedType by remember { mutableStateOf(DefaultServiceTypes.all.first()) }
     var selectedPriority by remember { mutableStateOf(JobPriority.MEDIUM) }
     var estimatedValue by remember { mutableStateOf("") }
+    var actualCost by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var species by remember { mutableStateOf("") }
     var showTypeDropdown by remember { mutableStateOf(false) }
@@ -113,6 +114,7 @@ fun JobFormScreen(
             selectedType = DefaultServiceTypes.display(job.type)
             selectedPriority = job.priority
             estimatedValue = if (job.estimatedValue > 0) job.estimatedValue.toString() else ""
+            actualCost = if (job.actualCost > 0) job.actualCost.toString() else ""
             notes = job.notes
         }
         loaded = true
@@ -203,10 +205,25 @@ fun JobFormScreen(
             }
 
             OutlinedTextField(
-                estimatedValue, { estimatedValue = it.filter { c -> c.isDigit() || c == '.' } },
-                label = { Text("Estimated Value") }, leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
-                colors = jobFieldColors(), modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
+                estimatedValue,
+                { estimatedValue = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Estimated Value") },
+                leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
+                colors = jobFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            OutlinedTextField(
+                actualCost,
+                { actualCost = it.filter { c -> c.isDigit() || c == '.' } },
+                label = { Text("Actual Cost") },
+                leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
+                colors = jobFieldColors(),
+                modifier = Modifier.fillMaxWidth().testTag("actual_cost_field"),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
                 shape = RoundedCornerShape(12.dp)
             )
             OutlinedTextField(description, { description = it }, label = { Text("Description") }, colors = jobFieldColors(),
@@ -218,15 +235,37 @@ fun JobFormScreen(
                 onClick = {
                     if (title.isBlank() || isSaving) return@Button
                     isSaving = true
-                    val value = estimatedValue.toDoubleOrNull() ?: 0.0
+                    val value = estimatedValue.toDoubleOrNull() ?: existingJob?.estimatedValue ?: 0.0
+                    val actualCostValue = actualCost.toDoubleOrNull() ?: existingJob?.actualCost ?: 0.0
                     val mergedDescription = if (species.isBlank() || description.contains(species, true)) description.trim()
                         else listOf("Species/evidence: $species", description.trim()).filter { it.isNotBlank() }.joinToString("\n")
                     if (isEditing && jobId != null) {
-                        viewModel.updateJobDetails(jobId, title.trim(), mergedDescription, customerId, customerName.trim(), address.trim(),
-                            DefaultServiceTypes.display(selectedType), selectedPriority, value, notes.trim())
+                        viewModel.updateJobDetails(
+                            jobId,
+                            title.trim(),
+                            mergedDescription,
+                            customerId,
+                            customerName.trim(),
+                            address.trim(),
+                            DefaultServiceTypes.display(selectedType),
+                            selectedPriority,
+                            value,
+                            actualCostValue,
+                            notes.trim()
+                        )
                     } else {
-                        viewModel.createJob(title.trim(), mergedDescription, customerId, customerName.trim(), address.trim(),
-                            DefaultServiceTypes.display(selectedType), selectedPriority, value, null, notes.trim())
+                        viewModel.createJob(
+                            title.trim(),
+                            mergedDescription,
+                            customerId,
+                            customerName.trim(),
+                            address.trim(),
+                            DefaultServiceTypes.display(selectedType),
+                            selectedPriority,
+                            value,
+                            null,
+                            notes.trim()
+                        )
                     }
                     scope.launch {
                         snackbarHostState.showSnackbar(if (isEditing) "Job updated" else "Job created")
