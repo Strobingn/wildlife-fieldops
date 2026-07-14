@@ -25,8 +25,13 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
+    var showAiOperations by remember { mutableStateOf(false) }
     if (showDiagnostics) {
         DiagnosticsScreen(onBack = { showDiagnostics = false })
+        return
+    }
+    if (showAiOperations) {
+        AIOperationsScreen(onBack = { showAiOperations = false })
         return
     }
 
@@ -79,6 +84,15 @@ fun SettingsScreen(
                 )
                 SettingSwitch(Icons.Default.Sync, "Automatic Sync", "Keep local and cloud records synchronized", autoSync, viewModel::setAutoSync)
                 SettingSwitch(Icons.Default.CloudOff, "Offline Mode", "Disable cloud requests", offlineMode, viewModel::setOfflineMode)
+            }
+
+            SettingSection("AI Operations") {
+                SettingItem(
+                    Icons.Default.AutoAwesome,
+                    "AI Operations Command Center",
+                    "Property intelligence, pricing, quality control, routing, inventory and species guidance",
+                    onClick = { showAiOperations = true }
+                )
             }
 
             SettingSection("Location") {
