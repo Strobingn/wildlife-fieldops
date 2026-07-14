@@ -43,8 +43,8 @@ object HybridAIService {
 
         return runCatching {
             val prompt = GrokPrompts.photoToFormFill(
-                speciesTags = offline.species.joinToString(),
-                damageTags = offline.damageTypes.joinToString(),
+                speciesTags = offline.species,
+                damageTags = offline.damageTypes,
                 location = jobContext
             )
             val form = callGrokForForm(prompt)

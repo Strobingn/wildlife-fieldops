@@ -3,11 +3,15 @@ package com.strobingn.wildlifefieldops.ai
 import android.content.Context
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
+import com.google.android.gms.tasks.Task
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resumeWithException
+// Note: kotlinx-coroutines-play-services dependency not included.
+// Using a suspend helper that bridges Google Play Services Tasks to coroutines.
 
 data class AiAnalysisResult(
     val species: List<String> = emptyList(),
@@ -41,13 +45,13 @@ object PhotoAIHelper {
     suspend fun analyzePhotoForFormFilling(context: Context, imageUri: Uri): AiAnalysisResult {
         return try {
             val image = InputImage.fromFilePath(context, imageUri)
-            val labels = labeler.process(image).await()
+            val labels = awaitTask(labeler.process(image))
             val knownSpecies = setOf("raccoon", "bat", "squirrel", "opossum", "snake", "bird", "rodent")
             val knownDamage = setOf("damage", "hole", "entry point", "chew marks", "nesting", "droppings", "scratching")
             val accepted = labels.filter { it.confidence > 0.55f }.map { it.text.lowercase() }
             val species = accepted.filter { it in knownSpecies }.distinct()
             val damage = accepted.filter { it in knownDamage }.distinct()
-            val objects = objectDetector.process(image).await()
+            val objects = awaitTask(objectDetector.process(image))
             val objectNames = objects.mapNotNull { it.labels.firstOrNull()?.text?.lowercase() }.distinct()
 
             val service = when {
@@ -89,4 +93,10 @@ object PhotoAIHelper {
             AiAnalysisResult(suggestedNotes = "Photo analysis failed: ${e.message}. Manual entry required.")
         }
     }
+}
+
+/** Bridge Google Play Services [Task] to Kotlin coroutines without extra dependencies. */
+private suspend fun <T> awaitTask(task: Task<T>): T = suspendCancellableCoroutine { cont ->
+    task.addOnSuccessListener { result -> cont.resume(result) {} }
+    task.addOnFailureListener { exception -> cont.resumeWithException(exception) }
 }
