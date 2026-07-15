@@ -2,9 +2,11 @@ package com.strobingn.wildlifefieldops.data.repository
 
 import com.strobingn.wildlifefieldops.data.local.CustomerDao
 import com.strobingn.wildlifefieldops.data.local.InspectionDao
+import com.strobingn.wildlifefieldops.data.local.InvoiceDao
 import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.remote.RemoteCustomerDto
 import com.strobingn.wildlifefieldops.data.remote.RemoteInspectionDto
+import com.strobingn.wildlifefieldops.data.remote.RemoteInvoiceDto
 import com.strobingn.wildlifefieldops.data.remote.RemoteJobDto
 import com.strobingn.wildlifefieldops.data.remote.SupabaseService
 import com.strobingn.wildlifefieldops.data.remote.toLocal
@@ -17,6 +19,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class SyncResult(
+    val pushedInvoices: Int = 0,
+    val pulledInvoices: Int = 0,
     val success: Boolean,
     val message: String,
     val pushedJobs: Int = 0,
@@ -31,7 +35,8 @@ class SyncRepository @Inject constructor(
     private val supabaseService: SupabaseService,
     private val jobDao: JobDao,
     private val customerDao: CustomerDao,
-    private val inspectionDao: InspectionDao
+    private val inspectionDao: InspectionDao,
+    private val invoiceDao: InvoiceDao
 ) {
     fun isCloudConfigured(): Boolean = supabaseService.isConfigured
 
@@ -57,8 +62,10 @@ class SyncRepository @Inject constructor(
         var pushedJobs = 0
         var pushedCustomers = 0
         var pushedInspections = 0
+        var pushedInvoices = 0
         var pulledJobs = 0
         var pulledCustomers = 0
+        var pulledInvoices = 0
         val warnings = mutableListOf<String>()
         val pushedJobIds = mutableSetOf<String>()
 
@@ -123,6 +130,26 @@ class SyncRepository @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.w("SyncRepository", "Inspection push skipped", e)
             warnings += "inspection push: ${e.message ?: e.javaClass.simpleName}"
+        }
+
+        // --- Push invoices ---
+        try {
+            val unsyncedInvoices = invoiceDao.getUnsynced()
+            if (unsyncedInvoices.isNotEmpty()) {
+                val dtos = unsyncedInvoices.mapNotNull { invoice ->
+                    runCatching { invoice.toRemoteDto() }
+                        .onFailure { android.util.Log.w("SyncRepository", "Skip invoice ${invoice.id}: ${it.message}") }
+                        .getOrNull()
+                }
+                if (dtos.isNotEmpty()) {
+                    client.from("invoices").upsert(dtos)
+                    dtos.forEach { invoiceDao.markSynced(it.id) }
+                    pushedInvoices = dtos.size
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("SyncRepository", "Invoice push skipped", e)
+            warnings += "invoice push: ${e.message ?: e.javaClass.simpleName}"
         }
 
         try {
@@ -191,8 +218,8 @@ class SyncRepository @Inject constructor(
             warnings += "job pull: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        val base = "Synced. Pushed: $pushedJobs jobs, $pushedCustomers customers, $pushedInspections inspections. " +
-            "Pulled: $pulledJobs jobs, $pulledCustomers customers."
+        val base = "Synced. Pushed: $pushedJobs jobs, $pushedCustomers customers, $pushedInspections inspections, $pushedInvoices invoices. " +
+            "Pulled: $pulledJobs jobs, $pulledCustomers customers, $pulledInvoices invoices."
         val message = if (warnings.isEmpty()) base else "$base Warnings: ${warnings.joinToString("; ")}"
 
         return SyncResult(
@@ -202,7 +229,9 @@ class SyncRepository @Inject constructor(
             pushedCustomers = pushedCustomers,
             pushedInspections = pushedInspections,
             pulledJobs = pulledJobs,
-            pulledCustomers = pulledCustomers
+            pulledCustomers = pulledCustomers,
+            pushedInvoices = pushedInvoices,
+            pulledInvoices = pulledInvoices
         )
     }
 }
