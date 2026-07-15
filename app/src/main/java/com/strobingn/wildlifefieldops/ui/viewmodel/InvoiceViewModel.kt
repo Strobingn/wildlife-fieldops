@@ -23,11 +23,29 @@ class InvoiceViewModel @Inject constructor(
         emit(invoiceDao.getById(id))
     }
 
-    fun getInvoicesByJob(jobId: String): Flow<List<Invoice>> =
-        invoiceDao.getByJob(jobId)
+    fun getInvoicesByJob(jobId: String): Flow<List<Invoice>> = invoiceDao.getByJob(jobId)
 
     fun saveInvoice(invoice: Invoice) = viewModelScope.launch {
-        invoiceDao.insert(invoice)
+        val normalizedItems = invoice.lineItems.map { item ->
+            item.copy(total = item.calculateTotal())
+        }
+        val subtotal = normalizedItems.sumOf { it.total }
+        val taxAmount = subtotal * (invoice.taxRate / 100.0)
+        val totalAmount = (subtotal + taxAmount - invoice.discountAmount).coerceAtLeast(0.0)
+        val balanceDue = (totalAmount - invoice.amountPaid).coerceAtLeast(0.0)
+
+        invoiceDao.insert(
+            invoice.copy(
+                lineItems = normalizedItems,
+                subtotal = subtotal,
+                taxAmount = taxAmount,
+                totalAmount = totalAmount,
+                balanceDue = balanceDue,
+                updatedAt = System.currentTimeMillis(),
+                isSynced = false,
+                syncError = null
+            )
+        )
     }
 
     fun deleteInvoice(invoice: Invoice) = viewModelScope.launch {
@@ -42,13 +60,14 @@ class InvoiceViewModel @Inject constructor(
         notes: String,
         terms: String
     ) = viewModelScope.launch {
-        val job = jobDao.getById(jobId)
-        job?.let {
-            val subtotal = lineItems.sumOf { it.calculateTotal() }
-            val taxAmount = subtotal * (taxRate / 100.0)
-            val total = subtotal + taxAmount - discountAmount
+        val job = jobDao.getById(jobId) ?: return@launch
+        val normalizedItems = lineItems.map { item -> item.copy(total = item.calculateTotal()) }
+        val subtotal = normalizedItems.sumOf { it.total }
+        val taxAmount = subtotal * (taxRate / 100.0)
+        val total = (subtotal + taxAmount - discountAmount).coerceAtLeast(0.0)
 
-            val invoice = Invoice(
+        invoiceDao.insert(
+            Invoice(
                 invoiceNumber = generateInvoiceNumber(),
                 jobId = jobId,
                 customerId = job.customerId,
@@ -59,32 +78,32 @@ class InvoiceViewModel @Inject constructor(
                 discountAmount = discountAmount,
                 totalAmount = total,
                 balanceDue = total,
-                lineItems = lineItems,
+                lineItems = normalizedItems,
                 notes = notes,
-                terms = terms
+                terms = terms,
+                isSynced = false
             )
-            invoiceDao.insert(invoice)
-            jobDao.update(job.copy(status = JobStatus.INVOICED))
-        }
+        )
+        jobDao.update(job.copy(status = JobStatus.INVOICED, isSynced = false, updatedAt = System.currentTimeMillis()))
     }
 
     fun markAsPaid(invoiceId: String) = viewModelScope.launch {
-        val invoice = invoiceDao.getById(invoiceId)
-        invoice?.let {
-            invoiceDao.update(it.copy(
+        val invoice = invoiceDao.getById(invoiceId) ?: return@launch
+        invoiceDao.update(
+            invoice.copy(
                 status = InvoiceStatus.PAID,
-                amountPaid = it.totalAmount,
+                amountPaid = invoice.totalAmount,
                 balanceDue = 0.0,
-                updatedAt = System.currentTimeMillis()
-            ))
-            val job = jobDao.getById(it.jobId)
-            job?.let { j ->
-                jobDao.update(j.copy(status = JobStatus.PAID))
-            }
+                updatedAt = System.currentTimeMillis(),
+                isSynced = false,
+                syncError = null
+            )
+        )
+        val job = jobDao.getById(invoice.jobId)
+        job?.let {
+            jobDao.update(it.copy(status = JobStatus.PAID, isSynced = false, updatedAt = System.currentTimeMillis()))
         }
     }
 
-    private fun generateInvoiceNumber(): String {
-        return "INV-${System.currentTimeMillis()}"
-    }
+    private fun generateInvoiceNumber(): String = "INV-${System.currentTimeMillis()}"
 }
