@@ -1,5 +1,8 @@
 package com.strobingn.wildlifefieldops.data.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class InvoiceLineItem(
     val id: String = "",
     val description: String = "",
