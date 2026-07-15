@@ -11,7 +11,9 @@ import com.strobingn.wildlifefieldops.data.model.JobPriority
 import com.strobingn.wildlifefieldops.data.model.JobStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +34,9 @@ class JobsViewModel @Inject constructor(
     private val jobDao: JobDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    /** Writes must survive a navigation pop that clears the screen-scoped ViewModel. */
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
@@ -69,13 +74,8 @@ class JobsViewModel @Inject constructor(
         .map { records -> records.sumOf { it.actualCost } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun setStatusFilter(status: JobStatus?) {
-        _selectedStatus.value = status
-    }
+    fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setStatusFilter(status: JobStatus?) { _selectedStatus.value = status }
 
     fun getJobById(id: String): Flow<Job?> {
         if (id.isBlank() || id == "new") return flowOf(null)
@@ -87,9 +87,7 @@ class JobsViewModel @Inject constructor(
         return jobDao.getById(id)
     }
 
-    fun saveJob(job: Job) = viewModelScope.launch {
-        saveJobNow(job)
-    }
+    fun saveJob(job: Job) = persistenceScope.launch { saveJobNow(job) }
 
     suspend fun saveJobNow(job: Job) {
         val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
@@ -103,9 +101,7 @@ class JobsViewModel @Inject constructor(
         )
     }
 
-    fun updateJob(job: Job) = viewModelScope.launch {
-        updateJobNow(job)
-    }
+    fun updateJob(job: Job) = persistenceScope.launch { updateJobNow(job) }
 
     suspend fun updateJobNow(job: Job) {
         val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
@@ -132,7 +128,7 @@ class JobsViewModel @Inject constructor(
         actualCost: Double? = null,
         notes: String,
         scheduledDate: Long? = null
-    ) = viewModelScope.launch {
+    ) = persistenceScope.launch {
         updateJobDetailsNow(
             jobId, title, description, customerId, customerName, address, type,
             priority, estimatedValue, actualCost, notes, scheduledDate
@@ -184,11 +180,10 @@ class JobsViewModel @Inject constructor(
         )
     }
 
-    fun deleteJob(job: Job) = viewModelScope.launch { jobDao.delete(job) }
+    fun deleteJob(job: Job) = persistenceScope.launch { jobDao.delete(job) }
+    fun deleteJobById(id: String) = persistenceScope.launch { jobDao.deleteById(id) }
 
-    fun deleteJobById(id: String) = viewModelScope.launch { jobDao.deleteById(id) }
-
-    fun updateJobStatus(jobId: String, status: JobStatus) = viewModelScope.launch {
+    fun updateJobStatus(jobId: String, status: JobStatus) = persistenceScope.launch {
         val job = jobDao.getById(jobId)
         job?.let {
             jobDao.update(
@@ -213,7 +208,7 @@ class JobsViewModel @Inject constructor(
         scheduledDate: Long?,
         notes: String,
         actualCost: Double = 0.0
-    ) = viewModelScope.launch {
+    ) = persistenceScope.launch {
         createJobNow(
             title, description, customerId, customerName, address, type, priority,
             estimatedValue, scheduledDate, notes, actualCost
