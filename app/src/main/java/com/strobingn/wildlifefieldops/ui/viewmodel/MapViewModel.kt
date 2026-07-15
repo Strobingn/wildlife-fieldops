@@ -32,6 +32,9 @@ class MapViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    private val boundaryPreferences =
+        context.getSharedPreferences(BOUNDARY_PREFS, Context.MODE_PRIVATE)
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
@@ -41,7 +44,7 @@ class MapViewModel @Inject constructor(
     private val _isDrawingBoundary = MutableStateFlow(false)
     val isDrawingBoundary = _isDrawingBoundary.asStateFlow()
 
-    private val _boundaryPoints = MutableStateFlow<List<LatLng>>(emptyList())
+    private val _boundaryPoints = MutableStateFlow(loadSavedBoundary())
     val boundaryPoints = _boundaryPoints.asStateFlow()
 
     val properties: StateFlow<List<MapProperty>> = jobDao.getAll()
@@ -90,9 +93,6 @@ class MapViewModel @Inject constructor(
 
     fun toggleDrawingMode() {
         _isDrawingBoundary.value = !_isDrawingBoundary.value
-        if (!_isDrawingBoundary.value) {
-            _boundaryPoints.value = emptyList()
-        }
     }
 
     fun addBoundaryPoint(point: LatLng) {
@@ -104,12 +104,33 @@ class MapViewModel @Inject constructor(
     fun clearBoundary() {
         _boundaryPoints.value = emptyList()
         _isDrawingBoundary.value = false
+        boundaryPreferences.edit().remove(BOUNDARY_KEY).apply()
     }
 
-    fun saveBoundary() {
-        viewModelScope.launch {
-            _isDrawingBoundary.value = false
-            _boundaryPoints.value = emptyList()
+    /**
+     * Persists the current polygon locally. Returns false when fewer than three
+     * points have been drawn because that cannot form a valid boundary.
+     */
+    fun saveBoundary(): Boolean {
+        val points = _boundaryPoints.value
+        if (points.size < 3) return false
+
+        val encoded = points.joinToString(";") { point ->
+            "${point.latitude},${point.longitude}"
+        }
+        boundaryPreferences.edit().putString(BOUNDARY_KEY, encoded).apply()
+        _isDrawingBoundary.value = false
+        return true
+    }
+
+    private fun loadSavedBoundary(): List<LatLng> {
+        val encoded = boundaryPreferences.getString(BOUNDARY_KEY, null) ?: return emptyList()
+        return encoded.split(';').mapNotNull { entry ->
+            val values = entry.split(',')
+            if (values.size != 2) return@mapNotNull null
+            val latitude = values[0].toDoubleOrNull() ?: return@mapNotNull null
+            val longitude = values[1].toDoubleOrNull() ?: return@mapNotNull null
+            LatLng(latitude, longitude)
         }
     }
 
@@ -142,5 +163,10 @@ class MapViewModel @Inject constructor(
                 ?.firstOrNull()
                 ?.let { it.latitude to it.longitude }
         }.getOrNull()
+    }
+
+    private companion object {
+        const val BOUNDARY_PREFS = "property_map_boundaries"
+        const val BOUNDARY_KEY = "active_boundary_points"
     }
 }
