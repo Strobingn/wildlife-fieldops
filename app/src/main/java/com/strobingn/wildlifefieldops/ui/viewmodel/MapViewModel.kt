@@ -1,13 +1,19 @@
 package com.strobingn.wildlifefieldops.ui.viewmodel
 
+import android.content.Context
+import android.location.Geocoder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.maps.model.LatLng
 import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.model.JobStatus
-import com.google.android.gms.maps.model.LatLng
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 
 data class MapProperty(
@@ -22,7 +28,8 @@ data class MapProperty(
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
-    private val jobDao: JobDao
+    private val jobDao: JobDao,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -55,7 +62,7 @@ class MapViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val missingCoordinateCount: StateFlow<Int> = jobDao.getAll()
-        .map { jobs -> jobs.count { it.latitude == null || it.longitude == null } }
+        .map { jobs -> jobs.count { it.address.isNotBlank() && (it.latitude == null || it.longitude == null) } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val filteredProperties = combine(properties, _searchQuery, _selectedStatus) { props, query, status ->
@@ -68,6 +75,10 @@ class MapViewModel @Inject constructor(
             matchesQuery && matchesStatus
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        backfillMissingCoordinates()
+    }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -100,5 +111,36 @@ class MapViewModel @Inject constructor(
             _isDrawingBoundary.value = false
             _boundaryPoints.value = emptyList()
         }
+    }
+
+    private fun backfillMissingCoordinates() {
+        viewModelScope.launch {
+            jobDao.getAll().first()
+                .filter { job ->
+                    job.address.isNotBlank() && (job.latitude == null || job.longitude == null)
+                }
+                .forEach { job ->
+                    val coordinates = geocodeAddress(job.address) ?: return@forEach
+                    jobDao.update(
+                        job.copy(
+                            latitude = coordinates.first,
+                            longitude = coordinates.second,
+                            updatedAt = System.currentTimeMillis(),
+                            isSynced = false
+                        )
+                    )
+                }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private suspend fun geocodeAddress(address: String): Pair<Double, Double>? = withContext(Dispatchers.IO) {
+        if (address.isBlank() || !Geocoder.isPresent()) return@withContext null
+        runCatching {
+            Geocoder(context, Locale.getDefault())
+                .getFromLocationName(address, 1)
+                ?.firstOrNull()
+                ?.let { it.latitude to it.longitude }
+        }.getOrNull()
     }
 }
