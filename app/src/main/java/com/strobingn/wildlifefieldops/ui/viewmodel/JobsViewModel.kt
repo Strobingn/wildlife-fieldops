@@ -1,18 +1,25 @@
 package com.strobingn.wildlifefieldops.ui.viewmodel
 
+import android.content.Context
+import android.location.Geocoder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
 class JobsViewModel @Inject constructor(
-    private val jobDao: JobDao
+    private val jobDao: JobDao,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -33,7 +40,7 @@ class JobsViewModel @Inject constructor(
             else -> jobDao.getAll()
         }
     }.onEach { _isLoading.value = false }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val pendingCount = jobDao.getByStatus(JobStatus.PENDING)
         .map { it.size }
@@ -61,7 +68,6 @@ class JobsViewModel @Inject constructor(
 
     fun getJobById(id: String): Flow<Job?> {
         if (id.isBlank() || id == "new") return flowOf(null)
-        // Live observation so detail/edit screens stay in sync after saves.
         return jobDao.observeById(id)
     }
 
@@ -71,23 +77,29 @@ class JobsViewModel @Inject constructor(
     }
 
     fun saveJob(job: Job) = viewModelScope.launch {
-        jobDao.insert(job.copy(isSynced = false, updatedAt = System.currentTimeMillis()))
+        val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
+        jobDao.insert(
+            job.copy(
+                latitude = coordinates?.first ?: job.latitude,
+                longitude = coordinates?.second ?: job.longitude,
+                isSynced = false,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
     }
 
     fun updateJob(job: Job) = viewModelScope.launch {
-        // REPLACE insert so edits always persist even if row shape drifted.
+        val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
         jobDao.insert(
             job.copy(
+                latitude = coordinates?.first ?: job.latitude,
+                longitude = coordinates?.second ?: job.longitude,
                 updatedAt = System.currentTimeMillis(),
                 isSynced = false
             )
         )
     }
 
-    /**
-     * Patch editable fields on an existing job while preserving status, photos,
-     * costs, schedule, and other system-owned data.
-     */
     fun updateJobDetails(
         jobId: String,
         title: String,
@@ -98,20 +110,32 @@ class JobsViewModel @Inject constructor(
         type: String,
         priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
         estimatedValue: Double,
+        actualCost: Double? = null,
         notes: String,
         scheduledDate: Long? = null
     ) = viewModelScope.launch {
         val existing = jobDao.getById(jobId) ?: return@launch
+        val normalizedAddress = address.trim()
+        val addressChanged = !normalizedAddress.equals(existing.address.trim(), ignoreCase = true)
+        val coordinates = if (addressChanged || existing.latitude == null || existing.longitude == null) {
+            geocodeAddress(normalizedAddress)
+        } else {
+            existing.latitude?.let { lat -> existing.longitude?.let { lng -> lat to lng } }
+        }
+
         jobDao.insert(
             existing.copy(
                 title = title,
                 description = description,
                 customerId = customerId,
                 customerName = customerName,
-                address = address,
+                address = normalizedAddress,
+                latitude = coordinates?.first,
+                longitude = coordinates?.second,
                 type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
                 priority = priority,
                 estimatedValue = estimatedValue,
+                actualCost = actualCost ?: existing.actualCost,
                 notes = notes,
                 scheduledDate = scheduledDate ?: existing.scheduledDate,
                 updatedAt = System.currentTimeMillis(),
@@ -147,18 +171,43 @@ class JobsViewModel @Inject constructor(
         scheduledDate: Long?,
         notes: String
     ) = viewModelScope.launch {
+        val normalizedAddress = address.trim()
+        val coordinates = geocodeAddress(normalizedAddress)
         val job = Job(
             title = title,
             description = description,
             customerId = customerId,
             customerName = customerName,
-            address = address,
+            address = normalizedAddress,
+            latitude = coordinates?.first,
+            longitude = coordinates?.second,
             type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
             priority = priority,
             estimatedValue = estimatedValue,
             scheduledDate = scheduledDate,
-            notes = notes
+            notes = notes,
+            isSynced = false
         )
         jobDao.insert(job)
+    }
+
+    private suspend fun coordinatesFor(
+        address: String,
+        latitude: Double?,
+        longitude: Double?
+    ): Pair<Double, Double>? {
+        if (latitude != null && longitude != null) return latitude to longitude
+        return geocodeAddress(address)
+    }
+
+    @Suppress("DEPRECATION")
+    private suspend fun geocodeAddress(address: String): Pair<Double, Double>? = withContext(Dispatchers.IO) {
+        if (address.isBlank() || !Geocoder.isPresent()) return@withContext null
+        runCatching {
+            Geocoder(context, Locale.getDefault())
+                .getFromLocationName(address, 1)
+                ?.firstOrNull()
+                ?.let { it.latitude to it.longitude }
+        }.getOrNull()
     }
 }

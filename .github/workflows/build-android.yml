@@ -2,7 +2,7 @@ name: Build Native Android APK (Debug)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations ]
   workflow_dispatch:
 
 jobs:
@@ -46,6 +46,10 @@ jobs:
             "app/src/main/java/com/strobingn/wildlifefieldops/data/local/AppDatabase.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/data/model/InvoiceLineItem.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/data/model/JobType.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/DiagnosticsScreen.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ai/operations/AIOperationsEngine.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AIOperationsScreen.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AIOperationsViewModel.kt"
           )
           for file in "${required_files[@]}"; do
             test -s "$file" || { echo "Missing or empty required file: $file"; exit 1; }

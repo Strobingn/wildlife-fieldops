@@ -4,6 +4,8 @@ package com.strobingn.wildlifefieldops.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,6 +65,7 @@ fun ExpenseScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding()
         ) {
             // Summary Card
             Card(
@@ -218,7 +221,7 @@ private fun AddExpenseDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Expense", color = TextPrimary) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(modifier = Modifier.imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExposedDropdownMenuBox(
                     expanded = showCategoryDropdown,
                     onExpandedChange = { showCategoryDropdown = it },
