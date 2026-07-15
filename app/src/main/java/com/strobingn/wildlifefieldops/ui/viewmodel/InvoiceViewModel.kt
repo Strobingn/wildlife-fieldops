@@ -27,7 +27,19 @@ class InvoiceViewModel @Inject constructor(
         invoiceDao.getByJob(jobId)
 
     fun saveInvoice(invoice: Invoice) = viewModelScope.launch {
-        invoiceDao.insert(invoice)
+        // Recalculate totals before saving to ensure consistency
+        val subtotal = invoice.lineItems.sumOf { it.calculateTotal() }
+        val taxAmount = subtotal * (invoice.taxRate / 100.0)
+        val total = subtotal + taxAmount - invoice.discountAmount
+        val updated = invoice.copy(
+            subtotal = subtotal,
+            taxAmount = taxAmount,
+            totalAmount = total,
+            balanceDue = total - invoice.amountPaid,
+            updatedAt = System.currentTimeMillis(),
+            isSynced = false  // Mark as needing sync after edit
+        )
+        invoiceDao.insert(updated)
     }
 
     fun deleteInvoice(invoice: Invoice) = viewModelScope.launch {
