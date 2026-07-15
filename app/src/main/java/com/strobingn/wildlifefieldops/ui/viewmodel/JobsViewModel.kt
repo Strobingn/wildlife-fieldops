@@ -5,12 +5,23 @@ import android.location.Geocoder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.strobingn.wildlifefieldops.data.local.JobDao
+import com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes
 import com.strobingn.wildlifefieldops.data.model.Job
+import com.strobingn.wildlifefieldops.data.model.JobPriority
 import com.strobingn.wildlifefieldops.data.model.JobStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
@@ -31,32 +42,32 @@ class JobsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
-    val jobs = combine(_searchQuery, _selectedStatus) { query, status ->
-        Pair(query, status)
-    }.flatMapLatest { (query, status) ->
-        when {
-            query.isNotBlank() -> jobDao.search(query)
-            status != null -> jobDao.getByStatus(status)
-            else -> jobDao.getAll()
+    val jobs = combine(_searchQuery, _selectedStatus) { query, status -> query to status }
+        .flatMapLatest { (query, status) ->
+            when {
+                query.isNotBlank() -> jobDao.search(query)
+                status != null -> jobDao.getByStatus(status)
+                else -> jobDao.getAll()
+            }
         }
-    }.onEach { _isLoading.value = false }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .onEach { _isLoading.value = false }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val pendingCount = jobDao.getByStatus(JobStatus.PENDING)
         .map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val inProgressCount = jobDao.getByStatus(JobStatus.IN_PROGRESS)
         .map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val completedCount = jobDao.getByStatus(JobStatus.COMPLETED)
         .map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     val totalRevenue = jobDao.getByStatus(JobStatus.PAID)
-        .map { jobs -> jobs.sumOf { it.actualCost } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+        .map { records -> records.sumOf { it.actualCost } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -77,6 +88,10 @@ class JobsViewModel @Inject constructor(
     }
 
     fun saveJob(job: Job) = viewModelScope.launch {
+        saveJobNow(job)
+    }
+
+    suspend fun saveJobNow(job: Job) {
         val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
         jobDao.insert(
             job.copy(
@@ -89,6 +104,10 @@ class JobsViewModel @Inject constructor(
     }
 
     fun updateJob(job: Job) = viewModelScope.launch {
+        updateJobNow(job)
+    }
+
+    suspend fun updateJobNow(job: Job) {
         val coordinates = coordinatesFor(job.address, job.latitude, job.longitude)
         jobDao.insert(
             job.copy(
@@ -108,13 +127,33 @@ class JobsViewModel @Inject constructor(
         customerName: String,
         address: String,
         type: String,
-        priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
+        priority: JobPriority,
         estimatedValue: Double,
         actualCost: Double? = null,
         notes: String,
         scheduledDate: Long? = null
     ) = viewModelScope.launch {
-        val existing = jobDao.getById(jobId) ?: return@launch
+        updateJobDetailsNow(
+            jobId, title, description, customerId, customerName, address, type,
+            priority, estimatedValue, actualCost, notes, scheduledDate
+        )
+    }
+
+    suspend fun updateJobDetailsNow(
+        jobId: String,
+        title: String,
+        description: String,
+        customerId: String,
+        customerName: String,
+        address: String,
+        type: String,
+        priority: JobPriority,
+        estimatedValue: Double,
+        actualCost: Double? = null,
+        notes: String,
+        scheduledDate: Long? = null
+    ) {
+        val existing = jobDao.getById(jobId) ?: error("Job not found")
         val normalizedAddress = address.trim()
         val addressChanged = !normalizedAddress.equals(existing.address.trim(), ignoreCase = true)
         val coordinates = if (addressChanged || existing.latitude == null || existing.longitude == null) {
@@ -132,30 +171,33 @@ class JobsViewModel @Inject constructor(
                 address = normalizedAddress,
                 latitude = coordinates?.first,
                 longitude = coordinates?.second,
-                type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
+                type = DefaultServiceTypes.display(type),
                 priority = priority,
                 estimatedValue = estimatedValue,
                 actualCost = actualCost ?: existing.actualCost,
                 notes = notes,
                 scheduledDate = scheduledDate ?: existing.scheduledDate,
                 updatedAt = System.currentTimeMillis(),
-                isSynced = false
+                isSynced = false,
+                syncError = null
             )
         )
     }
 
-    fun deleteJob(job: Job) = viewModelScope.launch {
-        jobDao.delete(job)
-    }
+    fun deleteJob(job: Job) = viewModelScope.launch { jobDao.delete(job) }
 
-    fun deleteJobById(id: String) = viewModelScope.launch {
-        jobDao.deleteById(id)
-    }
+    fun deleteJobById(id: String) = viewModelScope.launch { jobDao.deleteById(id) }
 
     fun updateJobStatus(jobId: String, status: JobStatus) = viewModelScope.launch {
         val job = jobDao.getById(jobId)
         job?.let {
-            jobDao.update(it.copy(status = status, updatedAt = System.currentTimeMillis()))
+            jobDao.update(
+                it.copy(
+                    status = status,
+                    updatedAt = System.currentTimeMillis(),
+                    isSynced = false
+                )
+            )
         }
     }
 
@@ -166,11 +208,31 @@ class JobsViewModel @Inject constructor(
         customerName: String,
         address: String,
         type: String,
-        priority: com.strobingn.wildlifefieldops.data.model.JobPriority,
+        priority: JobPriority,
         estimatedValue: Double,
         scheduledDate: Long?,
-        notes: String
+        notes: String,
+        actualCost: Double = 0.0
     ) = viewModelScope.launch {
+        createJobNow(
+            title, description, customerId, customerName, address, type, priority,
+            estimatedValue, scheduledDate, notes, actualCost
+        )
+    }
+
+    suspend fun createJobNow(
+        title: String,
+        description: String,
+        customerId: String,
+        customerName: String,
+        address: String,
+        type: String,
+        priority: JobPriority,
+        estimatedValue: Double,
+        scheduledDate: Long?,
+        notes: String,
+        actualCost: Double = 0.0
+    ): Job {
         val normalizedAddress = address.trim()
         val coordinates = geocodeAddress(normalizedAddress)
         val job = Job(
@@ -181,14 +243,17 @@ class JobsViewModel @Inject constructor(
             address = normalizedAddress,
             latitude = coordinates?.first,
             longitude = coordinates?.second,
-            type = com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes.display(type),
+            type = DefaultServiceTypes.display(type),
             priority = priority,
             estimatedValue = estimatedValue,
+            actualCost = actualCost,
             scheduledDate = scheduledDate,
             notes = notes,
-            isSynced = false
+            isSynced = false,
+            syncError = null
         )
         jobDao.insert(job)
+        return job
     }
 
     private suspend fun coordinatesFor(
