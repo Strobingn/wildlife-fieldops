@@ -11,14 +11,12 @@ val PrimaryContainer = Color(0xFFD6E6FF)
 val OnPrimaryContainer = Color(0xFF001833)
 
 // ── Light-first compatibility surfaces ─────────────────────────────────────
-// Most screens still reference these legacy names directly. Keeping them light
-// makes every existing screen consistent until all call sites migrate fully to
-// MaterialTheme.colorScheme.
-val BackgroundDark = Color(0xFFF5F6F8)
+// Slightly darker neutral gray improves separation from white cards.
+val BackgroundDark = Color(0xFFE8EBF0)
 val BackgroundCard = Color(0xFFFFFFFF)
-val BackgroundElevated = Color(0xFFF0F3F7)
+val BackgroundElevated = Color(0xFFE1E5EB)
 val SurfaceDark = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFE7EBF0)
+val SurfaceVariant = Color(0xFFD9DEE6)
 val SurfaceBright = Color(0xFFFFFFFF)
 
 // ── Text ────────────────────────────────────────────────────────────────────
@@ -42,8 +40,8 @@ val AccentPink = Color(0xFFDB2777)
 val AccentAmber = Color(0xFFD97706)
 
 // ── Borders / chrome ────────────────────────────────────────────────────────
-val BorderDark = Color(0xFFC9D0DA)
-val DividerDark = Color(0xFFE0E5EC)
+val BorderDark = Color(0xFFB9C1CC)
+val DividerDark = Color(0xFFD2D8E0)
 val ScrimDark = Color(0x66000000)
 
 // ── Semantic ────────────────────────────────────────────────────────────────
@@ -53,7 +51,7 @@ val SuccessGreen = Color(0xFF2563EB)
 val WarningYellow = Color(0xFFF59E0B)
 val InfoBlue = Color(0xFF3B82F6)
 
-// ── Gradients ───────────────────────────────────────────────────────────────
-val GradientStart = Color(0xFFE8F0FF)
-val GradientMid = Color(0xFFCFE0FF)
+// ── Gradients ────────────────────────────────────────────────────────────────
+val GradientStart = Color(0xFFDDE7F7)
+val GradientMid = Color(0xFFC5D7F2)
 val GradientEnd = Color(0xFF6EA8FF)
