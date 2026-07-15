@@ -35,14 +35,10 @@ class SyncRepository @Inject constructor(
 ) {
     fun isCloudConfigured(): Boolean = supabaseService.isConfigured
 
-    /**
-     * Always runs on IO. Never throws to the UI layer — failures become [SyncResult].
-     */
     suspend fun syncAll(): SyncResult = withContext(Dispatchers.IO) {
         try {
             doSync()
         } catch (t: Throwable) {
-            // Catch Throwable so Error subclasses (and unexpected runtime issues) don't crash the app.
             android.util.Log.e("SyncRepository", "Sync crashed", t)
             SyncResult(
                 success = false,
@@ -64,14 +60,14 @@ class SyncRepository @Inject constructor(
         var pulledJobs = 0
         var pulledCustomers = 0
         val warnings = mutableListOf<String>()
+        val pushedJobIds = mutableSetOf<String>()
 
-        // ── Push customers ─────────────────────────────────────────────
         try {
             val unsyncedCustomers = customerDao.getUnsynced()
             if (unsyncedCustomers.isNotEmpty()) {
-                val dtos = unsyncedCustomers.mapNotNull { c ->
-                    runCatching { c.toRemoteDto() }
-                        .onFailure { android.util.Log.w("SyncRepository", "Skip customer ${c.id}: ${it.message}") }
+                val dtos = unsyncedCustomers.mapNotNull { customer ->
+                    runCatching { customer.toRemoteDto() }
+                        .onFailure { android.util.Log.w("SyncRepository", "Skip customer ${customer.id}: ${it.message}") }
                         .getOrNull()
                 }
                 if (dtos.isNotEmpty()) {
@@ -85,19 +81,18 @@ class SyncRepository @Inject constructor(
             warnings += "customer push: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        // ── Push jobs ──────────────────────────────────────────────────
         try {
             val unsyncedJobs = jobDao.getUnsynced()
             if (unsyncedJobs.isNotEmpty()) {
-                val dtos = unsyncedJobs.mapNotNull { j ->
-                    runCatching { j.toRemoteDto() }
-                        .onFailure { android.util.Log.w("SyncRepository", "Skip job ${j.id}: ${it.message}") }
+                val dtos = unsyncedJobs.mapNotNull { job ->
+                    runCatching { job.toRemoteDto() }
+                        .onFailure { android.util.Log.w("SyncRepository", "Skip job ${job.id}: ${it.message}") }
                         .getOrNull()
                 }
                 if (dtos.isNotEmpty()) {
                     client.from("jobs").upsert(dtos)
-                    val okIds = dtos.map { it.id }.toSet()
-                    unsyncedJobs.filter { it.id in okIds }.forEach { jobDao.markSynced(it.id) }
+                    pushedJobIds += dtos.map { it.id }
+                    unsyncedJobs.filter { it.id in pushedJobIds }.forEach { jobDao.markSynced(it.id) }
                     pushedJobs = dtos.size
                 }
             }
@@ -106,18 +101,17 @@ class SyncRepository @Inject constructor(
             warnings += "job push: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        // ── Push inspections ───────────────────────────────────────────
         try {
             val unsyncedInspections = inspectionDao.getUnsynced()
             if (unsyncedInspections.isNotEmpty()) {
                 val dtos = mutableListOf<RemoteInspectionDto>()
                 val okIds = mutableListOf<String>()
-                unsyncedInspections.forEach { insp ->
+                unsyncedInspections.forEach { inspection ->
                     runCatching {
-                        dtos += insp.toRemoteDtoOrNull()
-                        okIds += insp.id
+                        dtos += inspection.toRemoteDtoOrNull()
+                        okIds += inspection.id
                     }.onFailure {
-                        android.util.Log.w("SyncRepository", "Skip inspection ${insp.id}: ${it.message}")
+                        android.util.Log.w("SyncRepository", "Skip inspection ${inspection.id}: ${it.message}")
                     }
                 }
                 if (dtos.isNotEmpty()) {
@@ -131,7 +125,6 @@ class SyncRepository @Inject constructor(
             warnings += "inspection push: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        // ── Pull customers ─────────────────────────────────────────────
         try {
             val remoteCustomers = client.from("customers").select().decodeList<RemoteCustomerDto>()
             if (remoteCustomers.isNotEmpty()) {
@@ -150,14 +143,43 @@ class SyncRepository @Inject constructor(
             warnings += "customer pull: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        // ── Pull jobs ──────────────────────────────────────────────────
         try {
             val remoteJobs = client.from("jobs").select().decodeList<RemoteJobDto>()
             if (remoteJobs.isNotEmpty()) {
                 val locals = remoteJobs.mapNotNull { dto ->
-                    runCatching { dto.toLocal() }
-                        .onFailure { android.util.Log.w("SyncRepository", "Bad job ${dto.id}: ${it.message}") }
-                        .getOrNull()
+                    runCatching {
+                        val remote = dto.toLocal()
+                        val existing = jobDao.getById(dto.id)
+
+                        // Never replace a record just pushed in this same sync pass.
+                        if (dto.id in pushedJobIds) {
+                            null
+                        } else if (existing != null && !existing.isSynced) {
+                            // Local unsynced edits always win until they are successfully pushed.
+                            null
+                        } else {
+                            remote.copy(
+                                // Older/partial cloud rows often return zero for these fields.
+                                // Preserve the known local amount instead of erasing it.
+                                estimatedValue = if (remote.estimatedValue != 0.0 || existing == null) {
+                                    remote.estimatedValue
+                                } else {
+                                    existing.estimatedValue
+                                },
+                                actualCost = if (remote.actualCost != 0.0 || existing == null) {
+                                    remote.actualCost
+                                } else {
+                                    existing.actualCost
+                                },
+                                latitude = remote.latitude ?: existing?.latitude,
+                                longitude = remote.longitude ?: existing?.longitude,
+                                isSynced = true,
+                                syncError = null
+                            )
+                        }
+                    }.onFailure {
+                        android.util.Log.w("SyncRepository", "Bad job ${dto.id}: ${it.message}")
+                    }.getOrNull()
                 }
                 if (locals.isNotEmpty()) {
                     jobDao.insertAll(locals)
@@ -171,13 +193,8 @@ class SyncRepository @Inject constructor(
 
         val base = "Synced. Pushed: $pushedJobs jobs, $pushedCustomers customers, $pushedInspections inspections. " +
             "Pulled: $pulledJobs jobs, $pulledCustomers customers."
-        val message = if (warnings.isEmpty()) {
-            base
-        } else {
-            "$base Warnings: ${warnings.joinToString("; ")}"
-        }
+        val message = if (warnings.isEmpty()) base else "$base Warnings: ${warnings.joinToString("; ")}"
 
-        // Partial success is still success if we didn't hard-fail everything
         return SyncResult(
             success = true,
             message = message,
