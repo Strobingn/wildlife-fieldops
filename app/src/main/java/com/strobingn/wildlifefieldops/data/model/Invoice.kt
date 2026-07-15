@@ -31,9 +31,7 @@ data class Invoice(
     val customerSignature: String = "",
     val pdfPath: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
-    val isSynced: Boolean = false
-    val syncError: String? = null,
-    val isSynced: Boolean = false
+    val updatedAt: Long = System.currentTimeMillis(),
+    val isSynced: Boolean = false,
     val syncError: String? = null
 )
