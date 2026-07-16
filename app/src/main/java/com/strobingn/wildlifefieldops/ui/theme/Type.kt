@@ -9,19 +9,19 @@ import androidx.compose.ui.unit.sp
 private val UiFont = FontFamily.SansSerif
 
 val AppTypography = Typography(
-    displayLarge = TextStyle(UiFont, FontWeight.Bold, 38.sp, 44.sp, (-0.8).sp),
-    displayMedium = TextStyle(UiFont, FontWeight.Bold, 32.sp, 38.sp, (-0.6).sp),
-    displaySmall = TextStyle(UiFont, FontWeight.Bold, 28.sp, 34.sp, (-0.35).sp),
-    headlineLarge = TextStyle(UiFont, FontWeight.Bold, 26.sp, 32.sp, (-0.25).sp),
-    headlineMedium = TextStyle(UiFont, FontWeight.Bold, 22.sp, 28.sp, (-0.15).sp),
-    headlineSmall = TextStyle(UiFont, FontWeight.SemiBold, 19.sp, 24.sp, 0.sp),
-    titleLarge = TextStyle(UiFont, FontWeight.Bold, 20.sp, 25.sp, (-0.1).sp),
-    titleMedium = TextStyle(UiFont, FontWeight.SemiBold, 16.sp, 21.sp, 0.sp),
-    titleSmall = TextStyle(UiFont, FontWeight.SemiBold, 14.sp, 19.sp, 0.05.sp),
-    bodyLarge = TextStyle(UiFont, FontWeight.Normal, 16.sp, 23.sp, 0.sp),
-    bodyMedium = TextStyle(UiFont, FontWeight.Normal, 14.sp, 20.sp, 0.05.sp),
-    bodySmall = TextStyle(UiFont, FontWeight.Normal, 12.sp, 17.sp, 0.1.sp),
-    labelLarge = TextStyle(UiFont, FontWeight.SemiBold, 14.sp, 19.sp, 0.05.sp),
-    labelMedium = TextStyle(UiFont, FontWeight.Medium, 12.sp, 16.sp, 0.2.sp),
-    labelSmall = TextStyle(UiFont, FontWeight.Medium, 11.sp, 14.sp, 0.25.sp)
+    displayLarge = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 38.sp, lineHeight = 44.sp, letterSpacing = (-0.8).sp),
+    displayMedium = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.6).sp),
+    displaySmall = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.35).sp),
+    headlineLarge = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.25).sp),
+    headlineMedium = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp, letterSpacing = (-0.15).sp),
+    headlineSmall = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.SemiBold, fontSize = 19.sp, lineHeight = 24.sp, letterSpacing = 0.sp),
+    titleLarge = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 25.sp, letterSpacing = (-0.1).sp),
+    titleMedium = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 21.sp, letterSpacing = 0.sp),
+    titleSmall = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.05.sp),
+    bodyLarge = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp, letterSpacing = 0.sp),
+    bodyMedium = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.05.sp),
+    bodySmall = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 17.sp, letterSpacing = 0.1.sp),
+    labelLarge = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 19.sp, letterSpacing = 0.05.sp),
+    labelMedium = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.2.sp),
+    labelSmall = TextStyle(fontFamily = UiFont, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.25.sp)
 )
