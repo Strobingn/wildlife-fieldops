@@ -17,17 +17,17 @@ import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = PrimaryGreen,
-    onPrimary = Color(0xFF001833),
+    onPrimary = Color.White,
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer,
     secondary = AccentCyan,
-    onSecondary = Color(0xFF00263A),
-    secondaryContainer = Color(0xFF0C2A40),
-    onSecondaryContainer = Color(0xFFCFEFFF),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF103244),
+    onSecondaryContainer = Color(0xFFD6EEF5),
     tertiary = AccentAmber,
-    onTertiary = Color(0xFF3D2A00),
-    tertiaryContainer = Color(0xFF3D2E0A),
-    onTertiaryContainer = Color(0xFFFFE08A),
+    onTertiary = Color(0xFF211700),
+    tertiaryContainer = Color(0xFF3A2B0D),
+    onTertiaryContainer = Color(0xFFFFE3A3),
     background = BackgroundDark,
     onBackground = TextPrimary,
     surface = BackgroundCard,
@@ -41,15 +41,15 @@ private val DarkColorScheme = darkColorScheme(
     surfaceContainerHigh = SurfaceVariant,
     surfaceContainerHighest = SurfaceBright,
     error = ErrorRed,
-    onError = Color(0xFF3B0000),
-    errorContainer = Color(0xFF5C1010),
+    onError = Color.White,
+    errorContainer = Color(0xFF501313),
     onErrorContainer = Color(0xFFFFDAD6),
     outline = BorderDark,
     outlineVariant = DividerDark,
     scrim = ScrimDark,
     inverseSurface = Color(0xFFE4E8F0),
     inverseOnSurface = Color(0xFF1A1E26),
-    inversePrimary = PrimaryGreenDark
+    inversePrimary = PrimaryGreenLight
 )
 
 private fun Context.findActivity(): Activity? {
