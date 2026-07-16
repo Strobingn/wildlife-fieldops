@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary_green">#FF3B7AE8</color>
-    <color name="background_dark">#FF0B0D12</color>
-    <color name="surface_dark">#FF151922</color>
-    <color name="text_primary">#FFF2F4F8</color>
-    <color name="text_secondary">#FFA8B0BD</color>
-    <color name="ic_launcher_background">#FF0B0D12</color>
-    <color name="splash_background">#FF0B0D12</color>
-    <color name="md_theme_light_background">#FF0B0D12</color>
-    <color name="md_theme_light_surface">#FF151922</color>
-    <color name="accent_purple">#FF8B5CF6</color>
-    <color name="accent_blue">#FF3B82F6</color>
+    <color name="primary_green">#FF173A66</color>
+    <color name="background_dark">#FF080B10</color>
+    <color name="surface_dark">#FF11161E</color>
+    <color name="text_primary">#FFF2F5F8</color>
+    <color name="text_secondary">#FFB5BFCA</color>
+    <color name="ic_launcher_background">#FF080B10</color>
+    <color name="splash_background">#FF080B10</color>
+    <color name="md_theme_light_background">#FF080B10</color>
+    <color name="md_theme_light_surface">#FF11161E</color>
+    <color name="accent_purple">#FF7654A8</color>
+    <color name="accent_blue">#FF1D4E89</color>
 </resources>
