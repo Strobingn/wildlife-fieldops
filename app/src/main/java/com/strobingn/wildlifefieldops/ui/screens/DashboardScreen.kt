@@ -1,45 +1,22 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Psychology
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.strobingn.wildlifefieldops.ui.theme.BackgroundCard
-import com.strobingn.wildlifefieldops.ui.theme.BackgroundDark
-import com.strobingn.wildlifefieldops.ui.theme.PrimaryGreen
-import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
-import com.strobingn.wildlifefieldops.ui.theme.TextSecondary
 import com.strobingn.wildlifefieldops.ui.viewmodel.DashboardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,120 +36,182 @@ fun DashboardScreen(
 ) {
     val stats by viewModel.stats.collectAsState()
     val recentJobs by viewModel.recentJobs.collectAsState()
-    val reminders by viewModel.pendingReminders.collectAsState()
+    val colors = MaterialTheme.colorScheme
 
     Scaffold(
+        containerColor = colors.background,
         topBar = {
             TopAppBar(
-                title = { Text("Wildlife FieldOps", fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        Text("Dashboard", color = colors.onBackground, fontWeight = FontWeight.Bold)
+                        Text("Wildlife Field Ops", color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, contentDescription = "Open menu")
+                        Icon(Icons.Default.Menu, "Open menu", tint = colors.onBackground)
                     }
                 },
                 actions = {
                     IconButton(onClick = onNavigateToAI) {
-                        Icon(Icons.Default.Psychology, contentDescription = "AI Assistant")
+                        Icon(Icons.Default.AutoAwesome, "AI Assistant", tint = colors.onBackground)
                     }
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.NotificationsNone, "Notifications", tint = colors.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BackgroundDark,
-                    titleContentColor = TextPrimary
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.background)
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToJobForm, containerColor = PrimaryGreen) {
-                Icon(Icons.Default.Add, contentDescription = "New Job")
-            }
-        },
-        containerColor = BackgroundDark
+            FloatingActionButton(
+                onClick = onNavigateToJobForm,
+                containerColor = colors.primary,
+                contentColor = colors.onPrimary,
+                shape = RoundedCornerShape(50)
+            ) { Icon(Icons.Default.Add, "New job") }
+        }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            item { SectionTitle("Overview") }
             item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DashboardMetric("Active", stats.inProgressJobs.toString(), Modifier.weight(1f))
-                    DashboardMetric("Pending", stats.pendingJobs.toString(), Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetricCard(Icons.Default.WorkOutline, stats.todayJobs.toString(), "Today's Jobs", Modifier.weight(1f))
+                    MetricCard(Icons.Default.CheckCircleOutline, stats.completedJobs.toString(), "Completed", Modifier.weight(1f))
                 }
             }
             item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DashboardMetric("Completed", stats.completedJobs.toString(), Modifier.weight(1f))
-                    DashboardMetric("Revenue", "$${"%.2f".format(stats.totalRevenue)}", Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetricCard(Icons.Default.Schedule, stats.inProgressJobs.toString(), "In Progress", Modifier.weight(1f))
+                    MetricCard(Icons.Default.AttachMoney, "$${"%,.0f".format(stats.totalRevenue)}", "Revenue", Modifier.weight(1f))
                 }
             }
             item {
-                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = BackgroundCard)) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Today's Overview", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
-                        Spacer(Modifier.height(8.dp))
-                        Text("Jobs today: ${stats.todayJobs}", color = TextSecondary)
-                        Text("Overdue: ${stats.overdueJobs}", color = TextSecondary)
-                        Text("Customers: ${stats.totalCustomers}", color = TextSecondary)
-                        Text("Inspections: ${stats.totalInspections}", color = TextSecondary)
-                        Text("Follow-ups: ${stats.followUpRequired}", color = TextSecondary)
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SectionTitle("Upcoming Jobs")
+                    TextButton(onClick = onNavigateToJobs) { Text("View All") }
                 }
             }
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onNavigateToJobs, modifier = Modifier.weight(1f)) { Text("Jobs") }
-                    Button(onClick = onNavigateToCustomers, modifier = Modifier.weight(1f)) { Text("Customers") }
-                }
-            }
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onNavigateToInspections, modifier = Modifier.weight(1f)) { Text("Inspections") }
-                    Button(onClick = onNavigateToSchedule, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null)
-                        Text("Schedule")
-                    }
-                }
-            }
-            item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onNavigateToMap, modifier = Modifier.weight(1f)) { Text("Map") }
-                    Button(onClick = onNavigateToAI, modifier = Modifier.weight(1f)) { Text("AI") }
-                }
-            }
-            item { Text("Recent Jobs", style = MaterialTheme.typography.titleMedium, color = TextPrimary) }
             if (recentJobs.isEmpty()) {
-                item { Text("No jobs yet", color = TextSecondary) }
+                item { V1Card { Text("No scheduled jobs", color = colors.onSurfaceVariant) } }
             } else {
-                items(recentJobs) { job ->
+                items(recentJobs.take(4)) { job ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = BackgroundCard),
-                        onClick = { onNavigateToJobDetail(job.id) }
+                        onClick = { onNavigateToJobDetail(job.id) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = colors.surface),
+                        border = BorderStroke(1.dp, colors.outlineVariant)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(job.title, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            if (job.customerName.isNotBlank()) Text(job.customerName, color = TextSecondary)
-                            Text(job.status.name.replace('_', ' '), color = TextSecondary)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = colors.surfaceVariant,
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Pets, null, tint = colors.primary)
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(job.title, color = colors.onSurface, fontWeight = FontWeight.SemiBold)
+                                if (job.customerName.isNotBlank()) {
+                                    Text(job.customerName, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                                }
+                                Text(job.status.name.replace('_', ' '), color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                            }
+                            Icon(Icons.Default.ChevronRight, null, tint = colors.onSurfaceVariant)
                         }
                     }
                 }
             }
-            if (reminders.isNotEmpty()) {
-                item { Text("Pending reminders: ${reminders.size}", color = TextSecondary) }
+            item { SectionTitle("Quick Access") }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickAction(Icons.Default.Search, "Inspections", onNavigateToInspections, Modifier.weight(1f))
+                    QuickAction(Icons.Default.CalendarMonth, "Schedule", onNavigateToSchedule, Modifier.weight(1f))
+                    QuickAction(Icons.Default.People, "Customers", onNavigateToCustomers, Modifier.weight(1f))
+                }
             }
-            item { Spacer(Modifier.height(24.dp)) }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickAction(Icons.Default.Map, "Map", onNavigateToMap, Modifier.weight(1f))
+                    QuickAction(Icons.Default.AutoAwesome, "AI", onNavigateToAI, Modifier.weight(1f))
+                    QuickAction(Icons.Default.Settings, "Settings", onNavigateToSettings, Modifier.weight(1f))
+                }
+            }
+            item { Spacer(Modifier.height(84.dp)) }
         }
     }
 }
 
 @Composable
-private fun DashboardMetric(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = BackgroundCard)) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, color = TextSecondary, style = MaterialTheme.typography.labelMedium)
-            Text(value, color = TextPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+private fun SectionTitle(text: String) {
+    Text(text, color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+}
+
+@Composable
+private fun MetricCard(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        border = BorderStroke(1.dp, colors.outlineVariant)
+    ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = colors.primary, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(value, color = colors.onSurface, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(label, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
         }
+    }
+}
+
+@Composable
+private fun QuickAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Card(
+        modifier = modifier,
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surface),
+        border = BorderStroke(1.dp, colors.outlineVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Icon(icon, null, tint = colors.primary)
+            Text(label, color = colors.onSurface, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun V1Card(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), content = content)
     }
 }
