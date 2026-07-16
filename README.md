@@ -1,9 +1,29 @@
-# Wildlife Whisperer FieldOps Rockstar
+# Wildlife FieldOps
 
-Native Android app for wildlife removal operations.
+Native Android application for wildlife-removal operations.
 
-Heavy AI integration (Grok + ML Kit).
+## Supported stack
 
-Build status: CI hardened.
+- Kotlin
+- Jetpack Compose
+- Room
+- Hilt
+- WorkManager
+- Supabase
+- GitHub Actions APK builds
 
-Download latest APK from GitHub Actions artifacts.
+This repository no longer contains or supports a web app, PWA, Vite frontend, Capacitor wrapper, Vercel deployment, service worker, browser UI, or JavaScript application runtime.
+
+All product development belongs under `app/` and the native Android build system.
+
+Build locally:
+
+```bash
+./gradlew assembleDebug
+```
+
+Debug APK:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
