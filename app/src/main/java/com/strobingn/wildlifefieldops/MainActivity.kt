@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops
+package com.strobingn.wildlife
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -27,11 +27,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
-import com.strobingn.wildlifefieldops.navigation.Screen
-import com.strobingn.wildlifefieldops.ui.components.BrandMark
-import com.strobingn.wildlifefieldops.ui.screens.*
-import com.strobingn.wildlifefieldops.ui.screens.InspectionSchedulerScreen
-import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlife.navigation.Screen
+import com.strobingn.wildlife.ui.components.BrandMark
+import com.strobingn.wildlife.ui.screens.*
+import com.strobingn.wildlife.ui.screens.InspectionSchedulerScreen
+import com.strobingn.wildlife.ui.theme.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
