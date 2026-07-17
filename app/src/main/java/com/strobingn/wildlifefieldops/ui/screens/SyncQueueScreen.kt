@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.PendingOperation
 import com.strobingn.wildlifefieldops.ui.theme.*
+import androidx.compose.ui.graphics.Color
 import com.strobingn.wildlifefieldops.ui.viewmodel.SyncQueueViewModel
 import java.text.SimpleDateFormat
 import java.util.*
