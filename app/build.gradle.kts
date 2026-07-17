@@ -43,7 +43,6 @@ android {
         buildConfig = true
     }
 
-    // Compose Compiler 1.5.15 is the compatible compiler for Kotlin 1.9.25.
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.15"
     }
@@ -88,11 +87,14 @@ dependencies {
 
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-compiler:2.51.1")
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    ksp("androidx.hilt:hilt-compiler:1.1.0")
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("io.ktor:ktor-client-android:2.3.12")
