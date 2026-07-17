@@ -1,6 +1,6 @@
-package com.strobingn.wildlifefieldopsfieldops.data.pricing
+package com.strobingn.wildlifefieldops.data.pricing
 
-import com.strobingn.wildlifefieldopsfieldops.data.model.JobType
+import com.strobingn.wildlifefieldops.data.model.JobType
 
 /**
  * Regional species-based pricing matrix for wildlife removal services.
