@@ -1,4 +1,4 @@
-package com.strobingn.wildlife.ai
+package com.strobingn.wildlifefieldops.ai
 
 import android.content.Context
 import android.net.Uri
