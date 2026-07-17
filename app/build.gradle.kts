@@ -14,9 +14,10 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 33
-        versionName = "2.4.0-ai-operations"
+        versionCode = 34
+        versionName = "2.4.1-chatgpt-v4"
 
+        // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
         val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
         val llmModel = System.getenv("LLM_MODEL") ?: "grok-4.5"
@@ -64,18 +65,33 @@ android {
         }
     }
 
+    val keystorePath = System.getenv("KEYSTORE_PATH")
+    val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+    val keyAliasValue = System.getenv("KEY_ALIAS")
+    val keyPasswordValue = System.getenv("KEY_PASSWORD")
+    val releaseSigningConfigured = listOf(
+        keystorePath,
+        keystorePassword,
+        keyAliasValue,
+        keyPasswordValue
+    ).all { !it.isNullOrBlank() }
+
     signingConfigs {
-        create("release") {
-            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "wildlife.keystore")
-            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("KEY_ALIAS") ?: "wildlife"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(requireNotNull(keystorePath))
+                storePassword = requireNotNull(keystorePassword)
+                keyAlias = requireNotNull(keyAliasValue)
+                keyPassword = requireNotNull(keyPasswordValue)
+            }
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -87,6 +103,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 dependencies {
@@ -130,12 +151,10 @@ dependencies {
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.mlkit:object-detection:17.0.2")
 
-    // PDF Generation
     implementation("com.itextpdf:itext7-core:8.0.2")
     implementation("com.itextpdf:bouncy-castle-adapter:8.0.2")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
 
-    // CameraX
     implementation("androidx.camera:camera-core:1.3.1")
     implementation("androidx.camera:camera-camera2:1.3.1")
     implementation("androidx.camera:camera-lifecycle:1.3.1")
