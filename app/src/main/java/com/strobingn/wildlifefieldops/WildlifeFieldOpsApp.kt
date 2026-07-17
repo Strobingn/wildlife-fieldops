@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops
+package com.strobingn.wildlife
 
 import android.app.Application
 import android.util.Log
@@ -9,7 +9,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.strobingn.wildlifefieldops.data.sync.SyncWorker
+import com.strobingn.wildlife.data.sync.SyncWorker
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
