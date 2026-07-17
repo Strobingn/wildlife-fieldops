@@ -2,7 +2,7 @@ name: Build Native Android APK (Debug)
 
 on:
   push:
-    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations, phase-1-2-3-integration, ChatGPTV2, ChatGPT-v1.5 ]
+    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations, phase-1-2-3-integration, ChatGPTV2, ChatGPT-v1.5, chatgptv2-phase3 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -57,6 +57,8 @@ jobs:
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AIOperationsViewModel.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/IntegrationSettingsScreen.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/AuthActivity.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AnalyticsScreen.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AnalyticsViewModel.kt"
           )
           for file in "${required_files[@]}"; do
             test -s "$file" || { echo "Missing or empty required file: $file"; exit 1; }
