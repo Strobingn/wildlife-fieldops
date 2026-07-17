@@ -2,7 +2,16 @@ name: Build Native Android APK (Debug)
 
 on:
   push:
-    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations ]
+    branches:
+      - main
+      - WildlifeFieldApp
+      - app-fixed-by-chatgptV4
+      - feature/build-32-diagnostics
+      - feature/build-33-ai-operations
+  pull_request:
+    branches:
+      - main
+      - WildlifeFieldApp
   workflow_dispatch:
 
 jobs:
@@ -35,52 +44,38 @@ jobs:
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" || \
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
-      - name: Grant execute permission for Gradle wrapper
+      - name: Grant execute permission
         run: chmod +x ./gradlew
 
-      - name: Verify required source files
+      - name: Verify AI configuration
         run: |
-          set -euo pipefail
-          required_files=(
-            "app/src/main/java/com/strobingn/wildlifefieldops/data/local/Converters.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/data/local/AppDatabase.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/data/model/InvoiceLineItem.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/data/model/JobType.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/DiagnosticsScreen.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/ai/operations/AIOperationsEngine.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AIOperationsScreen.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AIOperationsViewModel.kt"
-          )
-          for file in "${required_files[@]}"; do
-            test -s "$file" || { echo "Missing or empty required file: $file"; exit 1; }
-          done
-
-      - name: Verify AI secrets (no values printed)
-        run: |
-          set -e
-          if [ -z "${XAI_API_KEY}" ] && [ -n "${LLM_API_KEY}" ]; then
-            echo "Using LLM_API_KEY fallback"
-            echo "XAI_API_KEY=${LLM_API_KEY}" >> "$GITHUB_ENV"
+          if [ -z "${XAI_API_KEY}" ] && [ -z "${LLM_API_KEY}" ]; then
+            echo "::warning::No direct AI API key configured; the APK will use offline AI fallbacks."
+          else
+            echo "Direct AI API configuration is present."
           fi
-          echo "LLM_BASE_URL=${LLM_BASE_URL}" >> "$GITHUB_ENV"
-          echo "LLM_MODEL=${LLM_MODEL}" >> "$GITHUB_ENV"
-          echo "XAI_API_KEY length: ${#XAI_API_KEY}"
-          echo "LLM_API_KEY length: ${#LLM_API_KEY}"
 
-      - name: Clean generated KSP and build state
+      - name: Clean
         run: ./gradlew clean --no-daemon --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+        timeout-minutes: 25
+
+      - name: Android lint
+        run: ./gradlew :app:lintDebug --no-daemon --stacktrace
+        timeout-minutes: 25
 
       - name: Build Debug APK
         run: |
           set -o pipefail
           export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
           export JAVA_OPTS="-Xmx4g"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info --refresh-dependencies -x test -x lint 2>&1 | tee build.log
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee build.log
         timeout-minutes: 45
 
-      - name: Check for APK and list outputs
-        run: |
-          find app/build/outputs -name "*.apk" -type f || echo "No APK found"
+      - name: Verify APK
+        run: test -n "$(find app/build/outputs/apk/debug -name '*.apk' -type f -print -quit)"
 
       - name: Upload Debug APK
         if: success()
@@ -99,7 +94,3 @@ jobs:
           path: build.log
           if-no-files-found: warn
           retention-days: 7
-
-      - name: Summary
-        if: success()
-        run: echo "Wildlife Field Ops Debug APK built successfully."
