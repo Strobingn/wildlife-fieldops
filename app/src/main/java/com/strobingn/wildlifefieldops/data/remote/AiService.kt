@@ -1,7 +1,7 @@
-package com.strobingn.wildlife.data.remote
+package com.strobingn.wildlifefieldops.data.remote
 
-import com.strobingn.wildlife.BuildConfig
-import com.strobingn.wildlife.data.model.Job
+import com.strobingn.wildlifefieldops.BuildConfig
+import com.strobingn.wildlifefieldops.data.model.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
