@@ -33,7 +33,10 @@ class SyncQueueRepository @Inject constructor(
         }
 
         if (items.isEmpty()) return 0
-        return syncQueueDao.insertAll(items).count { it != -1L }
+        val itemIds = items.map { it.id }
+        val reactivated = syncQueueDao.reactivateCompleted(itemIds)
+        val inserted = syncQueueDao.insertAll(items).count { it != -1L }
+        return reactivated + inserted
     }
 
     suspend fun readyBatch(limit: Int = 100): List<SyncQueueItem> =
