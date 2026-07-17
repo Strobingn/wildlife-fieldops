@@ -249,7 +249,7 @@ fun VoiceDictationScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("• Speak clearly and at normal pace", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                     Text("• Minimize background noise", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                    Text("• Use field terminology: "raccoon entry point, attic inspection"", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
+                    Text("• Use field terminology: 'raccoon entry point, attic inspection'", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                     Text("• Review transcription before saving", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
