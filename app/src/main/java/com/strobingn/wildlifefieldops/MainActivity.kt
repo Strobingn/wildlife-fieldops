@@ -89,8 +89,38 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             android.util.Log.e("MainActivity", "Permission request failed", e)
         }
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,8 +208,38 @@ fun WildlifeFieldOpsNavHost() {
                 }
             )
         }
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
+
 
 @Composable
 private fun AppNavHost(
@@ -373,8 +433,38 @@ private fun AppNavHost(
                 onBack = { navController.popBackStack() }
             )
         }
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
+
 
 @Composable
 private fun ModernBottomBar(
@@ -412,8 +502,38 @@ private fun ModernBottomBar(
                 )
             )
         }
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
+
 
 @Composable
 private fun AppDrawer(
@@ -519,5 +639,35 @@ private fun AppDrawer(
                 modifier = Modifier.padding(20.dp)
             )
         }
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
+
