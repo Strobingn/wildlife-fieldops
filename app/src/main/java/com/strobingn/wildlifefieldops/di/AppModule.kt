@@ -1,8 +1,8 @@
-package com.strobingn.wildlifefieldops.di
+package com.strobingn.wildlife.di
 
 import android.content.Context
 import androidx.room.Room
-import com.strobingn.wildlifefieldops.data.local.AppDatabase
+import com.strobingn.wildlife.data.local.AppDatabase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
