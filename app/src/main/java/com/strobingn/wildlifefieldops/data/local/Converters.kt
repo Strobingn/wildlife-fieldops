@@ -1,9 +1,9 @@
-package com.strobingn.wildlife.data.local
+package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.TypeConverter
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.strobingn.wildlife.data.model.InvoiceLineItem
+import com.strobingn.wildlifefieldops.data.model.InvoiceLineItem
 
 /**
  * Room converters for collection types that cannot be stored directly.
