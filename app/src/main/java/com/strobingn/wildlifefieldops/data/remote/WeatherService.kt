@@ -1,6 +1,6 @@
-package com.strobingn.wildlife.data.remote
+package com.strobingn.wildlifefieldops.data.remote
 
-import com.strobingn.wildlife.BuildConfig
+import com.strobingn.wildlifefieldops.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
