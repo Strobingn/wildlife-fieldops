@@ -23,11 +23,11 @@ interface SyncQueueDao {
     )
     suspend fun getReady(now: Long = System.currentTimeMillis(), limit: Int = 100): List<SyncQueueItem>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(item: SyncQueueItem)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(item: SyncQueueItem): Long
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(items: List<SyncQueueItem>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(items: List<SyncQueueItem>): List<Long>
 
     @Query(
         "UPDATE sync_queue SET status = :status, updatedAt = :updatedAt " +
