@@ -1,6 +1,5 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -28,12 +27,19 @@ fun JobListScreen(
     onNavigateToJobForm: () -> Unit,
     onBack: () -> Unit,
     showBack: Boolean = true,
+    initialStatus: JobStatus? = null,
+    initialServiceType: String? = null,
     viewModel: JobsViewModel = hiltViewModel()
 ) {
     val jobs by viewModel.jobs.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedStatus by viewModel.selectedStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    LaunchedEffect(initialStatus, initialServiceType) {
+        viewModel.setStatusFilter(initialStatus)
+        viewModel.setSearchQuery(initialServiceType.orEmpty())
+    }
 
     Scaffold(
         topBar = {
@@ -71,11 +77,10 @@ fun JobListScreen(
             FieldSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::setSearchQuery,
-                placeholder = "Search jobs, customers, addresses…",
+                placeholder = "Search jobs, customers, addresses, service types…",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
-            // Status filter chips
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -96,9 +101,7 @@ fun JobListScreen(
                     val selected = selectedStatus == status
                     FilterChip(
                         selected = selected,
-                        onClick = {
-                            viewModel.setStatusFilter(if (selected) null else status)
-                        },
+                        onClick = { viewModel.setStatusFilter(if (selected) null else status) },
                         label = { Text(status.name.replace("_", " ")) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
@@ -142,10 +145,7 @@ fun JobListScreen(
                     } else {
                         itemsIndexed(jobs, key = { _, job -> job.id }) { index, job ->
                             FadeSlideIn(index = index) {
-                                JobListItem(
-                                    job = job,
-                                    onClick = { onNavigateToJobDetail(job.id) }
-                                )
+                                JobListItem(job = job, onClick = { onNavigateToJobDetail(job.id) })
                             }
                         }
                     }
@@ -167,10 +167,7 @@ private fun JobListItem(job: Job, onClick: () -> Unit) {
         JobStatus.PAID -> PrimaryGreen
     }
 
-    FieldCard(
-        onClick = onClick,
-        accentColor = statusColor
-    ) {
+    FieldCard(onClick = onClick, accentColor = statusColor) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -192,10 +189,7 @@ private fun JobListItem(job: Job, onClick: () -> Unit) {
                     )
                 }
             }
-            StatusChip(
-                text = job.status.name.replace("_", " "),
-                color = statusColor
-            )
+            StatusChip(text = job.status.name.replace("_", " "), color = statusColor)
         }
 
         Spacer(modifier = Modifier.height(10.dp))
