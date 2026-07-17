@@ -31,7 +31,7 @@ class RouteOptimizerViewModel @Inject constructor(
     fun optimize(jobs: List<Job>): List<Job> {
         if (jobs.size < 3) return jobs
         val remaining = jobs.toMutableList()
-        val optimized = mutableListOf(remaining.removeFirst())
+        val optimized = mutableListOf(remaining.removeAt(0))
         while (remaining.isNotEmpty()) {
             val current = optimized.last()
             val next = remaining.minByOrNull { candidate -> distanceMeters(current, candidate) } ?: break
