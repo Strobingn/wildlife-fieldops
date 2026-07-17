@@ -37,23 +37,17 @@
         tools:targetApi="35">
 
         <activity
-            android:name=".AuthActivity"
+            android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.WildlifeFieldOps"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.WildlifeFieldOps.Splash"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:theme="@style/Theme.WildlifeFieldOps.Splash"
-            android:windowSoftInputMode="adjustResize"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode"
-            android:launchMode="singleTop" />
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
