@@ -1,9 +1,9 @@
-package com.strobingn.wildlife.ai
+package com.strobingn.wildlifefieldops.ai
 
 import android.content.Context
 import android.net.Uri
 import com.google.gson.Gson
-import com.strobingn.wildlife.BuildConfig
+import com.strobingn.wildlifefieldops.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.headers
