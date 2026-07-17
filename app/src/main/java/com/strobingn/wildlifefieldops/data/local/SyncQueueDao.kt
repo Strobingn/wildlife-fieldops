@@ -30,6 +30,13 @@ interface SyncQueueDao {
     suspend fun insertAll(items: List<SyncQueueItem>): List<Long>
 
     @Query(
+        "UPDATE sync_queue SET status = 'PENDING', attemptCount = 0, lastError = NULL, " +
+            "nextAttemptAt = 0, updatedAt = :updatedAt " +
+            "WHERE status = 'COMPLETED' AND id IN (:ids)"
+    )
+    suspend fun reactivateCompleted(ids: List<String>, updatedAt: Long = System.currentTimeMillis()): Int
+
+    @Query(
         "UPDATE sync_queue SET status = :status, updatedAt = :updatedAt " +
             "WHERE id IN (:ids)"
     )
