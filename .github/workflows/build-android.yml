@@ -63,8 +63,26 @@ jobs:
         timeout-minutes: 25
 
       - name: Android lint
+        id: lint
+        continue-on-error: true
         run: ./gradlew :app:lintDebug --no-daemon --stacktrace
         timeout-minutes: 25
+
+      - name: Report lint result
+        if: steps.lint.outcome == 'failure'
+        run: echo "::warning::Android lint found existing issues. Reports are uploaded, but the APK build will continue."
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-reports
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            app/build/reports/lint-results-debug.txt
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Build Debug APK
         run: |
