@@ -32,8 +32,8 @@ class SyncQueueRepository @Inject constructor(
             addAll(invoiceDao.getUnsynced().map { it.toQueueItem(SyncEntityType.INVOICE) })
         }
 
-        if (items.isNotEmpty()) syncQueueDao.insertAll(items)
-        return items.size
+        if (items.isEmpty()) return 0
+        return syncQueueDao.insertAll(items).count { it != -1L }
     }
 
     suspend fun readyBatch(limit: Int = 100): List<SyncQueueItem> =
@@ -45,8 +45,8 @@ class SyncQueueRepository @Inject constructor(
         }
     }
 
-    suspend fun reconcile(items: List<SyncQueueItem>): Int {
-        if (items.isEmpty()) return 0
+    suspend fun reconcile(items: List<SyncQueueItem>): Set<String> {
+        if (items.isEmpty()) return emptySet()
 
         val completedIds = items.filter { item ->
             when (item.entityType) {
@@ -55,10 +55,10 @@ class SyncQueueRepository @Inject constructor(
                 SyncEntityType.INSPECTION -> inspectionDao.getById(item.entityId)?.isSynced != false
                 SyncEntityType.INVOICE -> invoiceDao.getById(item.entityId)?.isSynced != false
             }
-        }.map { it.id }
+        }.mapTo(mutableSetOf()) { it.id }
 
-        if (completedIds.isNotEmpty()) syncQueueDao.markCompleted(completedIds)
-        return completedIds.size
+        if (completedIds.isNotEmpty()) syncQueueDao.markCompleted(completedIds.toList())
+        return completedIds
     }
 
     suspend fun markRemainingFailed(items: List<SyncQueueItem>, message: String) {
