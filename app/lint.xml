@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<lint>
-    <!-- CameraX ImageProxy.image is intentionally used for ML Kit frame analysis. -->
-    <issue id="UnsafeOptInUsageError">
-        <ignore path="src/main/java/com/strobingn/wildlifefieldops/ui/screens/MLKitCameraScreen.kt" />
-    </issue>
-</lint>
