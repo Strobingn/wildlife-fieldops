@@ -23,6 +23,7 @@ import com.strobingn.wildlifefieldops.data.model.Inspection
 import com.strobingn.wildlifefieldops.data.model.InspectionType
 import com.strobingn.wildlifefieldops.data.model.FindingSeverity
 import com.strobingn.wildlifefieldops.ui.theme.*
+import androidx.compose.ui.graphics.Color
 import com.strobingn.wildlifefieldops.ui.viewmodel.InspectionsViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -231,7 +232,7 @@ private fun InspectionCard(
                 )
             }
 
-            if (inspection.address.isNotBlank()) {
+            if (inspection.notes.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -242,7 +243,7 @@ private fun InspectionCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = inspection.address,
+                        text = inspection.notes,
                         color = TextSecondary,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -273,9 +274,10 @@ private fun InspectionCard(
 @Composable
 private fun SeverityBadge(severity: FindingSeverity) {
     val (color, label) = when (severity) {
+        FindingSeverity.NONE -> {}
         FindingSeverity.CRITICAL -> MaterialTheme.colorScheme.error to "Critical"
         FindingSeverity.HIGH -> MaterialTheme.colorScheme.tertiary to "High"
-        FindingSeverity.MEDIUM -> PrimaryGreen to "Medium"
+        FindingSeverity.MODERATE -> PrimaryGreen to "Medium"
         FindingSeverity.LOW -> TextSecondary to "Low"
         FindingSeverity.NONE -> TextSecondary to "None"
     }
@@ -447,7 +449,7 @@ private fun AddInspectionDialog(
                             severity = severity,
                             inspectionDate = selectedDate,
                             notes = notes,
-                            address = address
+                            notes = notes
                         )
                     )
                 },
