@@ -36,7 +36,13 @@ class EstimateViewModel @Inject constructor(
 
     val estimate = combine(
         selectedJobType, propertySize, severity, travelMiles, taxRate, discountPercent
-    ) { jobType, size, sev, miles, tax, discount ->
+    ) { params ->
+        val jobType = params[0] as JobType
+        val size = params[1] as PricingMatrix.PropertySize
+        val sev = params[2] as PricingMatrix.Severity
+        val miles = params[3] as Double
+        val tax = params[4] as Double
+        val discount = params[5] as Double
         val base = PricingMatrix.calculateEstimate(jobType, size, sev, miles, tax)
         val discountAmount = base.grandTotal * (discount / 100)
         base.copy(
