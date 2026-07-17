@@ -1,10 +1,10 @@
-package com.strobingn.wildlifefieldops.data.remote
+package com.strobingn.wildlife.data.remote
 
-import com.strobingn.wildlifefieldops.data.model.Customer
-import com.strobingn.wildlifefieldops.data.model.Inspection
-import com.strobingn.wildlifefieldops.data.model.Job
-import com.strobingn.wildlifefieldops.data.model.JobPriority
-import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.strobingn.wildlife.data.model.Customer
+import com.strobingn.wildlife.data.model.Inspection
+import com.strobingn.wildlife.data.model.Job
+import com.strobingn.wildlife.data.model.JobPriority
+import com.strobingn.wildlife.data.model.JobStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
