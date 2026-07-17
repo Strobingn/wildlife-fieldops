@@ -41,8 +41,9 @@
 -dontwarn com.itextpdf.bouncycastlefips.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.slf4j.**
-# iText references desktop-only AWT APIs (never executed on Android)
+# iText references desktop-only AWT/ImageIO APIs (never executed on Android)
 -dontwarn java.awt.**
+-dontwarn javax.imageio.**
 # Jackson (used internally by iText JsonUtil)
 -keep class com.fasterxml.jackson.** { *; }
 -dontwarn com.fasterxml.jackson.**
