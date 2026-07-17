@@ -68,6 +68,10 @@ class InspectionsViewModel @Inject constructor(
         inspectionDao.delete(inspection)
     }
 
+    fun scheduleInspection(inspection: Inspection) = viewModelScope.launch {
+        inspectionDao.insert(inspection.copy(updatedAt = System.currentTimeMillis()))
+    }
+
     fun createInspection(
         jobId: String,
         customerId: String,
