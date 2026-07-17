@@ -1,0 +1,93 @@
+name: Build Release APK (Signed)
+
+on:
+  push:
+    branches: [ KimiV2, main ]
+  workflow_dispatch:
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+      OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: https://api.x.ai/v1
+      LLM_MODEL: grok-4.5
+      KEYSTORE_PATH: ${{ github.workspace }}/wildlife.keystore
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" ||           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Grant execute permission for Gradle wrapper
+        run: chmod +x ./gradlew
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > wildlife.keystore
+
+      - name: Verify AI secrets
+        run: |
+          set -e
+          if [ -z "${XAI_API_KEY}" ] && [ -n "${LLM_API_KEY}" ]; then
+            echo "Using LLM_API_KEY fallback"
+            echo "XAI_API_KEY=${LLM_API_KEY}" >> "$GITHUB_ENV"
+          fi
+          echo "LLM_BASE_URL=${LLM_BASE_URL}" >> "$GITHUB_ENV"
+          echo "LLM_MODEL=${LLM_MODEL}" >> "$GITHUB_ENV"
+
+      - name: Clean build
+        run: ./gradlew clean --no-daemon
+
+      - name: Build Release APK
+        run: |
+          set -o pipefail
+          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
+          export JAVA_OPTS="-Xmx4g"
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace --info --refresh-dependencies -x test -x lint 2>&1 | tee build.log
+        timeout-minutes: 45
+
+      - name: Check APK outputs
+        run: |
+          find app/build/outputs/apk/release -name "*.apk" -type f -ls || echo "No release APK found"
+
+      - name: Upload Release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wildlife-field-ops-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build-logs
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Summary
+        if: success()
+        run: echo "Wildlife Field Ops Release APK built and signed successfully."
