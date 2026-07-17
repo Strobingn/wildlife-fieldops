@@ -1,8 +1,6 @@
 package com.strobingn.wildlifefieldops.data.repository
 
 import com.strobingn.wildlifefieldops.data.remote.SupabaseService
-import io.github.jan.supabase.postgrest.from
-import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
@@ -27,8 +25,8 @@ class OrganizationRepository @Inject constructor(
     private val supabaseService: SupabaseService
 ) {
     suspend fun listForCurrentUser(): Result<List<Organization>> = runCatching {
-        val client = requireNotNull(supabaseService.client) { "Supabase is not configured" }
-        client.from("organizations")
+        val postgrest = requireNotNull(supabaseService.postgrest) { "Supabase is not configured" }
+        postgrest["organizations"]
             .select()
             .decodeList<Organization>()
             .sortedBy { it.name.lowercase() }
@@ -37,8 +35,8 @@ class OrganizationRepository @Inject constructor(
     suspend fun create(name: String): Result<Organization> = runCatching {
         val cleanName = name.trim()
         require(cleanName.length >= 2) { "Organization name must contain at least 2 characters" }
-        val client = requireNotNull(supabaseService.client) { "Supabase is not configured" }
-        client.rpc(
+        val postgrest = requireNotNull(supabaseService.postgrest) { "Supabase is not configured" }
+        postgrest.rpc(
             function = "create_organization",
             parameters = CreateOrganizationArgs(cleanName)
         ).decodeSingle<Organization>()
