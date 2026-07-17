@@ -1,9 +1,9 @@
-package com.strobingn.wildlifefieldops.data.local
+package com.strobingn.wildlife.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.strobingn.wildlifefieldops.data.model.*
+import com.strobingn.wildlife.data.model.*
 
 @Database(
     entities = [
