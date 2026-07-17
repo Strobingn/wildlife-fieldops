@@ -6,6 +6,7 @@ import com.strobingn.wildlifefieldops.data.local.InvoiceDao
 import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.local.SyncQueueDao
 import com.strobingn.wildlifefieldops.data.model.SyncEntityType
+import com.strobingn.wildlifefieldops.data.model.SyncOperation
 import com.strobingn.wildlifefieldops.data.model.SyncQueueItem
 import com.strobingn.wildlifefieldops.data.model.SyncQueueStatus
 import kotlinx.coroutines.flow.Flow
@@ -82,7 +83,13 @@ class SyncQueueRepository @Inject constructor(
             is com.strobingn.wildlifefieldops.data.model.Invoice -> id
             else -> error("Unsupported sync entity: ${this::class.java.simpleName}")
         }
-        return SyncQueueItem(entityType = entityType, entityId = entityId)
+        val operation = SyncOperation.UPSERT
+        return SyncQueueItem(
+            id = "${entityType.name}:$entityId:${operation.name}",
+            entityType = entityType,
+            entityId = entityId,
+            operation = operation
+        )
     }
 
     companion object {
