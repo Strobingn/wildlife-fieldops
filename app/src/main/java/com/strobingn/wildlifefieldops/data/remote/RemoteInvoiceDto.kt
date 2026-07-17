@@ -1,8 +1,8 @@
-package com.strobingn.wildlifefieldops.data.remote
+package com.strobingn.wildlife.data.remote
 
-import com.strobingn.wildlifefieldops.data.model.Invoice
-import com.strobingn.wildlifefieldops.data.model.InvoiceLineItem
-import com.strobingn.wildlifefieldops.data.model.InvoiceStatus
+import com.strobingn.wildlife.data.model.Invoice
+import com.strobingn.wildlife.data.model.InvoiceLineItem
+import com.strobingn.wildlife.data.model.InvoiceStatus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
