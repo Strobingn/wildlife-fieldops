@@ -1,4 +1,4 @@
-package com.strobingn.wildlife.data.model
+package com.strobingn.wildlifefieldops.data.model
 
 /**
  * Built-in wildlife field service types.
