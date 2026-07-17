@@ -290,6 +290,37 @@ private fun AppNavHost(
             )
         }
 
+        composable("sync_queue") {
+            SyncQueueScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable("contract/{jobId}") { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId")
+            ContractScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("voice_dictation") {
+            VoiceDictationScreen(
+                onTranscriptionReady = { text ->
+                    // Could navigate back with result or save to clipboard
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("mlkit_camera") {
+            MLKitCameraScreen(
+                onPhotoCaptured = { photoPath, labels, objects ->
+                    // Handle captured photo with AI labels
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.GPS.route) {
             GPSScreen(
                 onNavigateToMap = { navController.navigate(Screen.Map.route) },
