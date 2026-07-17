@@ -1,8 +1,8 @@
-package com.strobingn.wildlife.data.local
+package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.*
-import com.strobingn.wildlife.data.model.Invoice
-import com.strobingn.wildlife.data.model.InvoiceStatus
+import com.strobingn.wildlifefieldops.data.model.Invoice
+import com.strobingn.wildlifefieldops.data.model.InvoiceStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
