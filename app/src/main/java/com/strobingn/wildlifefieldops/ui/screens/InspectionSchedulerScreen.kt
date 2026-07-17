@@ -274,7 +274,6 @@ private fun InspectionCard(
 @Composable
 private fun SeverityBadge(severity: FindingSeverity) {
     val (color, label) = when (severity) {
-        FindingSeverity.NONE -> {}
         FindingSeverity.CRITICAL -> MaterialTheme.colorScheme.error to "Critical"
         FindingSeverity.HIGH -> MaterialTheme.colorScheme.tertiary to "High"
         FindingSeverity.MODERATE -> PrimaryGreen to "Medium"
@@ -448,7 +447,6 @@ private fun AddInspectionDialog(
                             inspectionType = inspectionType,
                             severity = severity,
                             inspectionDate = selectedDate,
-                            notes = notes,
                             notes = notes
                         )
                     )
