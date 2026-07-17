@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.data.remote
+package com.strobingn.wildlife.data.remote
 
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.createSupabaseClient
@@ -10,7 +10,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.json.Json
-import com.strobingn.wildlifefieldops.BuildConfig
+import com.strobingn.wildlife.BuildConfig
 import javax.inject.Inject
 import javax.inject.Singleton
 
