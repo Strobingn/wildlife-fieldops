@@ -13,14 +13,10 @@ import kotlinx.serialization.json.put
 import java.time.Instant
 import java.util.UUID
 
-/**
- * DTOs match the LIVE Supabase project `wildlife_app` (hgdzmwfcghtilyqagjak).
- * Jobs table uses customer_name/title/species (NOT NULL), not the idealized schema.sql only.
- */
-
 @Serializable
 data class RemoteCustomerDto(
     val id: String,
+    @SerialName("organization_id") val organizationId: String? = null,
     val name: String,
     val phone: String? = null,
     val email: String? = null,
@@ -34,13 +30,10 @@ data class RemoteCustomerDto(
 @Serializable
 data class RemoteJobDto(
     val id: String,
-    /** Live DB required column */
+    @SerialName("organization_id") val organizationId: String? = null,
     @SerialName("customer_name") val customerName: String = "",
-    /** Compatibility column used by older web clients */
     val customer: String? = null,
-    /** Live DB required column — default so partial rows don't crash decode */
     val title: String = "",
-    /** Live DB required column */
     val species: String = "Wildlife",
     @SerialName("customer_id") val customerId: String? = null,
     val phone: String? = null,
@@ -54,12 +47,9 @@ data class RemoteJobDto(
     @SerialName("assigned_tech") val assignedTech: String? = null,
     val notes: String? = null,
     val scope: String? = null,
-    @Serializable(with = FlexibleStringSerializer::class)
-    val latitude: String? = null,
-    @Serializable(with = FlexibleStringSerializer::class)
-    val longitude: String? = null,
-    @Serializable(with = FlexibleDoubleSerializer::class)
-    val estimate: Double? = 0.0,
+    @Serializable(with = FlexibleStringSerializer::class) val latitude: String? = null,
+    @Serializable(with = FlexibleStringSerializer::class) val longitude: String? = null,
+    @Serializable(with = FlexibleDoubleSerializer::class) val estimate: Double? = 0.0,
     @SerialName("grand_total")
     @Serializable(with = FlexibleDoubleSerializer::class)
     val grandTotal: Double? = 0.0,
@@ -70,6 +60,7 @@ data class RemoteJobDto(
 @Serializable
 data class RemoteInspectionDto(
     val id: String,
+    @SerialName("organization_id") val organizationId: String? = null,
     @SerialName("job_id") val jobId: String? = null,
     @SerialName("inspection_type") val inspectionType: String? = "ROUTINE",
     val notes: String? = null,
@@ -120,7 +111,6 @@ fun RemoteCustomerDto.toLocal(): Customer {
 fun Job.toRemoteDto(): RemoteJobDto {
     val name = customerName.ifBlank { title.ifBlank { "Customer" } }
     val jobTitle = title.ifBlank { name }
-    // Prefer service type as species when description is long notes; keep short species labels
     val speciesGuess = when {
         type.isNotBlank() && type.length <= 40 -> type
         description.isNotBlank() && description.length <= 60 -> description
@@ -133,8 +123,6 @@ fun Job.toRemoteDto(): RemoteJobDto {
         title = jobTitle,
         species = speciesGuess,
         customerId = customerId.takeIf { it.isNotBlank() && isUuid(it) },
-        phone = null,
-        email = null,
         address = address.ifBlank { null },
         status = status.toRemoteStatus(),
         priority = priority.toRemotePriority(),
@@ -174,7 +162,6 @@ fun RemoteJobDto.toLocal(): Job {
     )
 }
 
-/** Prefer linking to a real job UUID; otherwise store as standalone inspection row. */
 fun Inspection.toRemoteDtoOrNull(): RemoteInspectionDto {
     val findingsJson = buildJsonObject {
         put("text", findings)
@@ -200,8 +187,7 @@ fun Inspection.toRemoteDtoOrNull(): RemoteInspectionDto {
     )
 }
 
-private fun isUuid(value: String): Boolean =
-    runCatching { UUID.fromString(value); true }.getOrDefault(false)
+private fun isUuid(value: String): Boolean = runCatching { UUID.fromString(value); true }.getOrDefault(false)
 
 private fun JobStatus.toRemoteStatus(): String = when (this) {
     JobStatus.PENDING -> "Active"
