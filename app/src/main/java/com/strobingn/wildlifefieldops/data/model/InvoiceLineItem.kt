@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.data.model
+package com.strobingn.wildlife.data.model
 
 import kotlinx.serialization.Serializable
 
