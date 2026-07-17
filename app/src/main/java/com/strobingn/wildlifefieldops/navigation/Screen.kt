@@ -1,12 +1,21 @@
 package com.strobingn.wildlifefieldops.navigation
 
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Dashboard : Screen("dashboard", "Home", Icons.Default.Home)
-    object JobList : Screen("jobs", "Jobs", Icons.Default.Work)
+    object JobList : Screen("jobs?status={status}&serviceType={serviceType}", "Jobs", Icons.Default.Work) {
+        fun createRoute(status: String? = null, serviceType: String? = null): String {
+            val parts = buildList {
+                status?.takeIf { it.isNotBlank() }?.let { add("status=${Uri.encode(it)}") }
+                serviceType?.takeIf { it.isNotBlank() }?.let { add("serviceType=${Uri.encode(it)}") }
+            }
+            return if (parts.isEmpty()) "jobs" else "jobs?${parts.joinToString("&")}" 
+        }
+    }
     object InspectionList : Screen("inspections", "Inspections", Icons.Default.Search)
     object Schedule : Screen("schedule", "Schedule", Icons.Default.CalendarMonth)
     object GPS : Screen("gps", "GPS", Icons.Default.LocationOn)
@@ -37,6 +46,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun createRoute(jobId: String) = "invoice/$jobId"
     }
     object PhotoGallery : Screen("photos", "Photo Gallery", Icons.Default.PhotoCamera)
+    object Analytics : Screen("analytics", "Analytics", Icons.Default.Analytics)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     object Diagnostics : Screen("diagnostics", "Diagnostics", Icons.Default.BugReport)
     object AIAssistant : Screen("ai_assistant", "AI Assistant", Icons.Default.Psychology)
@@ -56,6 +66,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             Expense,
             Inventory,
             RouteOptimizer,
+            Analytics,
             AIAssistant,
             Settings
         )
