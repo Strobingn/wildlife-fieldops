@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.ai
+package com.strobingn.wildlife.ai
 
 import android.content.Context
 import com.google.ar.core.ArCoreApk
