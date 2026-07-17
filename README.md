@@ -90,11 +90,21 @@ Next Phase 2 work:
 
 ### Phase 3 — intelligence and automation
 
-Planned after Phase 2 reaches a tested, green-build state:
+Analytics foundation implemented on `chatgptv2-phase3`:
+
+- Live Room-backed analytics repository and ViewModel
+- Analytics Compose screen with loading and empty states
+- Job-status breakdown with links to filtered job lists
+- Service-type breakdown with links to filtered job lists
+- Estimated value, actual cost, invoiced revenue, collected revenue, outstanding balance, and gross-margin cards
+- Unsynced job and invoice health indicators
+- Analytics navigation route and drawer entry
+- No placeholder or mock analytics values
+
+Next Phase 3 work:
 
 - AI-assisted field reporting
 - Predictive inspection and maintenance recommendations
-- Analytics dashboards
 - Advanced reporting and exports
 - Operational notifications
 - Technician and business performance metrics
