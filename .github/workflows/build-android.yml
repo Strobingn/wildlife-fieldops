@@ -56,7 +56,6 @@ jobs:
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AIOperationsScreen.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AIOperationsViewModel.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/IntegrationSettingsScreen.kt"
-            "app/src/main/java/com/strobingn/wildlifefieldops/AuthActivity.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AnalyticsScreen.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/AnalyticsViewModel.kt"
           )
