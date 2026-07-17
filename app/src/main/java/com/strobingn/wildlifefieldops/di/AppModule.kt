@@ -61,4 +61,7 @@ object AppModule {
 
     @Provides
     fun provideSyncQueueDao(database: AppDatabase) = database.syncQueueDao()
+
+    @Provides
+    fun provideDigitalContractDao(database: AppDatabase) = database.digitalContractDao()
 }
