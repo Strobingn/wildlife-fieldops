@@ -1,7 +1,7 @@
-package com.strobingn.wildlife.data.local
+package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.*
-import com.strobingn.wildlife.data.model.TrapLog
+import com.strobingn.wildlifefieldops.data.model.TrapLog
 import kotlinx.coroutines.flow.Flow
 
 @Dao
