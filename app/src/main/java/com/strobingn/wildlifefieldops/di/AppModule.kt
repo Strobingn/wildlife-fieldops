@@ -20,7 +20,7 @@ object AppModule {
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "wildlife_fieldops.db"
+            "wildlife_v2.db"
         )
             .fallbackToDestructiveMigration()
             .build()
