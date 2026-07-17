@@ -31,7 +31,7 @@ interface JobDao {
     @Query("SELECT * FROM jobs WHERE isSynced = 0")
     suspend fun getUnsynced(): List<Job>
 
-    @Query("SELECT * FROM jobs WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR customerName LIKE '%' || :query || '%' OR address LIKE '%' || :query || '%'")
+    @Query("SELECT * FROM jobs WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' OR customerName LIKE '%' || :query || '%' OR address LIKE '%' || :query || '%' OR type LIKE '%' || :query || '%' ORDER BY createdAt DESC")
     fun search(query: String): Flow<List<Job>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
