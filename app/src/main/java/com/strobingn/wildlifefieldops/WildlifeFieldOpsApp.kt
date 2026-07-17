@@ -9,8 +9,15 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.strobingn.wildlifefieldops.data.preferences.AppSettingsKeys
+import com.strobingn.wildlifefieldops.data.preferences.settingsDataStore
 import com.strobingn.wildlifefieldops.data.sync.SyncWorker
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -20,15 +27,16 @@ class WildlifeFieldOpsApp : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .setMinimumLoggingLevel(Log.INFO)
             .build()
 
     override fun onCreate() {
         super.onCreate()
-        // Catch uncaught crashes so we can identify future launch failures from logcat.
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             Log.e("WildlifeFieldOps", "FATAL on ${thread.name}", throwable)
@@ -36,25 +44,44 @@ class WildlifeFieldOpsApp : Application(), Configuration.Provider {
         }
         Log.i("WildlifeFieldOps", "App starting v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
 
-        // Schedule periodic background sync
-        schedulePeriodicSync()
+        appScope.launch {
+            configurePeriodicSync()
+        }
     }
 
-    private fun schedulePeriodicSync() {
+    private suspend fun configurePeriodicSync() {
+        val preferences = settingsDataStore.data.first()
+        val autoSync = preferences[AppSettingsKeys.AUTO_SYNC] ?: true
+        val offlineMode = preferences[AppSettingsKeys.OFFLINE_MODE] ?: false
+        val requestedInterval = preferences[AppSettingsKeys.SYNC_INTERVAL] ?: 15
+        val intervalMinutes = requestedInterval.coerceAtLeast(15).toLong()
+        val cloudConfigured = BuildConfig.SUPABASE_URL.isNotBlank() &&
+            BuildConfig.SUPABASE_ANON_KEY.isNotBlank()
+
+        val workManager = WorkManager.getInstance(this)
+        if (!autoSync || offlineMode || !cloudConfigured) {
+            workManager.cancelUniqueWork(SyncWorker.WORK_NAME)
+            Log.i(
+                "WildlifeFieldOps",
+                "Periodic sync disabled: autoSync=$autoSync offline=$offlineMode cloudConfigured=$cloudConfigured"
+            )
+            return
+        }
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(intervalMinutes, TimeUnit.MINUTES)
             .setConstraints(constraints)
             .build()
 
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+        workManager.enqueueUniquePeriodicWork(
             SyncWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             syncRequest
         )
 
-        Log.i("WildlifeFieldOps", "Periodic sync scheduled every 15 minutes")
+        Log.i("WildlifeFieldOps", "Periodic sync scheduled every $intervalMinutes minutes")
     }
 }
