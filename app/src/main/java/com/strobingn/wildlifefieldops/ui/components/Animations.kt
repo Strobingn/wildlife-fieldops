@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.ui.components
+package com.strobingn.wildlife.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
