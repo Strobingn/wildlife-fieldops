@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.data.remote
+package com.strobingn.wildlife.data.remote
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
