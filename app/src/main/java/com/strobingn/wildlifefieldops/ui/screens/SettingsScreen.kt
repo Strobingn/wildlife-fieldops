@@ -26,12 +26,17 @@ fun SettingsScreen(
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showAiOperations by remember { mutableStateOf(false) }
+    var showIntegrations by remember { mutableStateOf(false) }
     if (showDiagnostics) {
         DiagnosticsScreen(onBack = { showDiagnostics = false })
         return
     }
     if (showAiOperations) {
         AIOperationsScreen(onBack = { showAiOperations = false })
+        return
+    }
+    if (showIntegrations) {
+        IntegrationSettingsScreen(onBack = { showIntegrations = false })
         return
     }
 
@@ -86,6 +91,15 @@ fun SettingsScreen(
                 SettingSwitch(Icons.Default.CloudOff, "Offline Mode", "Disable cloud requests", offlineMode, viewModel::setOfflineMode)
             }
 
+            SettingSection("Integrations") {
+                SettingItem(
+                    Icons.Default.Hub,
+                    "Connected Services",
+                    "AI, maps, weather, payments, messaging and push providers",
+                    onClick = { showIntegrations = true }
+                )
+            }
+
             SettingSection("AI Operations") {
                 SettingItem(
                     Icons.Default.AutoAwesome,
@@ -115,7 +129,7 @@ fun SettingsScreen(
 
             SettingSection("App Info") {
                 SettingItem(Icons.Default.Info, "Wildlife FieldOps", "Version ${BuildConfig.VERSION_NAME}", showChevron = false)
-                SettingItem(Icons.Default.Storage, "Local Database", "Room (SQLite)", showChevron = false)
+                SettingItem(Icons.Default.Storage, "Local Database", "Room cache with Supabase synchronization", showChevron = false)
             }
         }
     }
