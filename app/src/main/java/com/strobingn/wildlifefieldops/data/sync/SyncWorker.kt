@@ -45,8 +45,7 @@ class SyncWorker @AssistedInject constructor(
 
         syncQueueRepository.markProcessing(batch)
         val result = syncRepository.syncAll()
-        val completedCount = syncQueueRepository.reconcile(batch)
-        val completedIds = batch.take(completedCount).map { it.id }.toSet()
+        val completedIds = syncQueueRepository.reconcile(batch)
         val remaining = batch.filterNot { it.id in completedIds }
 
         if (remaining.isNotEmpty()) {
@@ -57,7 +56,7 @@ class SyncWorker @AssistedInject constructor(
         val output = Data.Builder()
             .putString(KEY_MESSAGE, result.message)
             .putInt(KEY_QUEUED_ITEMS, queuedCount)
-            .putInt(KEY_COMPLETED_QUEUE_ITEMS, completedCount)
+            .putInt(KEY_COMPLETED_QUEUE_ITEMS, completedIds.size)
             .putInt(KEY_PUSHED_JOBS, result.pushedJobs)
             .putInt(KEY_PUSHED_CUSTOMERS, result.pushedCustomers)
             .putInt(KEY_PUSHED_INSPECTIONS, result.pushedInspections)
