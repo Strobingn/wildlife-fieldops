@@ -1,4 +1,4 @@
-package com.strobingn.wildlife.ui.components
+package com.strobingn.wildlifefieldops.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
