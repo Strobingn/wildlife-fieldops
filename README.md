@@ -1,34 +1,99 @@
-# Wildlife FieldOps — Android
+# Wildlife FieldOps — Version 1.5
 
-Native Android application for wildlife-removal field operations.
+**Stable native Android field-operations app for wildlife-removal work.**
 
-## Platform scope
+Branch: `Wildlife-field-Ops-version-1.5`
 
-This repository's supported product is the Android application under `app/`.
+Version 1.5 is the practical testing line. Version 2 develops the larger commercial platform architecture.
 
-- Android only
-- Kotlin
-- Jetpack Compose
-- Room for local persistence
-- Supabase integration for connected services
+## Platform
+
+- Native Android only
+- Kotlin and Jetpack Compose
+- Room local persistence
+- Hilt dependency injection
+- WorkManager background work
+- Supabase-connected services
 - GitHub Actions APK builds
+- Android 10+ (`minSdk 29`)
 
-Any older JavaScript, Capacitor, or web-oriented files in repository history are legacy material and are not part of the supported V1 Android product.
+The supported app lives under `app/`. There is no supported web, PWA, Vite, Capacitor, or Vercel application.
 
-## V1 appearance
+## Implemented features
 
-The `dark-theme` branch uses the approved Wildlife FieldOps visual direction:
+### Field operations
+
+- Operations dashboard
+- Job list, job creation, editing, and job details
+- Customer records and customer forms
+- Inspection list and inspection forms
+- Scheduling
+- GPS capture and high-accuracy location support
+- Google Maps job display
+- Photo gallery and job-photo workflows
+- Route optimizer
+- Offline mode and automatic synchronization controls
+
+### Business records
+
+- Estimates
+- Invoices
+- Expenses
+- Inventory
+- Visits
+- Repairs
+- Trap logs
+- Reminders
+
+### AI and diagnostics
+
+- AI field assistant
+- Configurable AI endpoint and model
+- Supabase diagnostics
+- Google Maps diagnostics
+- Network, synchronization, offline-mode, and GPS status
+- Optional weather configuration
+
+### Android experience
 
 - Black and graphite surfaces
-- Light-gray and silver controls
+- Silver and light-gray controls
 - White primary text
-- Dense sans-serif typography
 - Rounded operational cards
-- Monochrome dashboard and navigation styling
+- Bottom navigation and navigation drawer
+- Android splash screen
+- Runtime permission handling
+- System, light, and dark appearance modes
 
-The app follows the Android device appearance by default through `AppThemeMode.SYSTEM`. The theme engine also supports explicit `LIGHT` and `DARK` modes for a future settings selector.
+## Local data models
 
-## Build
+- Jobs
+- Customers
+- Inspections
+- Visits
+- Photos
+- Repairs
+- Trap logs
+- Expenses
+- Invoices
+- Reminders
+- Inventory items
+
+## Build configuration
+
+Connected builds can use:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `GOOGLE_MAPS_API_KEY`
+- `XAI_API_KEY` or `LLM_API_KEY`
+- `LLM_BASE_URL`
+- `LLM_MODEL`
+- `OPENWEATHER_API_KEY`
+
+A new APK must be built after repository secret changes. Older APKs retain the configuration present when they were compiled.
+
+## Build and download
 
 ```bash
 ./gradlew assembleDebug
@@ -40,18 +105,23 @@ APK output:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Every push to `dark-theme` triggers the Android APK workflow. The resulting APK is available from the GitHub Actions run artifacts.
+GitHub Actions builds APK artifacts on supported branch pushes and through manual workflow dispatch.
 
-## Configuration
+## Version 1.5 role
 
-Build-time environment variables may include:
+Use this branch for device testing, field feedback, integration testing, stability work, and regression comparisons with Version 2.
 
-- `XAI_API_KEY` or `LLM_API_KEY`
-- `LLM_BASE_URL`
-- `LLM_MODEL`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-- `OPENWEATHER_API_KEY`
-- `GOOGLE_MAPS_API_KEY`
+## Best next upgrades
 
-Never commit production secrets.
+1. Shareable PDF inspection reports, estimates, and invoices.
+2. Voice-to-structured job and inspection notes.
+3. Sync queue visibility, retry controls, and conflict reporting.
+4. Notifications for visits, traps, callbacks, and overdue invoices.
+5. Photo annotations for entry points, damage, measurements, and repairs.
+6. Barcode or QR inventory scanning and low-stock alerts.
+7. Signed APK and Android App Bundle tester builds.
+8. Automated tests for Room migrations, navigation, estimates, and synchronization.
+
+## Version 2
+
+Version 2 lives on branch `fix/v2-full-working`. It shares the Android foundation and adds commercial-platform models and replaceable service contracts. Version 1.5 remains the simpler stable testing line.
