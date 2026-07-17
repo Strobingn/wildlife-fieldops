@@ -12,6 +12,9 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :id")
     suspend fun getById(id: String): Customer?
 
+    @Query("SELECT * FROM customers WHERE isActive = 1 AND (TRIM(LOWER(firstName || ' ' || lastName)) = TRIM(LOWER(:name)) OR TRIM(LOWER(companyName)) = TRIM(LOWER(:name))) LIMIT 1")
+    suspend fun findByName(name: String): Customer?
+
     @Query("SELECT * FROM customers WHERE isSynced = 0")
     suspend fun getUnsynced(): List<Customer>
 

@@ -4,7 +4,9 @@ import android.content.Context
 import android.location.Geocoder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strobingn.wildlifefieldops.data.local.CustomerDao
 import com.strobingn.wildlifefieldops.data.local.JobDao
+import com.strobingn.wildlifefieldops.data.model.Customer
 import com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.JobPriority
@@ -32,6 +34,7 @@ import javax.inject.Inject
 @HiltViewModel
 class JobsViewModel @Inject constructor(
     private val jobDao: JobDao,
+    private val customerDao: CustomerDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -158,11 +161,12 @@ class JobsViewModel @Inject constructor(
             existing.latitude?.let { lat -> existing.longitude?.let { lng -> lat to lng } }
         }
 
+        val linkedCustomerId = resolveCustomerId(customerId, customerName, normalizedAddress)
         jobDao.insert(
             existing.copy(
                 title = title,
                 description = description,
-                customerId = customerId,
+                customerId = linkedCustomerId,
                 customerName = customerName,
                 address = normalizedAddress,
                 latitude = coordinates?.first,
@@ -230,10 +234,11 @@ class JobsViewModel @Inject constructor(
     ): Job {
         val normalizedAddress = address.trim()
         val coordinates = geocodeAddress(normalizedAddress)
+        val linkedCustomerId = resolveCustomerId(customerId, customerName, normalizedAddress)
         val job = Job(
             title = title,
             description = description,
-            customerId = customerId,
+            customerId = linkedCustomerId,
             customerName = customerName,
             address = normalizedAddress,
             latitude = coordinates?.first,
@@ -249,6 +254,25 @@ class JobsViewModel @Inject constructor(
         )
         jobDao.insert(job)
         return job
+    }
+
+    /**
+     * When a job is saved with a customer name but no linked customer record,
+     * find an existing active customer by (case-insensitive) name or create one,
+     * so the name lands in the customer database. Returns the customer id to link.
+     */
+    private suspend fun resolveCustomerId(customerId: String, customerName: String, address: String): String {
+        if (customerId.isNotBlank() || customerName.isBlank()) return customerId
+        customerDao.findByName(customerName.trim())?.let { return it.id }
+        val parts = customerName.trim().split(Regex("\\s+"), limit = 2)
+        val customer = Customer(
+            firstName = parts.firstOrNull().orEmpty(),
+            lastName = parts.getOrNull(1).orEmpty(),
+            address = address,
+            isSynced = false
+        )
+        customerDao.insert(customer)
+        return customer.id
     }
 
     private suspend fun coordinatesFor(
