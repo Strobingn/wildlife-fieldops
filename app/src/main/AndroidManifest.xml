@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.strobingn.wildlife">
+    package="com.strobingn.wildlifefieldops">
 
     <!-- Keep launch permissions minimal — request the rest in-app when needed. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -25,7 +25,7 @@
     <uses-feature android:name="android.hardware.location.network" android:required="false" />
 
     <application
-        android:name="com.strobingn.wildlifefieldops.WildlifeFieldOpsApp"
+        android:name=".WildlifeFieldOpsApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -38,7 +38,7 @@
         tools:targetApi="35">
 
         <activity
-            android:name="com.strobingn.wildlifefieldops.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.WildlifeFieldOps.Splash"
             android:windowSoftInputMode="adjustResize"
@@ -67,7 +67,7 @@
         <!-- WorkManager initialized via HiltWorkerFactory in WildlifeFieldOpsApp -->
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.strobingn.wildlife.androidx-startup"
+            android:authorities="${applicationId}.androidx-startup"
             android:exported="false"
             tools:node="merge">
             <meta-data
