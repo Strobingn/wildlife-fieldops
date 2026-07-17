@@ -1,8 +1,8 @@
-package com.strobingn.wildlife.data.repository
+package com.strobingn.wildlifefieldops.data.repository
 
-import com.strobingn.wildlife.data.local.JobDao
-import com.strobingn.wildlife.data.model.Job
-import com.strobingn.wildlife.data.model.JobStatus
+import com.strobingn.wildlifefieldops.data.local.JobDao
+import com.strobingn.wildlifefieldops.data.model.Job
+import com.strobingn.wildlifefieldops.data.model.JobStatus
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
