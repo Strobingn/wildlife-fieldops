@@ -75,7 +75,7 @@ jobs:
           set -o pipefail
           export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
           export JAVA_OPTS="-Xmx4g"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info --refresh-dependencies -x test -x lint 2>&1 | tee build.log
         timeout-minutes: 45
 
       - name: Check for APK and list outputs
