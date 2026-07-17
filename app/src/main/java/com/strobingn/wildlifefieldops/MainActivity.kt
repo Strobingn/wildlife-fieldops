@@ -233,31 +233,46 @@ private fun AppNavHost(
             Screen.CustomerForm.route,
             listOf(navArgument("customerId") { type = NavType.StringType; nullable = true; defaultValue = null })
         ) { entry ->
-            CustomerFormScreen(entry.arguments?.getString("customerId")) { navController.popBackStack() }
+            CustomerFormScreen(
+                customerId = entry.arguments?.getString("customerId"),
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             Screen.InspectionDetail.route,
             listOf(navArgument("inspectionId") { type = NavType.StringType })
         ) { entry ->
-            InspectionFormScreen(entry.arguments?.getString("inspectionId")) { navController.popBackStack() }
+            InspectionFormScreen(
+                inspectionId = entry.arguments?.getString("inspectionId"),
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             Screen.InspectionForm.route,
             listOf(navArgument("inspectionId") { type = NavType.StringType; nullable = true; defaultValue = null })
         ) { entry ->
-            InspectionFormScreen(entry.arguments?.getString("inspectionId")) { navController.popBackStack() }
+            InspectionFormScreen(
+                inspectionId = entry.arguments?.getString("inspectionId"),
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             Screen.Invoice.route,
             listOf(navArgument("jobId") { type = NavType.StringType })
         ) { entry ->
-            InvoiceScreen(entry.arguments?.getString("jobId").orEmpty()) { navController.popBackStack() }
+            InvoiceScreen(
+                jobId = entry.arguments?.getString("jobId").orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             Screen.Estimate.route,
             listOf(navArgument("jobId") { type = NavType.StringType })
         ) { entry ->
-            EstimateScreen(entry.arguments?.getString("jobId").orEmpty()) { navController.popBackStack() }
+            EstimateScreen(
+                jobId = entry.arguments?.getString("jobId").orEmpty(),
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
