@@ -22,7 +22,7 @@ object AppModule {
             AppDatabase::class.java,
             "wildlife_fieldops.db"
         )
-            .fallbackToDestructiveMigration()
+            .addMigrations(AppDatabase.MIGRATION_2_3)
             .build()
     }
 
