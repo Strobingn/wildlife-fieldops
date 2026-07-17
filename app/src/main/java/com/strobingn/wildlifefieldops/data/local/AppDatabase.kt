@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldopsfieldops.data.local
+package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
