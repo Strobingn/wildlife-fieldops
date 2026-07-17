@@ -29,7 +29,7 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:label="Wildlife FieldOps"
+        android:label="Wildlife"
         android:theme="@style/Theme.WildlifeFieldOps"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
