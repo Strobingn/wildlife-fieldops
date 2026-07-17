@@ -1,7 +1,7 @@
-package com.strobingn.wildlifefieldops.ai.operations
+package com.strobingn.wildlife.ai.operations
 
-import com.strobingn.wildlifefieldops.data.model.Job
-import com.strobingn.wildlifefieldops.data.model.JobStatus
+import com.strobingn.wildlife.data.model.Job
+import com.strobingn.wildlife.data.model.JobStatus
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
