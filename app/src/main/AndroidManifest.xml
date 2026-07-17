@@ -39,7 +39,7 @@
         <activity
             android:name=".AuthActivity"
             android:exported="true"
-            android:theme="@style/Theme.WildlifeFieldOps.Splash"
+            android:theme="@style/Theme.WildlifeFieldOps"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
