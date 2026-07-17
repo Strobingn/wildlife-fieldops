@@ -128,7 +128,7 @@ fun RouteOptimizerScreen(
                     .padding(horizontal = 16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (optimized) AccentBlue else PrimaryGreen,
-                    contentColor = if (optimized) Color.White else Color.Black
+                    contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {

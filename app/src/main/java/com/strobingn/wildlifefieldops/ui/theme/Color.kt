@@ -7,24 +7,24 @@ import androidx.compose.ui.graphics.Color
 val PrimaryGreen = Color(0xFF3B7AE8)
 val PrimaryGreenDark = Color(0xFF245FC4)
 val PrimaryGreenLight = Color(0xFF93C5FD)
-val PrimaryContainer = Color(0xFFD6E6FF)
-val OnPrimaryContainer = Color(0xFF001833)
+val PrimaryContainer = Color(0xFF1E3350)
+val OnPrimaryContainer = Color(0xFFD6E6FF)
 
-// ── Light-first compatibility surfaces ─────────────────────────────────────
-// Most screens still reference these legacy names directly. Keeping them light
-// makes every existing screen consistent until all call sites migrate fully to
-// MaterialTheme.colorScheme.
-val BackgroundDark = Color(0xFFF5F6F8)
-val BackgroundCard = Color(0xFFFFFFFF)
-val BackgroundElevated = Color(0xFFF0F3F7)
-val SurfaceDark = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFE7EBF0)
-val SurfaceBright = Color(0xFFFFFFFF)
+// ── Dark gray surfaces ─────────────────────────────────────────────────────
+// App-wide dark theme: dark gray background, lighter gray cards/bubbles.
+// Most screens reference these legacy names directly, so every page inherits
+// the dark palette from here.
+val BackgroundDark = Color(0xFF1B1D20)
+val BackgroundCard = Color(0xFF2B2E33)
+val BackgroundElevated = Color(0xFF35393F)
+val SurfaceDark = Color(0xFF2B2E33)
+val SurfaceVariant = Color(0xFF3B4046)
+val SurfaceBright = Color(0xFF454A51)
 
-// ── Text ────────────────────────────────────────────────────────────────────
-val TextPrimary = Color(0xFF171A1F)
-val TextSecondary = Color(0xFF515866)
-val TextTertiary = Color(0xFF747D8C)
+// ── Text (light gray ramp on dark surfaces) ─────────────────────────────────
+val TextPrimary = Color(0xFFE8EAED)
+val TextSecondary = Color(0xFFB9BDC4)
+val TextTertiary = Color(0xFF8F959E)
 
 // ── Status ──────────────────────────────────────────────────────────────────
 val StatusPending = Color(0xFFF59E0B)
@@ -42,8 +42,8 @@ val AccentPink = Color(0xFFDB2777)
 val AccentAmber = Color(0xFFD97706)
 
 // ── Borders / chrome ────────────────────────────────────────────────────────
-val BorderDark = Color(0xFFC9D0DA)
-val DividerDark = Color(0xFFE0E5EC)
+val BorderDark = Color(0xFF4A5058)
+val DividerDark = Color(0xFF383D43)
 val ScrimDark = Color(0x66000000)
 
 // ── Semantic ────────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ val SuccessGreen = Color(0xFF2563EB)
 val WarningYellow = Color(0xFFF59E0B)
 val InfoBlue = Color(0xFF3B82F6)
 
-// ── Gradients ───────────────────────────────────────────────────────────────
-val GradientStart = Color(0xFFE8F0FF)
-val GradientMid = Color(0xFFCFE0FF)
-val GradientEnd = Color(0xFF6EA8FF)
+// ── Gradients (dark gray ramp) ─────────────────────────────────────────────
+val GradientStart = Color(0xFF2E3238)
+val GradientMid = Color(0xFF3A3F46)
+val GradientEnd = Color(0xFF4A525C)
