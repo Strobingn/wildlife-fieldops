@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.data.model
+package com.strobingn.wildlife.data.model
 
 enum class JobStatus {
     PENDING, IN_PROGRESS, COMPLETED, CANCELLED, INVOICED, PAID
