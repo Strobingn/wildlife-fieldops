@@ -56,7 +56,7 @@ class SyncRepository @Inject constructor(
         val client = supabaseService.client
             ?: return SyncResult(
                 success = false,
-                message = "Cloud not configured. Rebuild the APK with Supabase secrets (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)."
+                message = "Cloud not configured. Rebuild the APK with Supabase secrets (SUPABASE_URL / SUPABASE_ANON_KEY)."
             )
 
         var pushedJobs = 0
@@ -68,6 +68,7 @@ class SyncRepository @Inject constructor(
         var pulledInvoices = 0
         val warnings = mutableListOf<String>()
         val pushedJobIds = mutableSetOf<String>()
+        val pushedInvoiceIds = mutableSetOf<String>()
 
         try {
             val unsyncedCustomers = customerDao.getUnsynced()
@@ -132,7 +133,6 @@ class SyncRepository @Inject constructor(
             warnings += "inspection push: ${e.message ?: e.javaClass.simpleName}"
         }
 
-        // --- Push invoices ---
         try {
             val unsyncedInvoices = invoiceDao.getUnsynced()
             if (unsyncedInvoices.isNotEmpty()) {
@@ -143,6 +143,7 @@ class SyncRepository @Inject constructor(
                 }
                 if (dtos.isNotEmpty()) {
                     client.from("invoices").upsert(dtos)
+                    pushedInvoiceIds += dtos.map { it.id }
                     dtos.forEach { invoiceDao.markSynced(it.id) }
                     pushedInvoices = dtos.size
                 }
@@ -177,27 +178,12 @@ class SyncRepository @Inject constructor(
                     runCatching {
                         val remote = dto.toLocal()
                         val existing = jobDao.getById(dto.id)
-
-                        // Never replace a record just pushed in this same sync pass.
-                        if (dto.id in pushedJobIds) {
-                            null
-                        } else if (existing != null && !existing.isSynced) {
-                            // Local unsynced edits always win until they are successfully pushed.
+                        if (dto.id in pushedJobIds || (existing != null && !existing.isSynced)) {
                             null
                         } else {
                             remote.copy(
-                                // Older/partial cloud rows often return zero for these fields.
-                                // Preserve the known local amount instead of erasing it.
-                                estimatedValue = if (remote.estimatedValue != 0.0 || existing == null) {
-                                    remote.estimatedValue
-                                } else {
-                                    existing.estimatedValue
-                                },
-                                actualCost = if (remote.actualCost != 0.0 || existing == null) {
-                                    remote.actualCost
-                                } else {
-                                    existing.actualCost
-                                },
+                                estimatedValue = if (remote.estimatedValue != 0.0 || existing == null) remote.estimatedValue else existing.estimatedValue,
+                                actualCost = if (remote.actualCost != 0.0 || existing == null) remote.actualCost else existing.actualCost,
                                 latitude = remote.latitude ?: existing?.latitude,
                                 longitude = remote.longitude ?: existing?.longitude,
                                 isSynced = true,
@@ -218,12 +204,37 @@ class SyncRepository @Inject constructor(
             warnings += "job pull: ${e.message ?: e.javaClass.simpleName}"
         }
 
+        try {
+            val remoteInvoices = client.from("invoices").select().decodeList<RemoteInvoiceDto>()
+            if (remoteInvoices.isNotEmpty()) {
+                val locals = remoteInvoices.mapNotNull { dto ->
+                    runCatching {
+                        val existing = invoiceDao.getById(dto.id)
+                        if (dto.id in pushedInvoiceIds || (existing != null && !existing.isSynced)) {
+                            null
+                        } else {
+                            dto.toLocal().copy(isSynced = true, syncError = null)
+                        }
+                    }.onFailure {
+                        android.util.Log.w("SyncRepository", "Bad invoice ${dto.id}: ${it.message}")
+                    }.getOrNull()
+                }
+                if (locals.isNotEmpty()) {
+                    invoiceDao.insertAll(locals)
+                    pulledInvoices = locals.size
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("SyncRepository", "Invoice pull failed", e)
+            warnings += "invoice pull: ${e.message ?: e.javaClass.simpleName}"
+        }
+
         val base = "Synced. Pushed: $pushedJobs jobs, $pushedCustomers customers, $pushedInspections inspections, $pushedInvoices invoices. " +
             "Pulled: $pulledJobs jobs, $pulledCustomers customers, $pulledInvoices invoices."
         val message = if (warnings.isEmpty()) base else "$base Warnings: ${warnings.joinToString("; ")}"
 
         return SyncResult(
-            success = true,
+            success = warnings.isEmpty(),
             message = message,
             pushedJobs = pushedJobs,
             pushedCustomers = pushedCustomers,
