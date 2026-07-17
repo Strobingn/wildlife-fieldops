@@ -11,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.strobingn.wildlifefieldops.next"
+        applicationId = "com.strobingn.wildlife"
         minSdk = 29
         targetSdk = 35
         versionCode = 33
