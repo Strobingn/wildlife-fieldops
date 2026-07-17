@@ -25,7 +25,6 @@ class WildlifeFieldOpsApp : Application(), Configuration.Provider {
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(android.util.Log.INFO)
             .build()
-    }
 
     override fun onCreate() {
         super.onCreate()
