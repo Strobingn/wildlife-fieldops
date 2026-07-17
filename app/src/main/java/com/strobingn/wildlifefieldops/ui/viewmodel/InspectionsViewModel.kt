@@ -6,6 +6,8 @@ import com.strobingn.wildlifefieldops.data.local.InspectionDao
 import com.strobingn.wildlifefieldops.data.model.Inspection
 import com.strobingn.wildlifefieldops.data.model.InspectionType
 import com.strobingn.wildlifefieldops.data.model.FindingSeverity
+import com.strobingn.wildlifefieldops.data.remote.AiService
+import com.strobingn.wildlifefieldops.data.remote.InspectionReportDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -13,8 +15,29 @@ import javax.inject.Inject
 
 @HiltViewModel
 class InspectionsViewModel @Inject constructor(
-    private val inspectionDao: InspectionDao
+    private val inspectionDao: InspectionDao,
+    private val aiService: AiService
 ) : ViewModel() {
+
+    private val _reportDraft = MutableStateFlow<InspectionReportDraft?>(null)
+    val reportDraft = _reportDraft.asStateFlow()
+
+    private val _reportLoading = MutableStateFlow(false)
+    val reportLoading = _reportLoading.asStateFlow()
+
+    val aiConfigured: Boolean get() = aiService.isConfigured
+
+    /** AI report writer: rough field notes -> structured inspection report draft. */
+    fun generateReport(customerName: String, rawNotes: String) {
+        if (_reportLoading.value || rawNotes.isBlank()) return
+        _reportLoading.value = true
+        viewModelScope.launch {
+            _reportDraft.value = aiService.generateInspectionReport(customerName, rawNotes)
+            _reportLoading.value = false
+        }
+    }
+
+    fun clearReportDraft() { _reportDraft.value = null }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()

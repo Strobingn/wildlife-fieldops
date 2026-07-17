@@ -183,6 +183,44 @@ fun EstimateScreen(
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary
             )
+
+            // ── AI estimate from a verbal description ─────────────────────
+            var jobDescription by remember { mutableStateOf("") }
+            Card(
+                colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Describe the job — AI builds the numbers", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = jobDescription,
+                        onValueChange = { jobDescription = it },
+                        label = { Text("e.g. raccoons in attic, 2 entry points on roofline, 40 ft of soffit exclusion") },
+                        modifier = Modifier.fillMaxWidth().height(90.dp),
+                        maxLines = 4,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Button(
+                        onClick = { jobAiViewModel.draftEstimateFromText(job, jobDescription) },
+                        enabled = jobDescription.isNotBlank() && !estimateLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple, contentColor = Color.White),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (estimateLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Generating…")
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Generate Estimate with AI", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+
             if (!aiMessage.isNullOrBlank()) {
                 Text(aiMessage!!, style = MaterialTheme.typography.labelMedium, color = PrimaryGreen)
             }

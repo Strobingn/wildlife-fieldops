@@ -385,6 +385,12 @@ private fun AppNavHost(
             )
         }
 
+        composable(Screen.SpeciesId.route) {
+            SpeciesIdScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Expense.route) {
             ExpenseScreen(
                 onBack = { navController.popBackStack() }

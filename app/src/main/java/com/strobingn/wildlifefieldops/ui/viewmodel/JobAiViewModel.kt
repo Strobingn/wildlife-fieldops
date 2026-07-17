@@ -63,6 +63,23 @@ class JobAiViewModel @Inject constructor(
         }
     }
 
+    /** Draft estimate numbers from a free-text (verbal) job description. */
+    fun draftEstimateFromText(job: Job?, description: String) {
+        if (_estimateLoading.value || description.isBlank()) return
+        _estimateLoading.value = true
+        _message.value = null
+        viewModelScope.launch {
+            val draft = aiService.draftEstimateFromDescription(job, description)
+            _estimateDraft.value = draft
+            _estimateLoading.value = false
+            _message.value = if (draft.fromAi) {
+                "AI estimate draft ready — review before quoting."
+            } else {
+                "Offline/heuristic estimate draft — review carefully."
+            }
+        }
+    }
+
     fun appendSummaryToNotes(job: Job) {
         val text = _summary.value?.trim().orEmpty()
         if (text.isBlank()) return

@@ -29,6 +29,56 @@ private data class LlmRequest(
     val temperature: Double = 0.4
 )
 
+@Serializable
+private data class VisionImageUrl(val url: String)
+
+@Serializable
+private data class VisionContentPart(
+    val type: String,
+    val text: String? = null,
+    val image_url: VisionImageUrl? = null
+)
+
+@Serializable
+private data class VisionMessage(val role: String, val content: List<VisionContentPart>)
+
+@Serializable
+private data class VisionRequest(
+    val model: String,
+    val messages: List<VisionMessage>,
+    val max_tokens: Int = 700,
+    val temperature: Double = 0.25
+)
+
+/** AI species identification result (photo + on-device label hints). */
+@Serializable
+data class SpeciesIdResult(
+    val species: String = "",
+    val scientificName: String = "",
+    val confidence: String = "",
+    val protectedStatusNY: String = "",
+    val rabiesVectorRisk: String = "",
+    val behaviorNotes: String = "",
+    val recommendedApproach: List<String> = emptyList(),
+    val trapAndBait: String = "",
+    val safetyWarnings: String = "",
+    val fromAi: Boolean = false
+)
+
+/** AI-written inspection report draft — maps onto the inspection form fields. */
+@Serializable
+data class InspectionReportDraft(
+    val findings: String = "",
+    val recommendations: String = "",
+    val entryPoints: String = "",
+    val damageAssessment: String = "",
+    val severity: String = "MODERATE",
+    val speciesIdentified: String = "",
+    val followUpRequired: Boolean = false,
+    val suggestedPriceRange: String = "",
+    val fromAi: Boolean = false
+)
+
 /** Structured estimate fields the calculator can apply. */
 @Serializable
 data class EstimateDraft(
@@ -591,6 +641,241 @@ You are powered by SpaceXAI (xAI Grok) when the API key is configured.
         } catch (e: Exception) {
             android.util.Log.w("AiService", "Parse edge response failed", e)
             null
+        }
+    }
+
+    // ── Tier-1 field AI features ────────────────────────────────────────────
+
+    /**
+     * Species ID from a photo. Tries Grok vision with the image, falls back to
+     * text-only using on-device ML Kit labels, then to a local heuristic.
+     */
+    suspend fun identifySpecies(imageBase64Jpeg: String?, mlKitLabels: List<String>): SpeciesIdResult = withContext(Dispatchers.IO) {
+        val labelHint = if (mlKitLabels.isNotEmpty()) mlKitLabels.joinToString(", ") else "(no on-device labels)"
+        val system = """
+You are a nuisance wildlife identification expert for New York State (Hudson Valley).
+Analyze the photo (with on-device ML labels as a hint) and return ONLY valid JSON (no markdown fences) with fields:
+species (common name), scientificName, confidence ("high"/"medium"/"low"),
+protectedStatusNY (one line on NY legal/protected status for nuisance control),
+rabiesVectorRisk ("high"/"medium"/"low" plus a few words),
+behaviorNotes (max 2 sentences on behavior relevant to removal),
+recommendedApproach (array of 3-5 short actionable strings),
+trapAndBait (one line trap/bait recommendation),
+safetyWarnings (one line).
+If the photo shows sign (scat, tracks, damage, nest) rather than the animal, identify the most likely species from the sign and say so in behaviorNotes.
+""".trimIndent()
+        val user = "On-device ML labels: $labelHint\nIdentify the species and return the JSON now."
+        if (isConfigured) {
+            if (imageBase64Jpeg != null) {
+                val vision = completeVisionChat(system, user, imageBase64Jpeg, maxTokens = 700)
+                if (vision is ChatResult.Ok) {
+                    parseJson(SpeciesIdResult.serializer(), vision.text)?.let { return@withContext it.copy(fromAi = true) }
+                }
+            }
+            when (val text = completeChat(system, user, maxTokens = 700, temperature = 0.25)) {
+                is ChatResult.Ok -> parseJson(SpeciesIdResult.serializer(), text.text)?.let { return@withContext it.copy(fromAi = true) }
+                is ChatResult.Err -> return@withContext heuristicSpeciesId(mlKitLabels, text.message)
+            }
+        }
+        heuristicSpeciesId(mlKitLabels, "No AI key configured — on-device result only")
+    }
+
+    /**
+     * AI inspection report writer: turns rough field notes into a structured
+     * report that fills the inspection form (findings, entry points, damage,
+     * severity, recommendations, follow-up).
+     */
+    suspend fun generateInspectionReport(customerName: String, rawNotes: String): InspectionReportDraft = withContext(Dispatchers.IO) {
+        if (!isConfigured) {
+            return@withContext InspectionReportDraft(
+                findings = rawNotes,
+                recommendations = "Review findings and add recommendations manually (no AI key configured)."
+            )
+        }
+        val system = """
+You write professional nuisance wildlife inspection reports for a New York wildlife removal company.
+Turn the inspector's rough field notes into a structured report. Return ONLY valid JSON (no markdown fences) with fields:
+findings (detailed paragraph: species evidence, activity areas, conditions found),
+recommendations (numbered list as one string: exclusion, trapping, cleanup, repairs),
+entryPoints (concise list as one string, or "None observed"),
+damageAssessment (concise paragraph, or "No structural damage observed"),
+severity (exactly one of: NONE, LOW, MODERATE, HIGH, CRITICAL),
+speciesIdentified (comma-separated species, or "Unknown"),
+followUpRequired (boolean: true if trapping/exclusion/monitoring needed),
+suggestedPriceRange (e.g. "$350 - $750" based on realistic NY nuisance wildlife pricing).
+Write in clear professional language suitable for the customer to read. Do not invent specifics not in the notes; generalize where unsure.
+""".trimIndent()
+        val user = "Customer: ${customerName.ifBlank { "(unknown)" }}\nInspector field notes:\n$rawNotes\n\nWrite the inspection report JSON now."
+        when (val result = completeChat(system, user, maxTokens = 900, temperature = 0.3)) {
+            is ChatResult.Ok -> parseJson(InspectionReportDraft.serializer(), result.text)?.copy(fromAi = true)
+                ?: InspectionReportDraft(
+                    findings = rawNotes,
+                    recommendations = "AI response could not be parsed — review manually.\n\n${result.text.take(280)}"
+                )
+            is ChatResult.Err -> InspectionReportDraft(
+                findings = rawNotes,
+                recommendations = "${result.message}\n\nFill in the report manually."
+            )
+        }
+    }
+
+    /**
+     * Estimate draft from a free-text (verbal) job description, optionally
+     * grounded in an existing job's context.
+     */
+    suspend fun draftEstimateFromDescription(job: Job?, description: String): EstimateDraft = withContext(Dispatchers.IO) {
+        val fallback = job?.let { heuristicEstimate(it) } ?: EstimateDraft(fromAi = false)
+        if (!isConfigured) {
+            return@withContext fallback.copy(
+                rationale = "Offline draft (no AI key). Review and adjust before quoting.",
+                fromAi = false
+            )
+        }
+        val system = """
+You are a wildlife removal estimator. Return ONLY valid JSON (no markdown fences) with these number fields:
+laborHours, laborRate, materialsCost, equipmentCost, permitCost, disposalCost, mileage, mileageRate, taxRate, discountPercent
+Plus string fields: rationale, lineItemNotes
+
+Rules:
+- Use realistic US nuisance wildlife pricing
+- Prefer laborHours 1–8 and laborRate 75–125 unless the description says otherwise
+- Materials/equipment/disposal scale with exclusion, attic cleanout, multi-entry, dead animal, etc.
+- mileage is one-way miles if address distance unknown use 0–25 guess or 0
+- taxRate default 8 unless notes specify
+- discountPercent usually 0
+- Keep rationale under 3 sentences
+""".trimIndent()
+        val user = buildString {
+            if (job != null) appendLine(buildJobContext(job))
+            appendLine("Technician's job description:")
+            appendLine(description)
+            appendLine("\nProduce an estimate draft JSON for this job.")
+        }
+        when (val result = completeChat(system, user, maxTokens = 700, temperature = 0.25)) {
+            is ChatResult.Ok -> parseEstimateDraft(result.text)?.copy(fromAi = true)
+                ?: fallback.copy(
+                    rationale = "AI response unparseable — used offline defaults.\n\n${result.text.take(280)}",
+                    fromAi = false
+                )
+            is ChatResult.Err -> fallback.copy(
+                rationale = "${result.message}\n\nUsing offline estimate defaults.",
+                fromAi = false
+            )
+        }
+    }
+
+    private fun heuristicSpeciesId(labels: List<String>, reason: String): SpeciesIdResult {
+        val known = linkedMapOf(
+            "raccoon" to Triple("Raccoon", "Procyon lotor", "high — primary rabies vector in NY"),
+            "bat" to Triple("Bat (likely little brown / big brown)", "Myotis / Eptesicus", "high — rabies vector; federally protected, exclusion only"),
+            "squirrel" to Triple("Gray squirrel", "Sciurus carolinensis", "low — rare rabies carrier"),
+            "opossum" to Triple("Opossum", "Didelphis virginiana", "low — rarely rabid (low body temp)"),
+            "skunk" to Triple("Striped skunk", "Mephitis mephitis", "high — rabies vector, spray risk"),
+            "snake" to Triple("Snake (likely non-venomous)", "", "low — NY natives protected; confirm ID"),
+            "bird" to Triple("Bird (nuisance species)", "", "low — MBTA protected, exclusion only"),
+            "groundhog" to Triple("Groundhog (woodchuck)", "Marmota monax", "low — burrowing damage risk"),
+            "rodent" to Triple("Rodent (rat/mouse)", "", "low — disease vector via droppings")
+        )
+        val hit = known.entries.firstOrNull { (key, _) -> labels.any { it.contains(key) } }
+        return if (hit != null) {
+            SpeciesIdResult(
+                species = hit.value.first,
+                scientificName = hit.value.second,
+                confidence = "medium",
+                protectedStatusNY = "Verify current NYSDEC nuisance wildlife rules before control.",
+                rabiesVectorRisk = hit.value.third,
+                behaviorNotes = "Identified from on-device labels only (${reason}). Confirm on site.",
+                recommendedApproach = listOf("Confirm species visually or from sign", "Photograph entry points", "Follow standard protocol for this species"),
+                trapAndBait = "See field guide for species-specific trap/bait.",
+                safetyWarnings = "Standard PPE: gloves, long sleeves, eye protection.",
+                fromAi = false
+            )
+        } else {
+            SpeciesIdResult(
+                species = "Unknown",
+                confidence = "low",
+                protectedStatusNY = "Unknown species — verify NYSDEC status before any control.",
+                rabiesVectorRisk = "unknown — treat all mammals as potential rabies vectors",
+                behaviorNotes = "On-device analysis could not identify the species (${reason}). Retake photo closer/clearer or identify manually.",
+                recommendedApproach = listOf("Retake photo with better lighting", "Photograph tracks/scat/damage for reference", "Ask the AI Assistant with a text description"),
+                trapAndBait = "N/A",
+                safetyWarnings = "Do not handle unidentified wildlife barehanded.",
+                fromAi = false
+            )
+        }
+    }
+
+    private fun <T> parseJson(serializer: kotlinx.serialization.KSerializer<T>, raw: String): T? {
+        return try {
+            val cleaned = raw
+                .trim()
+                .removePrefix("```json")
+                .removePrefix("```JSON")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+            val start = cleaned.indexOf('{')
+            val end = cleaned.lastIndexOf('}')
+            if (start < 0 || end <= start) return null
+            json.decodeFromString(serializer, cleaned.substring(start, end + 1))
+        } catch (e: Exception) {
+            android.util.Log.w("AiService", "parseJson failed", e)
+            null
+        }
+    }
+
+    private fun completeVisionChat(
+        systemPrompt: String,
+        userPrompt: String,
+        base64Jpeg: String,
+        maxTokens: Int
+    ): ChatResult {
+        val baseUrl = BuildConfig.LLM_BASE_URL.trimEnd('/')
+        val endpoint = URL("$baseUrl/chat/completions")
+        val payload = json.encodeToString(
+            VisionRequest(
+                model = detectModel(),
+                messages = listOf(
+                    VisionMessage(role = "system", content = listOf(VisionContentPart(type = "text", text = systemPrompt))),
+                    VisionMessage(
+                        role = "user",
+                        content = listOf(
+                            VisionContentPart(type = "text", text = userPrompt),
+                            VisionContentPart(type = "image_url", image_url = VisionImageUrl(url = "data:image/jpeg;base64,$base64Jpeg"))
+                        )
+                    )
+                ),
+                max_tokens = maxTokens,
+                temperature = 0.25
+            )
+        )
+        val connection = (endpoint.openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 30_000
+            readTimeout = 90_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        return try {
+            connection.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }
+                .orEmpty()
+            if (code !in 200..299) {
+                android.util.Log.w("AiService", "Vision HTTP $code: ${body.take(400)}")
+                ChatResult.Err("Vision AI error (HTTP $code)")
+            } else {
+                val text = parseLlmResponse(body)
+                if (text.isNullOrBlank()) ChatResult.Err("Empty vision AI response.")
+                else ChatResult.Ok(text)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("AiService", "Vision request failed", e)
+            ChatResult.Err("Network error: ${e.message}")
+        } finally {
+            connection.disconnect()
         }
     }
 }

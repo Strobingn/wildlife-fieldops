@@ -42,8 +42,25 @@ fun InspectionFormScreen(
     var notes by remember { mutableStateOf("") }
     var showTypeDropdown by remember { mutableStateOf(false) }
     var showSeverityDropdown by remember { mutableStateOf(false) }
+    var rawNotes by remember { mutableStateOf("") }
+    val reportDraft by viewModel.reportDraft.collectAsState()
+    val reportLoading by viewModel.reportLoading.collectAsState()
     val existing by viewModel.getInspectionById(inspectionId.orEmpty())
         .collectAsState(initial = null)
+
+    // Apply AI report draft to the form when it arrives
+    LaunchedEffect(reportDraft) {
+        val d = reportDraft ?: return@LaunchedEffect
+        findings = d.findings.ifBlank { findings }
+        recommendations = d.recommendations.ifBlank { recommendations }
+        entryPoints = d.entryPoints.ifBlank { entryPoints }
+        damageAssessment = d.damageAssessment.ifBlank { damageAssessment }
+        speciesIdentified = d.speciesIdentified.ifBlank { speciesIdentified }
+        followUpRequired = d.followUpRequired
+        selectedSeverity = runCatching { FindingSeverity.valueOf(d.severity.uppercase()) }
+            .getOrDefault(FindingSeverity.MODERATE)
+        viewModel.clearReportDraft()
+    }
 
     LaunchedEffect(existing) {
         val insp = existing ?: return@LaunchedEffect
@@ -89,6 +106,56 @@ fun InspectionFormScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // ── AI Report Writer ─────────────────────────────────────────
+            Card(
+                colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("AI Report Writer", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedTextField(
+                        value = rawNotes,
+                        onValueChange = { rawNotes = it },
+                        label = { Text("Dump rough field notes here — AI writes the report") },
+                        colors = fieldColors(),
+                        modifier = Modifier.fillMaxWidth().height(100.dp),
+                        maxLines = 5,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Button(
+                        onClick = { viewModel.generateReport(customerName, rawNotes) },
+                        enabled = rawNotes.isNotBlank() && !reportLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple, contentColor = Color.White),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (reportLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Writing report…")
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Generate Report with AI", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Text(
+                        if (viewModel.aiConfigured) "Fills findings, entry points, damage, severity & recommendations below"
+                        else "No AI key configured — notes will be copied to Findings for manual write-up",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = customerName,
                 onValueChange = { customerName = it },
