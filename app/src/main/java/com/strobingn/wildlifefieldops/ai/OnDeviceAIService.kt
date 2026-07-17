@@ -1,7 +1,7 @@
-package com.strobingn.wildlifefieldops.ai
+package com.strobingn.wildlife.ai
 
-import com.strobingn.wildlifefieldops.data.model.Job
-import com.strobingn.wildlifefieldops.data.model.Photo
+import com.strobingn.wildlife.data.model.Job
+import com.strobingn.wildlife.data.model.Photo
 
 // Heavy AI service for form filling, estimate generation, compliance analysis
 // On-device vision (ML Kit) + structured prompts ready for Gemini Nano / ML Kit GenAI swap-in
