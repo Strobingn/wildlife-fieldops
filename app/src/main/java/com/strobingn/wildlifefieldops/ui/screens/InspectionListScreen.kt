@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +36,15 @@ fun InspectionListScreen(
     val inspections by viewModel.inspections.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var showScheduler by rememberSaveable { mutableStateOf(false) }
+
+    if (showScheduler) {
+        InspectionSchedulerScreen(
+            onBack = { showScheduler = false },
+            onNavigateToInspectionDetail = onNavigateToInspectionDetail
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -45,6 +53,15 @@ fun InspectionListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextPrimary)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showScheduler = true }) {
+                        Icon(
+                            Icons.Default.CalendarMonth,
+                            contentDescription = "Inspection scheduler",
+                            tint = PrimaryGreen
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
@@ -106,7 +123,7 @@ fun InspectionListScreen(
                                     )
                                 },
                                 title = "No inspections found",
-                                subtitle = "Create an inspection to get started",
+                                subtitle = "Create an inspection or open the scheduler",
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
