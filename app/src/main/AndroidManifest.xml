@@ -64,7 +64,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Remove WorkManager startup (dependency not shipped; crashed process on open) -->
+        <!-- WorkManager initialized via HiltWorkerFactory in WildlifeFieldOpsApp -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="com.strobingn.wildlife.androidx-startup"
@@ -72,8 +72,7 @@
             tools:node="merge">
             <meta-data
                 android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
+                android:value="androidx.startup" />
         </provider>
     </application>
 </manifest>
