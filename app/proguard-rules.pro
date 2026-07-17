@@ -36,6 +36,12 @@
 -keep class com.google.android.gms.maps.** { *; }
 -keep class com.google.maps.android.** { *; }
 
+# iText 7 PDF generation
+-keep class com.itextpdf.** { *; }
+-dontwarn com.itextpdf.bouncycastlefips.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.slf4j.**
+
 # General
 -keepattributes *Annotation*
 -keepattributes Signature

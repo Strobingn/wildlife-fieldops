@@ -132,6 +132,7 @@ dependencies {
 
     // PDF Generation
     implementation("com.itextpdf:itext7-core:8.0.2")
+    implementation("com.itextpdf:bouncy-castle-adapter:8.0.2")
 
     // CameraX
     implementation("androidx.camera:camera-core:1.3.1")
