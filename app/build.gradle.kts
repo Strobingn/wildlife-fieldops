@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.strobingn.wildlifefieldops"
+    namespace = "com.strobingn.wildlife"
     compileSdk = 35
 
     defaultConfig {
