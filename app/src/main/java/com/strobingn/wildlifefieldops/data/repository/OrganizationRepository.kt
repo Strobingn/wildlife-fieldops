@@ -1,6 +1,7 @@
 package com.strobingn.wildlifefieldops.data.repository
 
 import com.strobingn.wildlifefieldops.data.remote.SupabaseService
+import io.github.jan.supabase.postgrest.rpc
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
