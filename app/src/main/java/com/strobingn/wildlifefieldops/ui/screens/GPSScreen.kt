@@ -77,13 +77,22 @@ fun GPSScreen(
                     override fun onProviderEnabled(provider: String) {}
                     override fun onProviderDisabled(provider: String) {}
                 }
-                locationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    1000L,
-                    1f,
-                    listener,
-                    Looper.getMainLooper()
-                )
+                val mainLooper = Looper.getMainLooper()
+                if (mainLooper != null && locationManager != null) {
+                    try {
+                        locationManager.requestLocationUpdates(
+                            LocationManager.GPS_PROVIDER,
+                            1000L,
+                            1f,
+                            listener,
+                            mainLooper
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("GPSScreen", "Failed to request location updates", e)
+                    }
+                } else {
+                    android.util.Log.w("GPSScreen", "Cannot start location updates: mainLooper or locationManager is null")
+                }
             } catch (_: SecurityException) {
             } catch (_: Exception) {
             }
