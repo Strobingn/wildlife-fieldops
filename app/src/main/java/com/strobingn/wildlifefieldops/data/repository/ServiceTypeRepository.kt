@@ -1,11 +1,11 @@
-package com.strobingn.wildlifefieldops.data.repository
+package com.strobingn.wildlife.data.repository
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.strobingn.wildlifefieldops.data.local.JobDao
-import com.strobingn.wildlifefieldops.data.model.DefaultServiceTypes
+import com.strobingn.wildlife.data.local.JobDao
+import com.strobingn.wildlife.data.model.DefaultServiceTypes
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
