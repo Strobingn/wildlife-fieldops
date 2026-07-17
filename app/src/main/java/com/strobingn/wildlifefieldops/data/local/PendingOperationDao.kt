@@ -1,7 +1,7 @@
-package com.strobingn.wildlifefieldopsfieldops.data.local
+package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.*
-import com.strobingn.wildlifefieldopsfieldops.data.model.PendingOperation
+import com.strobingn.wildlifefieldops.data.model.PendingOperation
 import kotlinx.coroutines.flow.Flow
 
 @Dao
