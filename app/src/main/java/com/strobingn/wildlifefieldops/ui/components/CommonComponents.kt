@@ -1,4 +1,4 @@
-package com.strobingn.wildlifefieldops.ui.components
+package com.strobingn.wildlife.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlife.ui.theme.*
 
 @Composable
 fun EmptyStateMessage(
