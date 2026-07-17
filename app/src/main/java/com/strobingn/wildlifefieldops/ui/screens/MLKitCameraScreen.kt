@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
+
 package com.strobingn.wildlifefieldops.ui.screens
 
 import android.Manifest
@@ -125,7 +127,6 @@ fun MLKitCameraScreen(
                     }
                 }
             } else {
-                // Camera preview
                 Box(modifier = Modifier.weight(1f)) {
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
@@ -141,21 +142,17 @@ fun MLKitCameraScreen(
                                     imageProxy.imageInfo.rotationDegrees
                                 )
 
-                                // Run both detectors
                                 CoroutineScope(Dispatchers.Default).launch {
                                     try {
-                                        // Image labeling
                                         val labelResults = imageLabeler.process(image).await()
                                         labels = labelResults.map { "${it.text} (${(it.confidence * 100).toInt()}%)" }
 
-                                        // Object detection
                                         val objectResults = objectDetector.process(image).await()
                                         objects = objectResults.map { obj ->
                                             val category = obj.labels.firstOrNull()?.text ?: "Unknown"
                                             "$category (${(obj.labels.firstOrNull()?.confidence ?: 0f) * 100}%)"
                                         }
 
-                                        // Species guess from labels
                                         val wildlifeLabels = listOf(
                                             "raccoon", "squirrel", "bat", "skunk", "snake",
                                             "bird", "rodent", "fox", "deer", "bear", "coyote",
@@ -166,7 +163,6 @@ fun MLKitCameraScreen(
                                         }
                                         speciesGuess = matched?.text ?: "No wildlife detected"
                                         confidence = matched?.confidence ?: 0f
-
                                     } catch (e: Exception) {
                                         Log.e("MLKitCamera", "Analysis error", e)
                                     } finally {
@@ -181,7 +177,6 @@ fun MLKitCameraScreen(
                         }
                     )
 
-                    // Overlay labels
                     if (labels.isNotEmpty() || speciesGuess.isNotBlank()) {
                         Column(
                             modifier = Modifier
@@ -219,7 +214,6 @@ fun MLKitCameraScreen(
                         }
                     }
 
-                    // Analyzing indicator
                     if (isAnalyzing) {
                         CircularProgressIndicator(
                             modifier = Modifier.align(Alignment.Center),
@@ -228,7 +222,6 @@ fun MLKitCameraScreen(
                     }
                 }
 
-                // Bottom controls
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
