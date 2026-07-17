@@ -64,7 +64,7 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Wildlife FieldOps", fontWeight = FontWeight.Bold) },
+                title = { Text("Wildlife Field App", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, contentDescription = "Open menu")

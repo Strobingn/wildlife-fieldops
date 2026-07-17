@@ -114,7 +114,7 @@ fun SettingsScreen(
             }
 
             SettingSection("App Info") {
-                SettingItem(Icons.Default.Info, "Wildlife FieldOps", "Version ${BuildConfig.VERSION_NAME}", showChevron = false)
+                SettingItem(Icons.Default.Info, "Wildlife Field App", "Version ${BuildConfig.VERSION_NAME}", showChevron = false)
                 SettingItem(Icons.Default.Storage, "Local Database", "Room (SQLite)", showChevron = false)
             }
         }
