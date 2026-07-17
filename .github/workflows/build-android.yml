@@ -2,7 +2,7 @@ name: Build Native Android APK (Debug)
 
 on:
   push:
-    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations, phase-1-2-3-integration ]
+    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations, phase-1-2-3-integration, ChatGPTV2, ChatGPT-v1.5 ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -46,8 +46,11 @@ jobs:
           required_files=(
             "app/src/main/java/com/strobingn/wildlifefieldops/data/local/Converters.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/data/local/AppDatabase.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/data/local/InspectionDao.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/data/model/InvoiceLineItem.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/data/model/JobType.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/InspectionSchedulerScreen.kt"
+            "app/src/main/java/com/strobingn/wildlifefieldops/ui/viewmodel/InspectionSchedulerViewModel.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/DiagnosticsScreen.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ai/operations/AIOperationsEngine.kt"
             "app/src/main/java/com/strobingn/wildlifefieldops/ui/screens/AIOperationsScreen.kt"
@@ -72,14 +75,14 @@ jobs:
           echo "LLM_API_KEY length: ${#LLM_API_KEY}"
 
       - name: Clean generated KSP and build state
-        run: ./gradlew clean --no-daemon --stacktrace
+        run: ./gradlew clean --refresh-dependencies --no-daemon --stacktrace
 
       - name: Build Debug APK
         run: |
           set -o pipefail
           export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
           export JAVA_OPTS="-Xmx4g"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
+          ./gradlew :app:assembleDebug --refresh-dependencies --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
         timeout-minutes: 45
 
       - name: Check for APK and list outputs
