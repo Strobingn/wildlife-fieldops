@@ -30,6 +30,7 @@ import androidx.navigation.navArgument
 import com.strobingn.wildlifefieldops.navigation.Screen
 import com.strobingn.wildlifefieldops.ui.components.BrandMark
 import com.strobingn.wildlifefieldops.ui.screens.*
+import com.strobingn.wildlifefieldops.ui.screens.InspectionSchedulerScreen
 import com.strobingn.wildlifefieldops.ui.theme.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -277,6 +278,14 @@ private fun AppNavHost(
             ScheduleScreen(
                 onNavigateToJobDetail = { id -> navController.navigate(Screen.JobDetail.createRoute(id)) },
                 onNavigateToJobForm = { navController.navigate(Screen.JobForm.createRoute()) },
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("inspection_scheduler") {
+            InspectionSchedulerScreen(
+                onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
+                onNavigateToInspectionDetail = { id -> navController.navigate(Screen.InspectionDetail.createRoute(id)) },
                 onBack = { navController.popBackStack() }
             )
         }
