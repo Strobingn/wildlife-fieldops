@@ -1,4 +1,4 @@
-package com.strobingn.wildlife.navigation
+package com.strobingn.wildlifefieldops.navigation
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
