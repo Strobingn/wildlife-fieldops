@@ -58,4 +58,7 @@ object AppModule {
 
     @Provides
     fun provideInvoiceDao(database: AppDatabase) = database.invoiceDao()
+
+    @Provides
+    fun provideSyncQueueDao(database: AppDatabase) = database.syncQueueDao()
 }
