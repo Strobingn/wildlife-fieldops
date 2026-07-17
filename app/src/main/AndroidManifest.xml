@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
 
     <!-- Optional hardware — do not require or install will fail on some devices -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -36,6 +38,9 @@
         android:enableOnBackInvokedCallback="true"
         android:supportsRtl="true"
         tools:targetApi="35">
+
+        <!-- ARCore optional: AR measurement works on supported devices, app still installs elsewhere -->
+        <meta-data android:name="com.google.ar.core" android:value="optional" />
 
         <activity
             android:name=".MainActivity"

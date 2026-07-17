@@ -391,6 +391,18 @@ private fun AppNavHost(
             )
         }
 
+        composable(Screen.VoiceJob.route) {
+            VoiceJobScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ARMeasure.route) {
+            ARMeasureScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(Screen.Expense.route) {
             ExpenseScreen(
                 onBack = { navController.popBackStack() }

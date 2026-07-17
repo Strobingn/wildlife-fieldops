@@ -32,12 +32,4 @@ object ARMeasurementHelper {
         val planeType: String = "horizontal",
         val notes: String = "AR measured damage/entry point size"
     )
-
-    fun simulateMeasurementForDemo(detectedObjectSizeHint: Float = 0.3f): MeasurementResult {
-        return MeasurementResult(
-            distanceMeters = detectedObjectSizeHint + Random.nextFloat() * 0.35f,
-            confidence = 0.85f + Random.nextFloat() * 0.10f,
-            notes = "ARCore hit-test measurement. Use in field for accurate insurance docs."
-        )
-    }
 }

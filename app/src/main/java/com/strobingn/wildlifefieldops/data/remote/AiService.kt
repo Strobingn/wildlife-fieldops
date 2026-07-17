@@ -65,6 +65,19 @@ data class SpeciesIdResult(
     val fromAi: Boolean = false
 )
 
+/** AI-parsed voice note -> structured new-job draft. */
+@Serializable
+data class VoiceJobDraft(
+    val title: String = "",
+    val customerName: String = "",
+    val address: String = "",
+    val serviceType: String = "",
+    val priority: String = "MEDIUM",
+    val scheduledText: String = "",
+    val notes: String = "",
+    val fromAi: Boolean = false
+)
+
 /** AI-written inspection report draft — maps onto the inspection form fields. */
 @Serializable
 data class InspectionReportDraft(
@@ -760,6 +773,43 @@ Rules:
             is ChatResult.Err -> fallback.copy(
                 rationale = "${result.message}\n\nUsing offline estimate defaults.",
                 fromAi = false
+            )
+        }
+    }
+
+    /**
+     * Voice-to-job: parse a dictated note (hands-free, driving between jobs)
+     * into a structured new-job draft. Falls back to putting the transcript
+     * into notes when AI is unavailable.
+     */
+    suspend fun parseVoiceJob(transcript: String): VoiceJobDraft = withContext(Dispatchers.IO) {
+        if (!isConfigured) {
+            return@withContext VoiceJobDraft(
+                title = transcript.split(' ', '\n').take(8).joinToString(" ").take(60),
+                notes = transcript
+            )
+        }
+        val system = """
+You convert a wildlife removal technician's dictated voice note into a structured job. Return ONLY valid JSON (no markdown fences) with fields:
+title (short job title, max 8 words, include species + core problem),
+customerName (person's name if spoken, else ""),
+address (street/town if spoken, else ""),
+serviceType (exactly one of: Inspection, Removal, Repair, Prevention, Cleanup, Consultation, Emergency, Exclusion, Trapping, One-Way Door, Attic Cleanout, Crawlspace Cleanup, Chimney Cap, Dead Animal Removal, Bat Exclusion, Bird Control, Squirrel Removal, Raccoon Removal, Skunk Removal, Snake Removal, Insulation Remediation, Sanitation / Disinfection, Follow-Up Visit, Other),
+priority (exactly one of: LOW, MEDIUM, HIGH, URGENT; use URGENT only for immediate danger/emergency wording),
+scheduledText (the day/time phrase as spoken, e.g. "Thursday 9am", else ""),
+notes (everything else worth keeping: access details, pets, gate codes, context).
+Do not invent details not present in the note.
+""".trimIndent()
+        val user = "Voice note transcription:\n$transcript\n\nReturn the job JSON now."
+        when (val result = completeChat(system, user, maxTokens = 500, temperature = 0.2)) {
+            is ChatResult.Ok -> parseJson(VoiceJobDraft.serializer(), result.text)?.copy(fromAi = true)
+                ?: VoiceJobDraft(
+                    title = transcript.split(' ', '\n').take(8).joinToString(" ").take(60),
+                    notes = transcript
+                )
+            is ChatResult.Err -> VoiceJobDraft(
+                title = transcript.split(' ', '\n').take(8).joinToString(" ").take(60),
+                notes = "$transcript\n\n(AI parse failed: ${result.message})"
             )
         }
     }
