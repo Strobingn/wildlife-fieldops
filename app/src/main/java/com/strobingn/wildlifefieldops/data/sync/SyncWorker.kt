@@ -1,10 +1,10 @@
-package com.strobingn.wildlifefieldops.data.sync
+package com.strobingn.wildlifefieldopsfieldops.data.sync
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.strobingn.wildlifefieldops.data.repository.SyncRepository
+import com.strobingn.wildlifefieldopsfieldops.data.repository.SyncRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
