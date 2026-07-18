@@ -4,8 +4,11 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.opengl.GLSurfaceView
+import android.provider.Settings
 import android.view.Surface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,6 +40,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.ar.core.Session
+import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import com.strobingn.wildlifefieldops.ai.ARMeasurementHelper
 import com.strobingn.wildlifefieldops.ui.theme.BackgroundCard
 import com.strobingn.wildlifefieldops.ui.theme.BackgroundDark
@@ -68,6 +72,12 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                 PackageManager.PERMISSION_GRANTED
         )
     }
+    var cameraPermissionRequested by remember { mutableStateOf(false) }
+    var arSupport by remember { mutableStateOf(ARMeasurementHelper.ARSupport.CHECKING) }
+    var awaitingInstall by remember { mutableStateOf(false) }
+    var shouldRequestArInstall by remember { mutableStateOf(true) }
+    var resumeTick by remember { mutableIntStateOf(0) }
+    var retryTick by remember { mutableIntStateOf(0) }
     var session by remember { mutableStateOf<Session?>(null) }
     var renderer by remember { mutableStateOf<ARCameraRenderer?>(null) }
     var glSurfaceView by remember { mutableStateOf<GLSurfaceView?>(null) }
@@ -80,23 +90,80 @@ fun ARMeasureScreen(onBack: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasCameraPermission = granted
-        if (!granted) sessionError = "Camera permission was denied."
+        if (!granted) sessionError = null
     }
 
     LaunchedEffect(Unit) {
-        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (!hasCameraPermission) {
+            cameraPermissionRequested = true
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
-    val arSupported = remember { ARMeasurementHelper.isARCoreSupported(context) }
+    // Permission -> availability -> Play Services for AR install -> OpenGL session.
+    // The renderer remains the V4 GLSurfaceView renderer so Session.update() always
+    // runs with a valid GL context and camera texture.
+    LaunchedEffect(hasCameraPermission, resumeTick, retryTick, session) {
+        if (!hasCameraPermission || session != null) return@LaunchedEffect
+        sessionError = null
+        awaitingInstall = false
 
-    LaunchedEffect(hasCameraPermission, arSupported, session) {
-        if (!hasCameraPermission || !arSupported || session != null) return@LaunchedEffect
-        val created = ARMeasurementHelper.createARSession(context)
-        if (created == null) {
-            sessionError = "ARCore could not start. Update Google Play Services for AR and reopen AR Measurement."
-        } else {
-            session = created
+        var support = ARMeasurementHelper.checkSupport(context)
+        var checks = 0
+        while (support == ARMeasurementHelper.ARSupport.CHECKING && checks < 3) {
+            delay(1_500)
+            support = ARMeasurementHelper.checkSupport(context)
+            checks++
         }
+        arSupport = support
+        when (support) {
+            ARMeasurementHelper.ARSupport.UNSUPPORTED -> return@LaunchedEffect
+            ARMeasurementHelper.ARSupport.CHECKING -> {
+                sessionError = "Couldn't verify ARCore support. Check your connection, then tap Retry."
+                return@LaunchedEffect
+            }
+            else -> Unit
+        }
+
+        val activity = context.findActivity()
+        if (activity == null) {
+            sessionError = "Couldn't start AR because the host activity is unavailable."
+            return@LaunchedEffect
+        }
+
+        val installed = try {
+            ARMeasurementHelper.ensureInstalled(activity, shouldRequestArInstall)
+        } catch (_: UnavailableUserDeclinedInstallationException) {
+            sessionError = "AR Measurement needs Google Play Services for AR. Install it, then tap Retry."
+            return@LaunchedEffect
+        } catch (error: Exception) {
+            sessionError = "ARCore is unavailable: ${error.javaClass.simpleName}."
+            return@LaunchedEffect
+        }
+        if (!installed) {
+            shouldRequestArInstall = false
+            awaitingInstall = true
+            return@LaunchedEffect
+        }
+
+        runCatching { ARMeasurementHelper.createARSession(context) }
+            .onSuccess {
+                arSupport = ARMeasurementHelper.ARSupport.READY
+                session = it
+            }
+            .onFailure { error ->
+                sessionError = "Couldn't start the AR camera (${error.javaClass.simpleName}). Close other camera apps, then tap Retry."
+            }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val installObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && session == null) {
+                resumeTick++
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(installObserver)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(installObserver) }
     }
 
     DisposableEffect(session, renderer, glSurfaceView, lifecycleOwner) {
@@ -191,15 +258,26 @@ fun ARMeasureScreen(onBack: () -> Unit) {
             when {
                 !hasCameraPermission -> {
                     InfoCard("Camera permission is required for AR measurement.") {
-                        Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                        Button(onClick = {
+                            cameraPermissionRequested = true
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }) {
                             Text("Grant permission")
+                        }
+                        val activity = context.findActivity()
+                        if (cameraPermissionRequested && activity != null &&
+                            !activity.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+                        ) {
+                            TextButton(onClick = { openAppSettings(context) }) {
+                                Text("Open app settings", color = PrimaryGreen)
+                            }
                         }
                     }
                 }
 
-                !arSupported -> {
+                arSupport == ARMeasurementHelper.ARSupport.UNSUPPORTED -> {
                     InfoCard(
-                        "This phone does not report ARCore support. Install or update Google Play Services for AR and try again."
+                        "This device does not support ARCore. AR measurement needs an ARCore-compatible phone."
                     ) {}
                 }
 
@@ -217,9 +295,19 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                                 renderer = null
                                 glSurfaceView = null
                                 session = null
+                                shouldRequestArInstall = true
+                                retryTick++
                             }
                         ) {
                             Text("Retry")
+                        }
+                    }
+                }
+
+                awaitingInstall -> {
+                    InfoCard("Install or update Google Play Services for AR, then return here.") {
+                        Button(onClick = { retryTick++ }) {
+                            Text("Continue")
                         }
                     }
                 }
@@ -229,7 +317,14 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(color = PrimaryGreen)
                             Spacer(Modifier.height(12.dp))
-                            Text("Starting ARCore…", color = TextSecondary)
+                            Text(
+                                if (arSupport == ARMeasurementHelper.ARSupport.CHECKING) {
+                                    "Checking ARCore support…"
+                                } else {
+                                    "Starting ARCore…"
+                                },
+                                color = TextSecondary
+                            )
                         }
                     }
                 }
@@ -439,6 +534,17 @@ private fun Context.findActivity(): Activity? {
         current = current.baseContext
     }
     return current as? Activity
+}
+
+private fun openAppSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
+    }
 }
 
 @Composable

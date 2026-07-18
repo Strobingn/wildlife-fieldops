@@ -23,7 +23,8 @@ data class MapProperty(
     val latitude: Double,
     val longitude: Double,
     val status: JobStatus,
-    val type: String
+    val type: String,
+    val riskScore: Int
 )
 
 @HiltViewModel
@@ -46,8 +47,23 @@ class MapViewModel @Inject constructor(
 
     val properties: StateFlow<List<MapProperty>> = jobDao.getAll()
         .map { jobs ->
+            val addressCounts = jobs
+                .filter { it.address.isNotBlank() }
+                .groupingBy { it.address.trim().lowercase() }
+                .eachCount()
             jobs.filter { it.latitude != null && it.longitude != null }
                 .map { job ->
+                    val text = "${job.title} ${job.type} ${job.description} ${job.notes}".lowercase()
+                    val activeWeight = when (job.status) {
+                        JobStatus.PENDING -> 18
+                        JobStatus.IN_PROGRESS -> 25
+                        JobStatus.INVOICED -> 8
+                        else -> 0
+                    }
+                    val repeatWeight = ((addressCounts[job.address.trim().lowercase()] ?: 1) - 1) * 12
+                    val damageWeight = if (listOf("damage", "entry", "hole", "attic", "roof", "guano", "dropping")
+                            .any { text.contains(it) }
+                    ) 18 else 0
                     MapProperty(
                         id = job.id,
                         name = job.title,
@@ -55,7 +71,8 @@ class MapViewModel @Inject constructor(
                         latitude = job.latitude!!,
                         longitude = job.longitude!!,
                         status = job.status,
-                        type = job.type
+                        type = job.type,
+                        riskScore = (activeWeight + repeatWeight + damageWeight).coerceIn(0, 100)
                     )
                 }
         }

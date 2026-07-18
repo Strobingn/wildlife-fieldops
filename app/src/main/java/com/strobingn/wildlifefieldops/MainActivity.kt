@@ -204,6 +204,10 @@ private fun AppNavHost(
                 onNavigateToMap = { navController.navigate(Screen.Map.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onNavigateToAI = { navController.navigate(Screen.AIAssistant.route) },
+                onNavigateToARMeasure = { navController.navigate(Screen.ARMeasure.route) },
+                onNavigateToSpeciesId = { navController.navigate(Screen.SpeciesId.route) },
+                onNavigateToAIPhotoAnalysis = { navController.navigate(Screen.AIPhotoAnalysis.route) },
+                onNavigateToAIOperations = { navController.navigate(Screen.AIOperations.route) },
                 onOpenDrawer = onOpenDrawer
             )
         }
@@ -312,7 +316,7 @@ private fun AppNavHost(
             )
         }
 
-        composable("mlkit_camera") {
+        composable(Screen.AIPhotoAnalysis.route) {
             MLKitCameraScreen(
                 onPhotoCaptured = { photoPath, labels, objects ->
                     // Handle captured photo with AI labels
@@ -375,13 +379,23 @@ private fun AppNavHost(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onNavigateToAIOperations = { navController.navigate(Screen.AIOperations.route) }
             )
         }
 
         composable(Screen.AIAssistant.route) {
             AIAssistantScreen(
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AIOperations.route) {
+            AIOperationsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToJob = { id -> navController.navigate(Screen.JobDetail.createRoute(id)) },
+                onNavigateToInventory = { navController.navigate(Screen.Inventory.route) },
+                onNavigateToMap = { navController.navigate(Screen.Map.route) }
             )
         }
 
@@ -530,37 +544,39 @@ private fun AppDrawer(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                "TOOLS",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-            )
-
-            Screen.drawerItems.forEach { screen ->
-                NavigationDrawerItem(
-                    icon = {
-                        screen.icon?.let {
-                            Icon(it, contentDescription = screen.title)
-                        }
-                    },
-                    label = {
-                        Text(screen.title, style = MaterialTheme.typography.bodyLarge)
-                    },
-                    selected = false,
-                    onClick = { onNavigate(screen.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                    shape = FieldShapes.button,
-                    colors = NavigationDrawerItemDefaults.colors(
-                        unselectedContainerColor = Color.Transparent,
-                        unselectedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                        selectedTextColor = MaterialTheme.colorScheme.primary,
-                        selectedIconColor = MaterialTheme.colorScheme.primary
-                    )
+            Screen.drawerSections.forEach { (sectionTitle, screens) ->
+                Text(
+                    sectionTitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                 )
+
+                screens.forEach { screen ->
+                    NavigationDrawerItem(
+                        icon = {
+                            screen.icon?.let {
+                                Icon(it, contentDescription = screen.title)
+                            }
+                        },
+                        label = {
+                            Text(screen.title, style = MaterialTheme.typography.bodyLarge)
+                        },
+                        selected = false,
+                        onClick = { onNavigate(screen.route) },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 1.dp),
+                        shape = FieldShapes.button,
+                        colors = NavigationDrawerItemDefaults.colors(
+                            unselectedContainerColor = Color.Transparent,
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            selectedIconColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -6,12 +6,14 @@ on:
       - main
       - WildlifeFieldApp
       - app-fixed-by-chatgptV4
+      - chatGPTV5
       - feature/build-32-diagnostics
       - feature/build-33-ai-operations
   pull_request:
     branches:
       - main
       - WildlifeFieldApp
+      - app-fixed-by-chatgptV4
   workflow_dispatch:
 
 jobs:

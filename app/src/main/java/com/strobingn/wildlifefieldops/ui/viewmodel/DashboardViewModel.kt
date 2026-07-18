@@ -37,7 +37,7 @@ class DashboardViewModel @Inject constructor(
         customerDao.getAll(),
         inspectionDao.getAll(),
         reminderDao.getPending()
-    ) { jobs, customers, inspections, reminders ->
+    ) { jobs, customers, inspections, _ ->
         val now = System.currentTimeMillis()
         val dayStart = now - (now % 86400000L)
         val dayEnd = dayStart + 86400000L

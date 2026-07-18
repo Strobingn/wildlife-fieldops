@@ -45,6 +45,7 @@ class InspectionsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val inspections = _searchQuery.flatMapLatest { query ->
         if (query.isBlank()) {
             inspectionDao.getAll()

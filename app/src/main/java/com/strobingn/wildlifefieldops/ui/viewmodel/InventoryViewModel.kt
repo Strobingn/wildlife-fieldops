@@ -17,6 +17,7 @@ class InventoryViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val items = _searchQuery.flatMapLatest { query ->
         if (query.isBlank()) {
             inventoryItemDao.getAll()

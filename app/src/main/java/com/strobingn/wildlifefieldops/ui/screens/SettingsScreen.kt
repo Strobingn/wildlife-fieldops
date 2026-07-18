@@ -22,19 +22,14 @@ import com.strobingn.wildlifefieldops.ui.viewmodel.SettingsViewModel
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onNavigateToAIOperations: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
-    var showAiOperations by remember { mutableStateOf(false) }
     if (showDiagnostics) {
         DiagnosticsScreen(onBack = { showDiagnostics = false })
         return
     }
-    if (showAiOperations) {
-        AIOperationsScreen(onBack = { showAiOperations = false })
-        return
-    }
-
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncMessage by viewModel.syncMessage.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
@@ -91,7 +86,7 @@ fun SettingsScreen(
                     Icons.Default.AutoAwesome,
                     "AI Operations Command Center",
                     "Property intelligence, pricing, quality control, routing, inventory and species guidance",
-                    onClick = { showAiOperations = true }
+                    onClick = onNavigateToAIOperations
                 )
             }
 

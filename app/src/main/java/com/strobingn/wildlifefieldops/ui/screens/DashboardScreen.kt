@@ -8,14 +8,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,6 +46,9 @@ import com.strobingn.wildlifefieldops.ui.theme.PrimaryGreen
 import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
 import com.strobingn.wildlifefieldops.ui.theme.TextSecondary
 import com.strobingn.wildlifefieldops.ui.viewmodel.DashboardViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +62,10 @@ fun DashboardScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAI: () -> Unit,
+    onNavigateToARMeasure: () -> Unit,
+    onNavigateToSpeciesId: () -> Unit,
+    onNavigateToAIPhotoAnalysis: () -> Unit,
+    onNavigateToAIOperations: () -> Unit,
     onOpenDrawer: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -136,10 +148,50 @@ fun DashboardScreen(
                 }
             }
             item {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onNavigateToMap, modifier = Modifier.weight(1f)) { Text("Map") }
-                    Button(onClick = onNavigateToAI, modifier = Modifier.weight(1f)) { Text("AI") }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = BackgroundCard)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Field Intelligence", style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+                        Text("AR measurement and live AI tools", color = TextSecondary)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onNavigateToARMeasure, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Straighten, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("AR Measure")
+                            }
+                            Button(onClick = onNavigateToSpeciesId, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Pets, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Species ID")
+                            }
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onNavigateToAIPhotoAnalysis, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.DocumentScanner, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("Photo AI")
+                            }
+                            Button(onClick = onNavigateToAI, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Psychology, contentDescription = null)
+                                Spacer(Modifier.width(6.dp))
+                                Text("AI Assistant")
+                            }
+                        }
+                        Button(onClick = onNavigateToAIOperations, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Default.Insights, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open AI Operations Center")
+                        }
+                    }
                 }
+            }
+            item {
+                Button(onClick = onNavigateToMap, modifier = Modifier.fillMaxWidth()) { Text("Property Map") }
             }
             item { Text("Recent Jobs", style = MaterialTheme.typography.titleMedium, color = TextPrimary) }
             if (recentJobs.isEmpty()) {
@@ -151,10 +203,47 @@ fun DashboardScreen(
                         colors = CardDefaults.cardColors(containerColor = BackgroundCard),
                         onClick = { onNavigateToJobDetail(job.id) }
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val totalPrice = if (job.actualCost > 0.0) {
+                                job.actualCost
+                            } else {
+                                job.estimatedValue
+                            }
+                            val startDate = job.scheduledDate?.let(::formatDashboardDate) ?: "Not scheduled"
+
                             Text(job.title, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            if (job.customerName.isNotBlank()) Text(job.customerName, color = TextSecondary)
-                            Text(job.status.name.replace('_', ' '), color = TextSecondary)
+                            if (job.customerName.isNotBlank()) {
+                                Text(job.customerName, color = TextSecondary)
+                            }
+                            Text(
+                                job.address.ifBlank { "Address not entered" },
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Start: $startDate",
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "Total: ${String.format(Locale.US, "%,.2f", totalPrice)}",
+                                    color = TextPrimary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Text(
+                                job.status.name.replace('_', ' '),
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
                         }
                     }
                 }
@@ -166,6 +255,9 @@ fun DashboardScreen(
         }
     }
 }
+
+private fun formatDashboardDate(timestamp: Long): String =
+    SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
 
 @Composable
 private fun DashboardMetric(label: String, value: String, modifier: Modifier = Modifier) {

@@ -1,6 +1,16 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import android.Manifest
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -13,12 +23,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.SpeciesIdViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,11 +45,50 @@ fun SpeciesIdScreen(
     val result by viewModel.result.collectAsState()
     val message by viewModel.message.collectAsState()
 
+    val context = LocalContext.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var cameraPermissionRequested by remember { mutableStateOf(false) }
+    var pendingCameraLaunch by remember { mutableStateOf(false) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { viewModel.onImageSelected(it) }
     }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        bitmap?.let { viewModel.onCameraBitmap(it) }
+    // Full-resolution capture into our own file via FileProvider. The old
+    // TakePicturePreview thumbnail comes back null on several devices/camera apps,
+    // which made the Camera button silently do nothing.
+    val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        val uri = tempPhotoUri
+        if (success && uri != null) {
+            viewModel.onImageSelected(uri)
+        }
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasCameraPermission = granted
+        if (granted && pendingCameraLaunch) {
+            pendingCameraLaunch = false
+            val (uri, error) = launchCameraForResult(context, takePictureLauncher)
+            tempPhotoUri = uri
+            cameraError = error
+        }
+    }
+
+    fun startCamera() {
+        cameraError = null
+        if (!hasCameraPermission) {
+            pendingCameraLaunch = true
+            cameraPermissionRequested = true
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            return
+        }
+        val (uri, error) = launchCameraForResult(context, takePictureLauncher)
+        tempPhotoUri = uri
+        cameraError = error
     }
 
     Scaffold(
@@ -107,7 +160,7 @@ fun SpeciesIdScreen(
                     Text("Gallery", color = TextPrimary)
                 }
                 OutlinedButton(
-                    onClick = { cameraLauncher.launch(null) },
+                    onClick = { startCamera() },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -115,6 +168,37 @@ fun SpeciesIdScreen(
                     Spacer(Modifier.width(6.dp))
                     Text("Camera", color = TextPrimary)
                 }
+            }
+
+            // Camera permission rationale / recovery — never leave a dead button.
+            if (!hasCameraPermission && cameraPermissionRequested) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Camera permission is needed to photograph the animal. (Gallery works without it.)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { startCamera() }) {
+                                Text("Grant camera access", color = PrimaryGreen)
+                            }
+                            val activity = context.findActivity()
+                            if (activity != null && !activity.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+                                TextButton(onClick = { openAppSettings(context) }) {
+                                    Text("Open Settings", color = PrimaryGreen)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            cameraError?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium, color = ErrorRed)
             }
 
             Button(
@@ -213,5 +297,47 @@ private fun SpeciesIdRow(label: String, value: String) {
     Column {
         Text(label, style = MaterialTheme.typography.labelMedium, color = TextSecondary, fontWeight = FontWeight.SemiBold)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+    }
+}
+
+/** Creates a capture target and fires the system camera. Returns (uri, errorMessage). */
+private fun launchCameraForResult(
+    context: Context,
+    launcher: ActivityResultLauncher<Uri>
+): Pair<Uri?, String?> {
+    return try {
+        val uri = createSpeciesImageUri(context)
+        launcher.launch(uri)
+        uri to null
+    } catch (e: ActivityNotFoundException) {
+        null to "No camera app found on this device. Use Gallery instead."
+    } catch (e: Exception) {
+        null to "Couldn't open the camera: ${e.message ?: e.javaClass.simpleName}"
+    }
+}
+
+private fun createSpeciesImageUri(context: Context): Uri {
+    val dir = File(context.cacheDir, "species").apply { mkdirs() }
+    val file = File(dir, "species_${System.currentTimeMillis()}.jpg")
+    return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+private fun openAppSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
     }
 }
