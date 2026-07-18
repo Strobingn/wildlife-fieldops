@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 35
-        versionName = "2.5.0-chatgpt-v5"
+        versionCode = 36
+        versionName = "2.5.1-chatgpt-v5"
 
         // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""

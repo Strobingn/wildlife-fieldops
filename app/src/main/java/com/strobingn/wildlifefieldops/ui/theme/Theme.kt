@@ -19,14 +19,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF5B9DFF),
-    onPrimary = Color(0xFF001833),
-    primaryContainer = Color(0xFF1A2F4A),
-    onPrimaryContainer = Color(0xFFD6E6FF),
-    secondary = Color(0xFF38BDF8),
-    onSecondary = Color(0xFF00263A),
-    secondaryContainer = Color(0xFF0C2A40),
-    onSecondaryContainer = Color(0xFFCFEFFF),
+    primary = Color(0xFFD1D5DB),
+    onPrimary = Color(0xFF1B1D20),
+    primaryContainer = Color(0xFF454A51),
+    onPrimaryContainer = Color(0xFFF3F4F6),
+    secondary = Color(0xFFB9BDC4),
+    onSecondary = Color(0xFF1B1D20),
+    secondaryContainer = Color(0xFF3B4046),
+    onSecondaryContainer = Color(0xFFE8EAED),
     tertiary = Color(0xFFFBBF24),
     onTertiary = Color(0xFF3D2A00),
     tertiaryContainer = Color(0xFF3D2E0A),
@@ -52,18 +52,18 @@ private val DarkColorScheme = darkColorScheme(
     scrim = Color(0xCC000000),
     inverseSurface = Color(0xFFE4E8F0),
     inverseOnSurface = Color(0xFF1A1E26),
-    inversePrimary = Color(0xFF3B7AE8)
+    inversePrimary = Color(0xFF9CA3AF)
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = PrimaryGreen,
-    onPrimary = Color.White,
+    onPrimary = BackgroundDark,
     primaryContainer = PrimaryContainer,
     onPrimaryContainer = OnPrimaryContainer,
     secondary = AccentCyan,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE0F2FE),
-    onSecondaryContainer = Color(0xFF0C4A6E),
+    onSecondary = BackgroundDark,
+    secondaryContainer = Color(0xFFE5E7EB),
+    onSecondaryContainer = Color(0xFF2B2E33),
     tertiary = AccentAmber,
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFE8C2),

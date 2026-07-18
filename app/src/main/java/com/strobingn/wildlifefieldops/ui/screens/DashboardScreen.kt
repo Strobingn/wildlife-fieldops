@@ -46,6 +46,9 @@ import com.strobingn.wildlifefieldops.ui.theme.PrimaryGreen
 import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
 import com.strobingn.wildlifefieldops.ui.theme.TextSecondary
 import com.strobingn.wildlifefieldops.ui.viewmodel.DashboardViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -200,10 +203,47 @@ fun DashboardScreen(
                         colors = CardDefaults.cardColors(containerColor = BackgroundCard),
                         onClick = { onNavigateToJobDetail(job.id) }
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val totalPrice = if (job.actualCost > 0.0) {
+                                job.actualCost
+                            } else {
+                                job.estimatedValue
+                            }
+                            val startDate = job.scheduledDate?.let(::formatDashboardDate) ?: "Not scheduled"
+
                             Text(job.title, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            if (job.customerName.isNotBlank()) Text(job.customerName, color = TextSecondary)
-                            Text(job.status.name.replace('_', ' '), color = TextSecondary)
+                            if (job.customerName.isNotBlank()) {
+                                Text(job.customerName, color = TextSecondary)
+                            }
+                            Text(
+                                job.address.ifBlank { "Address not entered" },
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Start: $startDate",
+                                    color = TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "Total: ${String.format(Locale.US, "%,.2f", totalPrice)}",
+                                    color = TextPrimary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            Text(
+                                job.status.name.replace('_', ' '),
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.labelSmall
+                            )
                         }
                     }
                 }
@@ -215,6 +255,9 @@ fun DashboardScreen(
         }
     }
 }
+
+private fun formatDashboardDate(timestamp: Long): String =
+    SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
 
 @Composable
 private fun DashboardMetric(label: String, value: String, modifier: Modifier = Modifier) {
