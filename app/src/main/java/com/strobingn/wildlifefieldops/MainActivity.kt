@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -480,6 +481,15 @@ private fun AppDrawer(
     onNavigate: (String) -> Unit,
     onClose: () -> Unit
 ) {
+    // Version label reads versionName at runtime so it never drifts from build.gradle.kts.
+    val drawerContext = LocalContext.current
+    val appVersionName = remember {
+        runCatching {
+            @Suppress("DEPRECATION")
+            drawerContext.packageManager.getPackageInfo(drawerContext.packageName, 0).versionName ?: ""
+        }.getOrDefault("")
+    }
+
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         drawerContentColor = MaterialTheme.colorScheme.onSurface,
@@ -573,7 +583,7 @@ private fun AppDrawer(
             )
 
             Text(
-                "v2.0.1 · Modern UI",
+                "v$appVersionName · Modern UI",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp)

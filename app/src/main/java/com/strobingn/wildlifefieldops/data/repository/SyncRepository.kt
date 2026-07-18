@@ -68,6 +68,7 @@ class SyncRepository @Inject constructor(
         var pulledInvoices = 0
         val warnings = mutableListOf<String>()
         val pushedJobIds = mutableSetOf<String>()
+        val pushedInvoiceIds = mutableSetOf<String>()
 
         try {
             val unsyncedCustomers = customerDao.getUnsynced()
@@ -143,6 +144,7 @@ class SyncRepository @Inject constructor(
                 }
                 if (dtos.isNotEmpty()) {
                     client.from("invoices").upsert(dtos)
+                    pushedInvoiceIds += dtos.map { it.id }
                     dtos.forEach { invoiceDao.markSynced(it.id) }
                     pushedInvoices = dtos.size
                 }
@@ -216,6 +218,38 @@ class SyncRepository @Inject constructor(
         } catch (e: Exception) {
             android.util.Log.w("SyncRepository", "Job pull failed", e)
             warnings += "job pull: ${e.message ?: e.javaClass.simpleName}"
+        }
+
+        // --- Pull invoices ---
+        try {
+            val remoteInvoices = client.from("invoices").select().decodeList<RemoteInvoiceDto>()
+            if (remoteInvoices.isNotEmpty()) {
+                val locals = remoteInvoices.mapNotNull { dto ->
+                    runCatching {
+                        val remote = dto.toLocal()
+                        val existing = invoiceDao.getById(dto.id)
+
+                        // Never replace a record just pushed in this same sync pass.
+                        if (dto.id in pushedInvoiceIds) {
+                            null
+                        } else if (existing != null && !existing.isSynced) {
+                            // Local unsynced edits always win until they are successfully pushed.
+                            null
+                        } else {
+                            remote.copy(isSynced = true, syncError = null)
+                        }
+                    }.onFailure {
+                        android.util.Log.w("SyncRepository", "Bad invoice ${dto.id}: ${it.message}")
+                    }.getOrNull()
+                }
+                if (locals.isNotEmpty()) {
+                    invoiceDao.insertAll(locals)
+                    pulledInvoices = locals.size
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("SyncRepository", "Invoice pull failed", e)
+            warnings += "invoice pull: ${e.message ?: e.javaClass.simpleName}"
         }
 
         val base = "Synced. Pushed: $pushedJobs jobs, $pushedCustomers customers, $pushedInspections inspections, $pushedInvoices invoices. " +
