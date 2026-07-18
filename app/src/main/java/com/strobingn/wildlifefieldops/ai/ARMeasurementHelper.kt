@@ -60,8 +60,8 @@ object ARMeasurementHelper {
      * @throws UnavailableException when the user declined installation or the device is incompatible.
      */
     @Throws(UnavailableException::class)
-    fun ensureInstalled(activity: Activity): Boolean {
-        return when (ArCoreApk.getInstance().requestInstall(activity, true)) {
+    fun ensureInstalled(activity: Activity, userRequestedInstall: Boolean): Boolean {
+        return when (ArCoreApk.getInstance().requestInstall(activity, userRequestedInstall)) {
             ArCoreApk.InstallStatus.INSTALLED -> true
             ArCoreApk.InstallStatus.INSTALL_REQUESTED -> false
         }
@@ -78,6 +78,10 @@ object ARMeasurementHelper {
         val config = Config(session)
         config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
         config.focusMode = Config.FocusMode.AUTO
+        config.planeFindingMode = Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL
+        if (session.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
+            config.depthMode = Config.DepthMode.AUTOMATIC
+        }
         session.configure(config)
         return session
     }
