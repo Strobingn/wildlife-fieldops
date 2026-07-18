@@ -106,37 +106,53 @@ fun WildlifeFieldOpsNavHost() {
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val drawerOpen = drawerState.currentValue == DrawerValue.Open ||
-        drawerState.targetValue == DrawerValue.Open
 
-    // Always close the drawer when leaving main tabs — prevents stuck scrim
-    // if navigation runs before the close animation finishes.
-    LaunchedEffect(showBottomNav) {
-        if (!showBottomNav && drawerState.isOpen) {
-            drawerState.close()
+    // Only a fully open, visible drawer counts. A stale targetValue == Open
+    // after an interrupted open/close animation must not keep BackHandler
+    // enabled — it would swallow back presses with no sheet on screen.
+    val drawerVisiblyOpen = drawerState.currentValue == DrawerValue.Open
+
+    // Close the drawer on EVERY route change, not just when leaving the main
+    // tabs. snapTo is instant — there is no animation to interrupt — so the
+    // scrim can never survive a navigation or linger on detail screens where
+    // drawer gestures are disabled.
+    LaunchedEffect(currentRoute) {
+        if (drawerState.currentValue != DrawerValue.Closed ||
+            drawerState.targetValue != DrawerValue.Closed
+        ) {
+            drawerState.snapTo(DrawerValue.Closed)
         }
     }
 
     // System back closes the drawer first instead of trapping the user under the scrim.
-    BackHandler(enabled = drawerOpen) {
+    BackHandler(enabled = drawerVisiblyOpen) {
         scope.launch { drawerState.close() }
     }
 
     fun navigateFromDrawer(route: String) {
         scope.launch {
-            // Wait for close so ModalNavigationDrawer clears the scrim before route change.
-            drawerState.close()
-            navController.navigate(route) {
-                popUpTo(Screen.Dashboard.route) { inclusive = false }
-                launchSingleTop = true
+            // Wait for close so ModalNavigationDrawer clears the scrim before the
+            // route change. DrawerState.close() throws CancellationException when a
+            // newer drawer animation interrupts it — navigate from finally so the
+            // tap can never be swallowed ("blurry page, nothing opens" report).
+            try {
+                drawerState.close()
+            } finally {
+                navController.navigate(route) {
+                    popUpTo(Screen.Dashboard.route) { inclusive = false }
+                    launchSingleTop = true
+                }
             }
         }
     }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        // Allow open + close gestures on main tabs (not only while already open).
-        gesturesEnabled = showBottomNav,
+        // Full gestures on the main tabs; elsewhere only while the drawer is
+        // actually open. Material 3 gates scrim tap-to-dismiss on gesturesEnabled,
+        // so an open drawer with gestures disabled is a dead, dimmed screen —
+        // this keeps the scrim tappable/swipeable as a fail-safe.
+        gesturesEnabled = showBottomNav || drawerVisiblyOpen,
         scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f),
         drawerContent = {
             // Always compose drawer content — an empty drawerContent while Open
