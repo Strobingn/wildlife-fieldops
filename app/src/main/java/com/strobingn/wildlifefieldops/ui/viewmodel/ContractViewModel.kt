@@ -133,8 +133,21 @@ class ContractViewModel @Inject constructor(
                         document.add(Paragraph("Electronic Signature").setBold().setFontSize(14f))
                         document.add(Paragraph("Signed by: $customerName"))
                         document.add(Paragraph("Date: $signatureDate"))
-                        document.add(Paragraph("\n\n"))
-                        document.add(Paragraph("_______________________________").setTextAlignment(TextAlignment.LEFT))
+                        document.add(Paragraph("\n"))
+
+                        // Embed the captured canvas signature as an image when present
+                        val signatureBitmap = renderSignatureBitmap(_signaturePoints.value)
+                        if (signatureBitmap != null) {
+                            val stream = java.io.ByteArrayOutputStream()
+                            signatureBitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                            val imageData = com.itextpdf.io.image.ImageDataFactory.create(stream.toByteArray())
+                            val image = com.itextpdf.layout.element.Image(imageData)
+                                .scaleToFit(220f, 70f)
+                            document.add(image)
+                        } else {
+                            document.add(Paragraph("\n"))
+                            document.add(Paragraph("_______________________________").setTextAlignment(TextAlignment.LEFT))
+                        }
                         document.add(Paragraph("Customer Signature"))
                     }
                 }
@@ -165,5 +178,47 @@ class ContractViewModel @Inject constructor(
     fun clearPdfStatus() {
         _pdfGenerated.value = false
         _pdfPath.value = null
+    }
+
+    companion object {
+        /**
+         * Renders captured signature strokes (Compose canvas pixel offsets) onto a
+         * white bitmap with padding so it can be embedded into the PDF page.
+         */
+        fun renderSignatureBitmap(points: List<Offset>): android.graphics.Bitmap? {
+            if (points.size < 2) return null
+            val minX = points.minOf { it.x }
+            val maxX = points.maxOf { it.x }
+            val minY = points.minOf { it.y }
+            val maxY = points.maxOf { it.y }
+            val pad = 24f
+            val width = (maxX - minX + pad * 2).toInt().coerceAtLeast(2)
+            val height = (maxY - minY + pad * 2).toInt().coerceAtLeast(2)
+            val bitmap = android.graphics.Bitmap.createBitmap(
+                width.coerceAtMost(2048),
+                height.coerceAtMost(1024),
+                android.graphics.Bitmap.Config.ARGB_8888
+            )
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.drawColor(android.graphics.Color.WHITE)
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                color = android.graphics.Color.BLACK
+                style = android.graphics.Paint.Style.STROKE
+                strokeWidth = 5f
+                strokeCap = android.graphics.Paint.Cap.ROUND
+                strokeJoin = android.graphics.Paint.Join.ROUND
+            }
+            // Points arrive as a flattened list of strokes in order; consecutive
+            // points form line segments (breaks are invisible at signature scale).
+            val path = android.graphics.Path()
+            points.forEachIndexed { index, p ->
+                val x = (p.x - minX + pad).coerceIn(0f, bitmap.width.toFloat())
+                val y = (p.y - minY + pad).coerceIn(0f, bitmap.height.toFloat())
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            canvas.drawPath(path, paint)
+            return bitmap
+        }
     }
 }

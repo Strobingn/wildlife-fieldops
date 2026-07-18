@@ -26,18 +26,28 @@ import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import android.os.Environment
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.strobingn.wildlifefieldops.data.model.Photo
+import com.strobingn.wildlifefieldops.data.model.PhotoCategory
 import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlifefieldops.ui.viewmodel.PhotosViewModel
 import kotlinx.coroutines.tasks.await
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.*
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MLKitCameraScreen(
     onPhotoCaptured: (String, List<String>, List<String>) -> Unit = { _, _, _ -> },
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    photosViewModel: PhotosViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -51,6 +61,14 @@ fun MLKitCameraScreen(
     var objects by remember { mutableStateOf(listOf<String>()) }
     var speciesGuess by remember { mutableStateOf("") }
     var confidence by remember { mutableStateOf(0f) }
+    var captureMessage by remember { mutableStateOf<String?>(null) }
+    var isCapturing by remember { mutableStateOf(false) }
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+    val scope = rememberCoroutineScope()
 
     val executor = remember { Executors.newSingleThreadExecutor() }
     val imageLabeler = remember { ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS) }
@@ -130,6 +148,7 @@ fun MLKitCameraScreen(
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
                         lifecycleOwner = lifecycleOwner,
+                        imageCapture = imageCapture,
                         onImageProxy = { imageProxy ->
                             if (isAnalyzing) return@CameraPreview
                             isAnalyzing = true
@@ -228,6 +247,18 @@ fun MLKitCameraScreen(
                     }
                 }
 
+                // Capture status feedback
+                captureMessage?.let {
+                    Text(
+                        it,
+                        color = PrimaryGreen,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+
                 // Bottom controls
                 Row(
                     modifier = Modifier
@@ -237,11 +268,75 @@ fun MLKitCameraScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledIconButton(
-                        onClick = { /* Capture photo */ },
+                        onClick = {
+                            if (isCapturing) return@FilledIconButton
+                            isCapturing = true
+                            captureMessage = null
+                            val photoDir = File(
+                                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                                "ai_captures"
+                            ).apply { mkdirs() }
+                            val photoFile = File(
+                                photoDir,
+                                "AI_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.jpg"
+                            )
+                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                            imageCapture.takePicture(
+                                outputOptions,
+                                executor,
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                        val labelTexts = labels
+                                        val objectTexts = objects
+                                        scope.launch(Dispatchers.Main) {
+                                            val description = buildString {
+                                                append("AI capture")
+                                                if (speciesGuess.isNotBlank() && speciesGuess != "No wildlife detected") {
+                                                    append(" — species: $speciesGuess")
+                                                }
+                                                if (labelTexts.isNotEmpty()) {
+                                                    append(" · ${labelTexts.take(3).joinToString(", ")}")
+                                                }
+                                            }
+                                            photosViewModel.savePhoto(
+                                                Photo(
+                                                    filePath = photoFile.absolutePath,
+                                                    localPath = photoFile.absolutePath,
+                                                    category = PhotoCategory.JOB_SITE,
+                                                    description = description,
+                                                    takenAt = System.currentTimeMillis(),
+                                                    fileSize = photoFile.length()
+                                                )
+                                            )
+                                            captureMessage = "Saved to Photo Gallery: ${photoFile.name}"
+                                            isCapturing = false
+                                            onPhotoCaptured(photoFile.absolutePath, labelTexts, objectTexts)
+                                        }
+                                    }
+
+                                    override fun onError(exception: ImageCaptureException) {
+                                        Log.e("MLKitCamera", "Capture failed", exception)
+                                        scope.launch(Dispatchers.Main) {
+                                            captureMessage = "Capture failed: ${exception.message ?: "unknown error"}"
+                                            isCapturing = false
+                                        }
+                                    }
+                                }
+                            )
+                        },
                         modifier = Modifier.size(64.dp),
+                        enabled = !isCapturing,
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = PrimaryGreen)
                     ) {
-                        Icon(Icons.Default.Camera, contentDescription = "Capture", modifier = Modifier.size(28.dp))
+                        if (isCapturing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = TextPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.Camera, contentDescription = "Capture", modifier = Modifier.size(28.dp))
+                        }
                     }
                 }
             }
@@ -253,6 +348,7 @@ fun MLKitCameraScreen(
 private fun CameraPreview(
     modifier: Modifier = Modifier,
     lifecycleOwner: LifecycleOwner,
+    imageCapture: ImageCapture,
     onImageProxy: (ImageProxy) -> Unit
 ) {
     val context = LocalContext.current
@@ -285,6 +381,7 @@ private fun CameraPreview(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
+                    imageCapture,
                     imageAnalysis
                 )
             } catch (e: Exception) {

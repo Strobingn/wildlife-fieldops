@@ -31,9 +31,11 @@ fun VoiceDictationScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
     var transcription by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var infoMessage by remember { mutableStateOf("") }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
@@ -213,13 +215,34 @@ fun VoiceDictationScreen(
                 }
             }
 
+            // Info message (copy confirmation)
+            if (infoMessage.isNotBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = PrimaryGreen.copy(alpha = 0.15f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PrimaryGreen)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(infoMessage, color = PrimaryGreen, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+
             // Action buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { transcription = "" },
+                    onClick = {
+                        transcription = ""
+                        infoMessage = ""
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Default.Clear, contentDescription = null)
@@ -227,14 +250,18 @@ fun VoiceDictationScreen(
                     Text("Clear")
                 }
                 Button(
-                    onClick = { onTranscriptionReady(transcription) },
+                    onClick = {
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(transcription))
+                        infoMessage = "Copied to clipboard — paste it into any job, inspection, or notes field."
+                        onTranscriptionReady(transcription)
+                    },
                     modifier = Modifier.weight(1f),
                     enabled = transcription.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null)
+                    Icon(Icons.Default.ContentCopy, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Use Text")
+                    Text("Copy Text")
                 }
             }
 

@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App-wide dark theme palette (matches Compose theme in ui/theme/Color.kt):
+         dark gray backgrounds, lighter gray cards, light gray text. -->
     <color name="primary_green">#FF3B7AE8</color>
-    <color name="background_dark">#FFF5F6F8</color>
-    <color name="surface_dark">#FFFFFFFF</color>
-    <color name="text_primary">#FF171A1F</color>
-    <color name="text_secondary">#FF515866</color>
-    <color name="ic_launcher_background">#FFF5F6F8</color>
-    <color name="splash_background">#FFF5F6F8</color>
-    <color name="md_theme_light_background">#FFF5F6F8</color>
-    <color name="md_theme_light_surface">#FFFFFFFF</color>
+    <color name="background_dark">#FF1B1D20</color>
+    <color name="surface_dark">#FF2B2E33</color>
+    <color name="text_primary">#FFE8EAED</color>
+    <color name="text_secondary">#FFB9BDC4</color>
+    <color name="ic_launcher_background">#FF1B1D20</color>
+    <color name="splash_background">#FF1B1D20</color>
+    <color name="md_theme_light_background">#FF1B1D20</color>
+    <color name="md_theme_light_surface">#FF2B2E33</color>
     <color name="accent_purple">#FF8B5CF6</color>
     <color name="accent_blue">#FF3B82F6</color>
 </resources>

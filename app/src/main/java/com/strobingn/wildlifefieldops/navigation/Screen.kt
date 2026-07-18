@@ -27,9 +27,16 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object InspectionDetail : Screen("inspection_detail/{inspectionId}", "Inspection Detail") {
         fun createRoute(inspectionId: String) = "inspection_detail/$inspectionId"
     }
-    object InspectionForm : Screen("inspection_form?inspectionId={inspectionId}", "Inspection Form") {
-        fun createRoute(inspectionId: String? = null) =
-            if (inspectionId != null) "inspection_form?inspectionId=$inspectionId" else "inspection_form"
+    object InspectionForm : Screen(
+        "inspection_form?inspectionId={inspectionId}&prefilledJobId={prefilledJobId}",
+        "Inspection Form"
+    ) {
+        fun createRoute(inspectionId: String? = null, jobId: String? = null): String {
+            val params = mutableListOf<String>()
+            if (inspectionId != null) params += "inspectionId=$inspectionId"
+            if (jobId != null) params += "prefilledJobId=$jobId"
+            return if (params.isEmpty()) "inspection_form" else "inspection_form?${params.joinToString("&")}"
+        }
     }
 
     object Map : Screen("map", "Property Map", Icons.Default.Map)
@@ -49,6 +56,13 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Estimate : Screen("estimate/{jobId}", "Estimate") {
         fun createRoute(jobId: String) = "estimate/$jobId"
     }
+    object InspectionScheduler : Screen("inspection_scheduler", "Inspection Scheduler", Icons.Default.EventAvailable)
+    object SyncQueue : Screen("sync_queue", "Sync Queue", Icons.Default.Sync)
+    object Contract : Screen("contract/{jobId}", "Contract") {
+        fun createRoute(jobId: String) = "contract/$jobId"
+    }
+    object VoiceDictation : Screen("voice_dictation", "Voice Dictation", Icons.Default.Mic)
+    object MLKitCamera : Screen("mlkit_camera", "AI Photo Analysis", Icons.Default.DocumentScanner)
 
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
@@ -56,13 +70,17 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             CustomerList,
             Map,
             PhotoGallery,
+            InspectionScheduler,
             Expense,
             Inventory,
             RouteOptimizer,
             VoiceJob,
+            VoiceDictation,
             SpeciesId,
+            MLKitCamera,
             ARMeasure,
             AIAssistant,
+            SyncQueue,
             Settings
         )
     }

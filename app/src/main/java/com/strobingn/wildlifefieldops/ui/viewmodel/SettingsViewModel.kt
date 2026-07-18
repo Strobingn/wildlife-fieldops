@@ -142,12 +142,72 @@ class SettingsViewModel @Inject constructor(
         _syncMessage.value = null
     }
 
+    /**
+     * Full local export: writes every table to a timestamped JSON file under
+     * Documents/exports so it can be shared/backed up. Reports the file path.
+     */
     fun exportData() = viewModelScope.launch {
-        _syncMessage.value = "Export: use Share from job/invoice PDFs for now. Full dump coming in a later update."
+        _syncMessage.value = "Exporting…"
+        try {
+            val file = withContext(Dispatchers.IO) {
+                val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                val dump = linkedMapOf<String, Any?>(
+                    "exportedAt" to System.currentTimeMillis(),
+                    "jobs" to database.jobDao().getAll().first(),
+                    "customers" to database.customerDao().getAll().first(),
+                    "inspections" to database.inspectionDao().getAll().first(),
+                    "invoices" to database.invoiceDao().getAll().first(),
+                    "photos" to database.photoDao().getAll().first(),
+                    "visits" to database.visitDao().getAll().first(),
+                    "repairs" to database.repairDao().getAll().first(),
+                    "expenses" to database.expenseDao().getAll().first(),
+                    "trapLogs" to database.trapLogDao().getAll().first(),
+                    "inventoryItems" to database.inventoryItemDao().getAll().first(),
+                    "reminders" to database.reminderDao().getAll().first(),
+                    "pendingOperations" to database.pendingOperationDao().getAll().first()
+                )
+                val dir = java.io.File(
+                    context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS),
+                    "exports"
+                ).apply { mkdirs() }
+                val out = java.io.File(dir, "wildlife_export_${System.currentTimeMillis()}.json")
+                out.writeText(gson.toJson(dump))
+                out
+            }
+            val counts = withContext(Dispatchers.IO) {
+                "jobs=${database.jobDao().count()}, customers=${database.customerDao().count()}, " +
+                    "inspections=${database.inspectionDao().getAll().first().size}, " +
+                    "invoices=${database.invoiceDao().count()}"
+            }
+            _syncMessage.value = "Export complete ($counts): ${file.absolutePath}"
+        } catch (t: Throwable) {
+            android.util.Log.e("SettingsViewModel", "Export failed", t)
+            _syncMessage.value = "Export failed: ${t.message ?: t.javaClass.simpleName}"
+        }
     }
 
+    /** Import = pull the latest cloud records into the local database. */
     fun importData() = viewModelScope.launch {
-        _syncMessage.value = "Import: use Sync Now to pull jobs and customers from Supabase."
+        if (_isSyncing.value) return@launch
+        _isSyncing.value = true
+        _syncMessage.value = "Importing from Supabase…"
+        try {
+            if (offlineMode.first()) {
+                _syncMessage.value = "Offline mode is on. Turn it off to import."
+                return@launch
+            }
+            if (!syncRepository.isCloudConfigured()) {
+                _syncMessage.value = "Cloud not configured. Rebuild APK with Supabase secrets set."
+                return@launch
+            }
+            val result = syncRepository.syncAll()
+            _syncMessage.value = "Import finished — ${result.message}"
+        } catch (t: Throwable) {
+            android.util.Log.e("SettingsViewModel", "Import failed", t)
+            _syncMessage.value = "Import failed: ${t.message ?: t.javaClass.simpleName}"
+        } finally {
+            _isSyncing.value = false
+        }
     }
 
     fun clearAllData() = viewModelScope.launch {
