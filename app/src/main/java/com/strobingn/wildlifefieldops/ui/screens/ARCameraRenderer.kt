@@ -8,9 +8,13 @@ import android.os.Looper
 import com.google.ar.core.DepthPoint
 import com.google.ar.core.Plane
 import com.google.ar.core.Session
+import com.google.ar.core.TrackingState
+import com.google.ar.core.exceptions.CameraNotAvailableException
+import com.google.ar.core.exceptions.SessionPausedException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -34,6 +38,9 @@ internal class ARCameraRenderer(
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pendingTap = AtomicReference<Pair<Float, Float>?>(null)
+    private val sessionResumed = AtomicBoolean(false)
+    private val surfaceReady = AtomicBoolean(false)
+    private val fatalErrorDelivered = AtomicBoolean(false)
 
     private var textureId = 0
     private var program = 0
@@ -42,6 +49,7 @@ internal class ARCameraRenderer(
     private var textureHandle = 0
     private var viewportWidth = 1
     private var viewportHeight = 1
+    private var lastRotation = -1
     private var firstFrameDelivered = false
 
     private val quadVertices: FloatBuffer = floatBufferOf(
@@ -63,45 +71,50 @@ internal class ARCameraRenderer(
         pendingTap.set(x to y)
     }
 
+    fun setSessionResumed(resumed: Boolean) {
+        sessionResumed.set(resumed)
+    }
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        textureId = createExternalTexture()
-        session.setCameraTextureName(textureId)
-        program = createProgram(VERTEX_SHADER, FRAGMENT_SHADER)
-        positionHandle = GLES20.glGetAttribLocation(program, "a_Position")
-        texCoordHandle = GLES20.glGetAttribLocation(program, "a_TexCoord")
-        textureHandle = GLES20.glGetUniformLocation(program, "u_Texture")
-        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        try {
+            textureId = createExternalTexture()
+            check(textureId != 0) { "OpenGL could not create the AR camera texture" }
+
+            session.setCameraTextureName(textureId)
+            program = createProgram(VERTEX_SHADER, FRAGMENT_SHADER)
+            positionHandle = GLES20.glGetAttribLocation(program, "a_Position")
+            texCoordHandle = GLES20.glGetAttribLocation(program, "a_TexCoord")
+            textureHandle = GLES20.glGetUniformLocation(program, "u_Texture")
+
+            check(positionHandle >= 0 && texCoordHandle >= 0 && textureHandle >= 0) {
+                "AR camera shader attributes could not be initialized"
+            }
+
+            GLES20.glClearColor(0f, 0f, 0f, 1f)
+            surfaceReady.set(true)
+        } catch (error: Throwable) {
+            deliverFatalError("AR renderer initialization failed: ${error.message ?: error.javaClass.simpleName}")
+        }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         viewportWidth = width.coerceAtLeast(1)
         viewportHeight = height.coerceAtLeast(1)
         GLES20.glViewport(0, 0, viewportWidth, viewportHeight)
-        session.setDisplayGeometry(displayRotation(), viewportWidth, viewportHeight)
+        updateDisplayGeometry(force = true)
     }
 
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT or GLES20.GL_DEPTH_BUFFER_BIT)
 
+        if (!surfaceReady.get() || !sessionResumed.get() || fatalErrorDelivered.get()) return
+
         try {
+            updateDisplayGeometry(force = false)
             val frame = session.update()
 
-            if (frame.hasDisplayGeometryChanged()) {
-                val input = floatBufferOf(
-                    0f, 1f,
-                    1f, 1f,
-                    0f, 0f,
-                    1f, 0f
-                )
-                val output = ByteBuffer.allocateDirect(8 * 4)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                frame.transformDisplayUvCoords(input, output)
-                output.position(0)
-                output.get(cameraUv)
-                cameraUvBuffer.position(0)
-                cameraUvBuffer.put(cameraUv)
-                cameraUvBuffer.position(0)
+            if (frame.hasDisplayGeometryChanged() || !firstFrameDelivered) {
+                updateCameraUv(frame)
             }
 
             drawCameraBackground()
@@ -112,11 +125,17 @@ internal class ARCameraRenderer(
             }
 
             pendingTap.getAndSet(null)?.let { (x, y) ->
+                if (frame.camera.trackingState != TrackingState.TRACKING) {
+                    mainHandler.post(onNoSurface)
+                    return@let
+                }
+
                 val hit = frame.hitTest(x, y).firstOrNull { result ->
-                    val trackable = result.trackable
-                    when (trackable) {
-                        is Plane -> trackable.isPoseInPolygon(result.hitPose)
-                        is DepthPoint -> true
+                    when (val trackable = result.trackable) {
+                        is Plane ->
+                            trackable.trackingState == TrackingState.TRACKING &&
+                                trackable.isPoseInPolygon(result.hitPose)
+                        is DepthPoint -> trackable.trackingState == TrackingState.TRACKING
                         else -> false
                     }
                 }
@@ -135,11 +154,40 @@ internal class ARCameraRenderer(
                     mainHandler.post { onHit(point) }
                 }
             }
-        } catch (error: Exception) {
-            mainHandler.post {
-                onError(error.message ?: error.javaClass.simpleName)
-            }
+        } catch (_: SessionPausedException) {
+            // Normal while Compose/Activity lifecycle transitions are settling.
+        } catch (error: CameraNotAvailableException) {
+            sessionResumed.set(false)
+            deliverFatalError("Camera is unavailable. Close other camera apps and tap Retry.")
+        } catch (error: Throwable) {
+            deliverFatalError(error.message ?: error.javaClass.simpleName)
         }
+    }
+
+    private fun updateDisplayGeometry(force: Boolean) {
+        val rotation = displayRotation()
+        if (force || rotation != lastRotation) {
+            lastRotation = rotation
+            session.setDisplayGeometry(rotation, viewportWidth, viewportHeight)
+        }
+    }
+
+    private fun updateCameraUv(frame: com.google.ar.core.Frame) {
+        val input = floatBufferOf(
+            0f, 1f,
+            1f, 1f,
+            0f, 0f,
+            1f, 0f
+        )
+        val output = ByteBuffer.allocateDirect(8 * 4)
+            .order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
+        frame.transformDisplayUvCoords(input, output)
+        output.position(0)
+        output.get(cameraUv)
+        cameraUvBuffer.position(0)
+        cameraUvBuffer.put(cameraUv)
+        cameraUvBuffer.position(0)
     }
 
     private fun drawCameraBackground() {
@@ -204,6 +252,8 @@ internal class ARCameraRenderer(
             check(status[0] == GLES20.GL_TRUE) {
                 "AR camera shader link failed: ${GLES20.glGetProgramInfoLog(programId)}"
             }
+            GLES20.glDeleteShader(vertexShader)
+            GLES20.glDeleteShader(fragmentShader)
         }
     }
 
@@ -216,6 +266,12 @@ internal class ARCameraRenderer(
             check(status[0] == GLES20.GL_TRUE) {
                 "AR camera shader compile failed: ${GLES20.glGetShaderInfoLog(shader)}"
             }
+        }
+    }
+
+    private fun deliverFatalError(message: String) {
+        if (fatalErrorDelivered.compareAndSet(false, true)) {
+            mainHandler.post { onError(message) }
         }
     }
 
