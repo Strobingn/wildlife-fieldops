@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 34
-        versionName = "2.4.1-chatgpt-v4"
+        versionCode = 35
+        versionName = "2.5.0-chatgpt-v5"
 
         // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
@@ -111,6 +111,8 @@ ksp {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

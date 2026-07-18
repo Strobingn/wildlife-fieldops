@@ -40,7 +40,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     object Diagnostics : Screen("diagnostics", "Diagnostics", Icons.Default.BugReport)
     object AIAssistant : Screen("ai_assistant", "AI Assistant", Icons.Default.Psychology)
+    object AIOperations : Screen("ai_operations", "AI Operations", Icons.Default.Insights)
     object SpeciesId : Screen("species_id", "Species ID", Icons.Default.Pets)
+    object AIPhotoAnalysis : Screen("mlkit_camera", "AI Photo Analysis", Icons.Default.DocumentScanner)
     object VoiceJob : Screen("voice_job", "Voice Job", Icons.Default.RecordVoiceOver)
     object ARMeasure : Screen("ar_measure", "AR Measure", Icons.Default.Straighten)
     object Expense : Screen("expenses", "Expenses", Icons.Default.Receipt)
@@ -52,18 +54,27 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
 
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
-        val drawerItems = listOf(
-            CustomerList,
-            Map,
-            PhotoGallery,
-            Expense,
-            Inventory,
-            RouteOptimizer,
-            VoiceJob,
-            SpeciesId,
-            ARMeasure,
-            AIAssistant,
-            Settings
+        val drawerSections = listOf(
+            "FIELD TOOLS" to listOf(
+                ARMeasure,
+                Map,
+                PhotoGallery,
+                RouteOptimizer
+            ),
+            "AI TOOLS" to listOf(
+                AIOperations,
+                SpeciesId,
+                AIPhotoAnalysis,
+                VoiceJob,
+                AIAssistant
+            ),
+            "BUSINESS" to listOf(
+                CustomerList,
+                Expense,
+                Inventory
+            ),
+            "SETTINGS" to listOf(Settings)
         )
+        val drawerItems = drawerSections.flatMap { it.second }
     }
 }

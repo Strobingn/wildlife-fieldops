@@ -45,6 +45,7 @@ fun MapScreen(
 
     var showSearch by remember { mutableStateOf(false) }
     var showControls by remember { mutableStateOf(true) }
+    var showRiskZones by remember { mutableStateOf(true) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(41.45, -74.05), 12f)
@@ -98,6 +99,23 @@ fun MapScreen(
                     }
                 }
             ) {
+                // Data-driven property risk zones. Radius and color are derived from
+                // repeat service, active status, and damage indicators in live jobs.
+                if (showRiskZones) {
+                    properties.distinctBy { it.address.trim().lowercase() }.forEach { property ->
+                        if (property.riskScore > 0) {
+                            val riskColor = riskZoneColor(property.riskScore)
+                            Circle(
+                                center = LatLng(property.latitude, property.longitude),
+                                radius = 50.0 + property.riskScore * 2.0,
+                                fillColor = riskColor.copy(alpha = 0.20f),
+                                strokeColor = riskColor.copy(alpha = 0.85f),
+                                strokeWidth = 2f
+                            )
+                        }
+                    }
+                }
+
                 // Property markers
                 properties.forEach { property ->
                     val markerColor = when (property.status) {
@@ -232,13 +250,11 @@ fun MapScreen(
                             )
 
                             MapControlButton(
-                                label = "Snapshot",
-                                icon = Icons.Default.CameraAlt,
-                                active = false,
+                                label = "Risk AI",
+                                icon = Icons.Default.Warning,
+                                active = showRiskZones,
                                 modifier = Modifier.weight(1f),
-                                onClick = {
-                                    // Save map snapshot functionality
-                                }
+                                onClick = { showRiskZones = !showRiskZones }
                             )
                         }
 
@@ -251,7 +267,7 @@ fun MapScreen(
                             LegendDot("Pending", StatusPending)
                             LegendDot("Active", AccentBlue)
                             LegendDot("Done", SuccessGreen)
-                            LegendDot("Cancelled", ErrorRed)
+                            LegendDot("Risk zone", ErrorRed)
                         }
                     }
                 }
@@ -283,6 +299,12 @@ fun MapScreen(
             }
         }
     }
+}
+
+private fun riskZoneColor(score: Int): Color = when {
+    score >= 70 -> ErrorRed
+    score >= 45 -> StatusPending
+    else -> PrimaryGreen
 }
 
 @Composable
