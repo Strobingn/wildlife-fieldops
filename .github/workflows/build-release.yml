@@ -36,10 +36,23 @@ jobs:
 
       - name: Install SDK packages
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" ||           sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" || sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Grant execute permission for Gradle wrapper
         run: chmod +x ./gradlew
+
+      - name: Configure CI Gradle memory
+        # Project gradle.properties is tuned for the local 3GB sandbox (-Xmx1536m).
+        # ~/.gradle/gradle.properties takes precedence over the project file, so the
+        # CI build JVM (and the R8 worker, which inherits the daemon heap) gets 4g
+        # while local sandbox builds keep their memory-safe settings.
+        run: |
+          mkdir -p "$HOME/.gradle"
+          cat > "$HOME/.gradle/gradle.properties" <<'EOF'
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx1536m
+          EOF
+          cat "$HOME/.gradle/gradle.properties"
 
       - name: Decode keystore
         run: |
@@ -61,9 +74,7 @@ jobs:
       - name: Build Release APK
         run: |
           set -o pipefail
-          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
-          export JAVA_OPTS="-Xmx4g"
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace --info --refresh-dependencies -x test -x lint 2>&1 | tee build.log
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
         timeout-minutes: 45
 
       - name: Check APK outputs
