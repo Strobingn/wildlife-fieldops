@@ -45,7 +45,8 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
+@ExperimentalGetImage
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MLKitCameraScreen(
     onPhotoCaptured: (String, List<String>, List<String>) -> Unit = { _, _, _ -> },
