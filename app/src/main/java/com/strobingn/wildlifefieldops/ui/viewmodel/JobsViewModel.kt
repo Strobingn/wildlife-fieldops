@@ -50,6 +50,7 @@ class JobsViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val jobs = combine(_searchQuery, _selectedStatus) { query, status -> query to status }
         .flatMapLatest { (query, status) ->
             when {
@@ -158,7 +159,7 @@ class JobsViewModel @Inject constructor(
         val coordinates = if (addressChanged || existing.latitude == null || existing.longitude == null) {
             geocodeAddress(normalizedAddress)
         } else {
-            existing.latitude?.let { lat -> existing.longitude?.let { lng -> lat to lng } }
+            existing.latitude to existing.longitude
         }
 
         val linkedCustomerId = resolveCustomerId(customerId, customerName, normalizedAddress)

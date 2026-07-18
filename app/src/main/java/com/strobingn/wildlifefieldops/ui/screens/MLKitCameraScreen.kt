@@ -45,7 +45,7 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-@ExperimentalGetImage
+@android.annotation.SuppressLint("UnsafeOptInUsageError")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MLKitCameraScreen(
