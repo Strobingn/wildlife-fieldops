@@ -2,6 +2,8 @@ package com.strobingn.wildlifefieldops.ui.screens
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.opengl.GLSurfaceView
 import android.view.Surface
@@ -42,6 +44,7 @@ import com.strobingn.wildlifefieldops.ui.theme.PrimaryGreen
 import com.strobingn.wildlifefieldops.ui.theme.StatusPending
 import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
 import com.strobingn.wildlifefieldops.ui.theme.TextSecondary
+import kotlinx.coroutines.delay
 import kotlin.math.sqrt
 
 private data class MeasurePoint(
@@ -86,59 +89,70 @@ fun ARMeasureScreen(onBack: () -> Unit) {
 
     val arSupported = remember { ARMeasurementHelper.isARCoreSupported(context) }
 
-    LaunchedEffect(hasCameraPermission, arSupported) {
+    LaunchedEffect(hasCameraPermission, arSupported, session) {
         if (!hasCameraPermission || !arSupported || session != null) return@LaunchedEffect
-
         val created = ARMeasurementHelper.createARSession(context)
         if (created == null) {
-            sessionError = "ARCore could not start. Update Google Play Services for AR, then reopen AR Measurement."
+            sessionError = "ARCore could not start. Update Google Play Services for AR and reopen AR Measurement."
         } else {
             session = created
         }
     }
 
-    DisposableEffect(session, lifecycleOwner, glSurfaceView) {
+    DisposableEffect(session, renderer, glSurfaceView, lifecycleOwner) {
+        fun resumeAr() {
+            val currentSession = session ?: return
+            val currentRenderer = renderer ?: return
+            val currentView = glSurfaceView ?: return
+            try {
+                currentSession.resume()
+                currentRenderer.setSessionResumed(true)
+                currentView.onResume()
+            } catch (error: Exception) {
+                currentRenderer.setSessionResumed(false)
+                sessionError = "AR camera could not start: ${error.message ?: error.javaClass.simpleName}"
+            }
+        }
+
+        fun pauseAr() {
+            renderer?.setSessionResumed(false)
+            glSurfaceView?.onPause()
+            runCatching { session?.pause() }
+        }
+
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> {
-                    try {
-                        session?.resume()
-                        glSurfaceView?.onResume()
-                    } catch (error: Exception) {
-                        sessionError = "AR camera could not resume: ${error.message ?: error.javaClass.simpleName}"
-                    }
-                }
-
-                Lifecycle.Event.ON_PAUSE -> {
-                    glSurfaceView?.onPause()
-                    runCatching { session?.pause() }
-                }
-
+                Lifecycle.Event.ON_RESUME -> resumeAr()
+                Lifecycle.Event.ON_PAUSE -> pauseAr()
                 else -> Unit
             }
         }
 
         lifecycleOwner.lifecycle.addObserver(observer)
-
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-            try {
-                session?.resume()
-                glSurfaceView?.onResume()
-            } catch (error: Exception) {
-                sessionError = "AR camera could not start: ${error.message ?: error.javaClass.simpleName}"
-            }
+            resumeAr()
         }
 
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            glSurfaceView?.onPause()
-            runCatching { session?.pause() }
+            pauseAr()
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
+            renderer?.setSessionResumed(false)
+            runCatching { session?.pause() }
             runCatching { session?.close() }
+        }
+    }
+
+    LaunchedEffect(session, renderer, cameraReady, sessionError) {
+        if (session != null && renderer != null && !cameraReady && sessionError == null) {
+            delay(12_000)
+            if (!cameraReady && sessionError == null) {
+                sessionError = "AR camera did not produce a frame. Tap Retry, then close any other app using the camera."
+            }
         }
     }
 
@@ -191,14 +205,20 @@ fun ARMeasureScreen(onBack: () -> Unit) {
 
                 sessionError != null -> {
                     InfoCard(sessionError!!) {
-                        Button(onClick = {
-                            sessionError = null
-                            cameraReady = false
-                            runCatching { session?.close() }
-                            session = null
-                            renderer = null
-                            glSurfaceView = null
-                        }) {
+                        Button(
+                            onClick = {
+                                renderer?.setSessionResumed(false)
+                                glSurfaceView?.onPause()
+                                runCatching { session?.pause() }
+                                runCatching { session?.close() }
+                                cameraReady = false
+                                statusMessage = null
+                                sessionError = null
+                                renderer = null
+                                glSurfaceView = null
+                                session = null
+                            }
+                        ) {
                             Text("Retry")
                         }
                     }
@@ -227,13 +247,11 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                             .fillMaxWidth()
                     ) {
                         val currentSession = session!!
-                        val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
-                        val heightPx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
 
                         AndroidView(
                             modifier = Modifier.fillMaxSize(),
                             factory = { viewContext ->
-                                val activity = viewContext as? Activity
+                                val activity = viewContext.findActivity()
                                 val arRenderer = ARCameraRenderer(
                                     session = currentSession,
                                     displayRotation = {
@@ -269,6 +287,17 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                                     setRenderer(arRenderer)
                                     renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
                                     glSurfaceView = this
+
+                                    if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                        try {
+                                            currentSession.resume()
+                                            arRenderer.setSessionResumed(true)
+                                            onResume()
+                                        } catch (error: Exception) {
+                                            arRenderer.setSessionResumed(false)
+                                            sessionError = "AR camera could not start: ${error.message ?: error.javaClass.simpleName}"
+                                        }
+                                    }
                                 }
                             },
                             update = { view ->
@@ -401,6 +430,15 @@ fun ARMeasureScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }
 
 @Composable
