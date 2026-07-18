@@ -1,7 +1,10 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -9,6 +12,8 @@ import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
+import android.net.Uri
+import android.provider.Settings
 import android.view.Surface
 import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,6 +48,7 @@ import com.google.ar.core.DepthPoint
 import com.google.ar.core.Plane
 import com.google.ar.core.Session
 import com.google.ar.core.exceptions.NotYetAvailableException
+import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException
 import com.strobingn.wildlifefieldops.ai.ARMeasurementHelper
 import com.strobingn.wildlifefieldops.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -75,26 +81,83 @@ fun ARMeasureScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+    var cameraPermissionRequested by remember { mutableStateOf(false) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         hasCameraPermission = granted
     }
     LaunchedEffect(Unit) {
-        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (!hasCameraPermission) {
+            cameraPermissionRequested = true
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
-    val arSupported = remember { ARMeasurementHelper.isARCoreSupported(context) }
-
+    // ARCore state machine: permission → availability → install → session.
+    var arUnsupported by remember { mutableStateOf(false) }
+    var awaitingInstall by remember { mutableStateOf(false) }
     var session by remember { mutableStateOf<Session?>(null) }
-    LaunchedEffect(hasCameraPermission, arSupported) {
-        if (hasCameraPermission && arSupported && session == null) {
-            session = ARMeasurementHelper.createARSession(context)
+    var sessionError by remember { mutableStateOf<String?>(null) }
+    var resumeTick by remember { mutableStateOf(0) }
+    var retryTick by remember { mutableStateOf(0) }
+
+    LaunchedEffect(hasCameraPermission, resumeTick, retryTick) {
+        if (!hasCameraPermission || session != null) return@LaunchedEffect
+        sessionError = null
+
+        // 1) Availability. The Play-services backed check can transiently answer
+        //    UNKNOWN right after process start — re-check a few times before judging.
+        var support = ARMeasurementHelper.checkSupport(context)
+        var checks = 0
+        while (support == ARMeasurementHelper.ARSupport.CHECKING && checks < 3 && isActive) {
+            delay(1500)
+            support = ARMeasurementHelper.checkSupport(context)
+            checks++
+        }
+        when (support) {
+            ARMeasurementHelper.ARSupport.UNSUPPORTED -> { arUnsupported = true; return@LaunchedEffect }
+            ARMeasurementHelper.ARSupport.CHECKING -> {
+                sessionError = "Couldn't verify ARCore support. Check your internet connection, then try again."
+                return@LaunchedEffect
+            }
+            else -> {}
+        }
+
+        // 2) "Google Play Services for AR" must be installed/updated before Session()
+        //    can succeed — requestInstall() is a no-op when it already is.
+        val activity = context.findActivity()
+        if (activity == null) {
+            sessionError = "Couldn't start AR (no host activity)."
+            return@LaunchedEffect
+        }
+        val installed = try {
+            ARMeasurementHelper.ensureInstalled(activity)
+        } catch (e: UnavailableUserDeclinedInstallationException) {
+            sessionError = "AR measurement needs \"Google Play Services for AR\". Install it from the Play Store, then tap Retry."
+            return@LaunchedEffect
+        } catch (e: Exception) {
+            sessionError = "ARCore is not available on this device (${e.javaClass.simpleName})."
+            return@LaunchedEffect
+        }
+        if (!installed) {
+            // User was sent to the Play Store — ON_RESUME re-runs this effect when they return.
+            awaitingInstall = true
+            return@LaunchedEffect
+        }
+        awaitingInstall = false
+
+        // 3) Create the session off the main thread (constructor does binder IPC).
+        val result = withContext(Dispatchers.IO) {
+            runCatching { ARMeasurementHelper.createARSession(context) }
+        }
+        result.onSuccess { session = it }
+        result.onFailure {
+            sessionError = "Couldn't start the AR camera (${it.javaClass.simpleName}). Close other camera apps, then tap Retry."
         }
     }
 
     var previewBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var points by remember { mutableStateOf<List<MeasurePoint>>(emptyList()) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
-    var sessionError by remember { mutableStateOf<String?>(null) }
 
     // Pending taps in preview-fraction coordinates, consumed by the AR thread
     var pendingTaps by remember { mutableStateOf<List<Offset>>(emptyList()) }
@@ -117,7 +180,12 @@ fun ARMeasureScreen(
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> runCatching { session?.pause() }
-                Lifecycle.Event.ON_RESUME -> runCatching { session?.resume() }
+                Lifecycle.Event.ON_RESUME -> {
+                    runCatching { session?.resume() }
+                    // Re-run the availability/install/session flow — this is what picks
+                    // ARCore up after the user returns from the Play Store install.
+                    resumeTick++
+                }
                 else -> {}
             }
         }
@@ -219,13 +287,36 @@ fun ARMeasureScreen(
             when {
                 !hasCameraPermission -> {
                     InfoCard("Camera permission is required for AR measurement.") {
-                        Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) { Text("Grant permission") }
+                        Button(onClick = {
+                            cameraPermissionRequested = true
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }) { Text("Grant permission") }
+                        // "Don't ask again" leaves the launcher dead — send the user to Settings.
+                        val activity = context.findActivity()
+                        if (cameraPermissionRequested && activity != null &&
+                            !activity.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
+                        ) {
+                            TextButton(onClick = { openAppSettings(context) }) {
+                                Text("Open app settings", color = PrimaryGreen)
+                            }
+                        }
                     }
                 }
-                !arSupported -> {
+                arUnsupported -> {
                     InfoCard("This device does not support ARCore. AR measurement needs an ARCore-compatible phone (most Samsung/Pixel/modern Android). Measure manually and enter footage in the estimate.") {}
                 }
-                sessionError != null -> InfoCard(sessionError!!) {}
+                sessionError != null -> {
+                    InfoCard(sessionError!!) {
+                        Button(onClick = { retryTick++ }) { Text("Retry") }
+                    }
+                }
+                awaitingInstall && session == null -> {
+                    InfoCard("Install \"Google Play Services for AR\" from the Play Store, then come back — measurement starts automatically when you return.") {
+                        TextButton(onClick = { retryTick++ }) {
+                            Text("I've installed it — continue", color = PrimaryGreen)
+                        }
+                    }
+                }
                 else -> {
                     Text(
                         "Tap along the roofline/soffit to lay measurement points. Total updates live.",
@@ -340,6 +431,26 @@ fun ARMeasureScreen(
                 }
             }
         }
+    }
+}
+
+private fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
+private fun openAppSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        )
     }
 }
 

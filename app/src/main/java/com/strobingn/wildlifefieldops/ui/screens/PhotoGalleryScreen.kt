@@ -1,6 +1,8 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -67,6 +70,26 @@ fun PhotoGalleryScreen(
         }
     }
 
+    // The manifest declares CAMERA, so the delegated capture intent is blocked until
+    // the runtime permission is granted — request it before launching the camera.
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var pendingCameraLaunch by remember { mutableStateOf(false) }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+        if (granted && pendingCameraLaunch) {
+            pendingCameraLaunch = false
+            val uri = createImageUri(context)
+            tempPhotoUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
+
     val filteredPhotos = if (selectedTab == 0) {
         photos
     } else {
@@ -89,9 +112,14 @@ fun PhotoGalleryScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    val uri = createImageUri(context)
-                    tempPhotoUri = uri
-                    cameraLauncher.launch(uri)
+                    if (hasCameraPermission) {
+                        val uri = createImageUri(context)
+                        tempPhotoUri = uri
+                        cameraLauncher.launch(uri)
+                    } else {
+                        pendingCameraLaunch = true
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 containerColor = PrimaryGreen,
                 contentColor = androidx.compose.ui.graphics.Color.Black

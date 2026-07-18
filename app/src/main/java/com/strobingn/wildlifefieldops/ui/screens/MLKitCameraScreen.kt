@@ -40,9 +40,12 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
 @Composable
 fun MLKitCameraScreen(
     onPhotoCaptured: (String, List<String>, List<String>) -> Unit = { _, _, _ -> },
@@ -63,6 +66,8 @@ fun MLKitCameraScreen(
     var confidence by remember { mutableStateOf(0f) }
     var captureMessage by remember { mutableStateOf<String?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+    var cameraBindRetry by remember { mutableStateOf(0) }
     val imageCapture = remember {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
@@ -149,6 +154,9 @@ fun MLKitCameraScreen(
                         modifier = Modifier.fillMaxSize(),
                         lifecycleOwner = lifecycleOwner,
                         imageCapture = imageCapture,
+                        analysisExecutor = executor,
+                        bindRetry = cameraBindRetry,
+                        onCameraError = { cameraError = it },
                         onImageProxy = { imageProxy ->
                             if (isAnalyzing) return@CameraPreview
                             isAnalyzing = true
@@ -161,7 +169,7 @@ fun MLKitCameraScreen(
                                 )
 
                                 // Run both detectors
-                                CoroutineScope(Dispatchers.Default).launch {
+                                scope.launch(Dispatchers.Default) {
                                     try {
                                         // Image labeling
                                         val labelResults = imageLabeler.process(image).await()
@@ -199,6 +207,32 @@ fun MLKitCameraScreen(
                             }
                         }
                     )
+
+                    // Camera failure — visible error + retry instead of a black box.
+                    cameraError?.let { error ->
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.NoPhotography,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = TextSecondary.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(error, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = { cameraBindRetry++ },
+                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                            ) {
+                                Text("Retry camera")
+                            }
+                        }
+                    }
 
                     // Overlay labels
                     if (labels.isNotEmpty() || speciesGuess.isNotBlank()) {
@@ -349,44 +383,78 @@ private fun CameraPreview(
     modifier: Modifier = Modifier,
     lifecycleOwner: LifecycleOwner,
     imageCapture: ImageCapture,
+    analysisExecutor: Executor,
+    bindRetry: Int,
+    onCameraError: (String?) -> Unit,
     onImageProxy: (ImageProxy) -> Unit
 ) {
     val context = LocalContext.current
     val previewView = remember { PreviewView(context) }
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+
+    // Bind ONCE per (view, lifecycle, retry) — not in AndroidView's update block. The old
+    // code added a new provider listener on every recomposition (ML results recompose the
+    // screen several times per second), so the camera was constantly unbound/rebound and
+    // the preview flickered or stayed black.
+    LaunchedEffect(previewView, lifecycleOwner, bindRetry) {
+        onCameraError(null)
+
+        val cameraProvider = runCatching { awaitCameraProvider(context) }.getOrElse {
+            Log.e("CameraPreview", "Camera provider unavailable", it)
+            onCameraError("Camera is not available on this device.")
+            return@LaunchedEffect
+        }
+
+        val preview = Preview.Builder()
+            .build()
+            .also { it.setSurfaceProvider(previewView.surfaceProvider) }
+
+        val imageAnalysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also { analyzer ->
+                analyzer.setAnalyzer(analysisExecutor) { imageProxy ->
+                    onImageProxy(imageProxy)
+                }
+            }
+
+        fun bind(selector: CameraSelector) {
+            cameraProvider.unbindAll()
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                selector,
+                preview,
+                imageCapture,
+                imageAnalysis
+            )
+        }
+
+        try {
+            bind(CameraSelector.DEFAULT_BACK_CAMERA)
+        } catch (e: Exception) {
+            Log.e("CameraPreview", "Back-camera binding failed, trying front camera", e)
+            try {
+                bind(CameraSelector.DEFAULT_FRONT_CAMERA)
+            } catch (e2: Exception) {
+                Log.e("CameraPreview", "Front-camera binding failed", e2)
+                onCameraError("Couldn't start the camera. Close other camera apps, then tap Retry.")
+            }
+        }
+    }
 
     AndroidView(
         factory = { previewView },
         modifier = modifier
-    ) { view ->
-        cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
+    )
+}
 
-            val preview = Preview.Builder()
-                .build()
-                .also { it.setSurfaceProvider(view.surfaceProvider) }
-
-            val imageAnalysis = ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .build()
-                .also {
-                    it.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                        onImageProxy(imageProxy)
-                    }
-                }
-
+private suspend fun awaitCameraProvider(context: android.content.Context): ProcessCameraProvider =
+    kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+        val future = ProcessCameraProvider.getInstance(context)
+        future.addListener({
             try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    lifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA,
-                    preview,
-                    imageCapture,
-                    imageAnalysis
-                )
+                cont.resume(future.get())
             } catch (e: Exception) {
-                Log.e("CameraPreview", "Binding failed", e)
+                cont.resumeWithException(e)
             }
         }, ContextCompat.getMainExecutor(context))
     }
-}
