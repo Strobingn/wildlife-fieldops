@@ -2,7 +2,7 @@ name: Build Release APK (Signed)
 
 on:
   push:
-    branches: [ KimiV2, main, WildlifeFieldApp ]
+    branches: [ KimiV2, main, WildlifeFieldApp, kimiswarmV5 ]
   workflow_dispatch:
 
 jobs:

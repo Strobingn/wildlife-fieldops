@@ -2,7 +2,7 @@ name: Build Native Android APK (Debug)
 
 on:
   push:
-    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations ]
+    branches: [ main, feature/build-32-diagnostics, feature/build-33-ai-operations, kimiswarmV5 ]
   workflow_dispatch:
 
 jobs:
