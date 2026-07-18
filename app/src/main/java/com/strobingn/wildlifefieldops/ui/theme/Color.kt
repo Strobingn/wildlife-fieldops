@@ -2,58 +2,47 @@ package com.strobingn.wildlifefieldops.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── Brand (cool field blue) ────────────────────────────────────────────────
-// Names are retained for call-site compatibility.
-val PrimaryGreen = Color(0xFF3B7AE8)
-val PrimaryGreenDark = Color(0xFF245FC4)
-val PrimaryGreenLight = Color(0xFF93C5FD)
-val PrimaryContainer = Color(0xFF1E3350)
-val OnPrimaryContainer = Color(0xFFD6E6FF)
+// Neutral professional palette. Legacy names remain for source compatibility.
+val PrimaryGreen = Color(0xFFB8BEC7)
+val PrimaryGreenDark = Color(0xFF8F969F)
+val PrimaryGreenLight = Color(0xFFE5E7EB)
+val PrimaryContainer = Color(0xFF3A3E44)
+val OnPrimaryContainer = Color(0xFFF5F6F7)
 
-// ── Dark gray surfaces ─────────────────────────────────────────────────────
-// App-wide dark theme: dark gray background, lighter gray cards/bubbles.
-// Most screens reference these legacy names directly, so every page inherits
-// the dark palette from here.
-val BackgroundDark = Color(0xFF1B1D20)
-val BackgroundCard = Color(0xFF2B2E33)
-val BackgroundElevated = Color(0xFF35393F)
-val SurfaceDark = Color(0xFF2B2E33)
-val SurfaceVariant = Color(0xFF3B4046)
-val SurfaceBright = Color(0xFF454A51)
+val BackgroundDark = Color(0xFF181A1D)
+val BackgroundCard = Color(0xFF23272B)
+val BackgroundElevated = Color(0xFF2D3136)
+val SurfaceDark = Color(0xFF23272B)
+val SurfaceVariant = Color(0xFF353A40)
+val SurfaceBright = Color(0xFF454B52)
 
-// ── Text (light gray ramp on dark surfaces) ─────────────────────────────────
-val TextPrimary = Color(0xFFE8EAED)
-val TextSecondary = Color(0xFFB9BDC4)
-val TextTertiary = Color(0xFF8F959E)
+val TextPrimary = Color(0xFFF1F3F5)
+val TextSecondary = Color(0xFFC0C5CC)
+val TextTertiary = Color(0xFF9299A2)
 
-// ── Status ──────────────────────────────────────────────────────────────────
-val StatusPending = Color(0xFFF59E0B)
-val StatusInProgress = Color(0xFF3B82F6)
-val StatusCompleted = Color(0xFF2563EB)
-val StatusCancelled = Color(0xFFDC2626)
-val StatusUrgent = Color(0xFFDC2626)
+val StatusPending = Color(0xFFD9A441)
+val StatusInProgress = Color(0xFF9EA6B0)
+val StatusCompleted = Color(0xFF7F8B82)
+val StatusCancelled = Color(0xFFC86161)
+val StatusUrgent = Color(0xFFD95C5C)
 
-// ── Accents ─────────────────────────────────────────────────────────────────
-val AccentBlue = Color(0xFF3B82F6)
-val AccentPurple = Color(0xFF8B5CF6)
-val AccentOrange = Color(0xFFF97316)
-val AccentCyan = Color(0xFF0284C7)
-val AccentPink = Color(0xFFDB2777)
-val AccentAmber = Color(0xFFD97706)
+val AccentBlue = Color(0xFF9EA6B0)
+val AccentPurple = Color(0xFFA7A0B3)
+val AccentOrange = Color(0xFFD39A5D)
+val AccentCyan = Color(0xFF9DAEB0)
+val AccentPink = Color(0xFFB9919F)
+val AccentAmber = Color(0xFFC89B52)
 
-// ── Borders / chrome ────────────────────────────────────────────────────────
 val BorderDark = Color(0xFF4A5058)
 val DividerDark = Color(0xFF383D43)
 val ScrimDark = Color(0x66000000)
 
-// ── Semantic ────────────────────────────────────────────────────────────────
-val ErrorRed = Color(0xFFDC2626)
-val ErrorRedDark = Color(0xFFB91C1C)
-val SuccessGreen = Color(0xFF2563EB)
-val WarningYellow = Color(0xFFF59E0B)
-val InfoBlue = Color(0xFF3B82F6)
+val ErrorRed = Color(0xFFD95C5C)
+val ErrorRedDark = Color(0xFFB84444)
+val SuccessGreen = Color(0xFF7F8B82)
+val WarningYellow = Color(0xFFD9A441)
+val InfoBlue = Color(0xFF9EA6B0)
 
-// ── Gradients (dark gray ramp) ─────────────────────────────────────────────
-val GradientStart = Color(0xFF2E3238)
-val GradientMid = Color(0xFF3A3F46)
-val GradientEnd = Color(0xFF4A525C)
+val GradientStart = Color(0xFF25292D)
+val GradientMid = Color(0xFF30353A)
+val GradientEnd = Color(0xFF41474E)
