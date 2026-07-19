@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobAiViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -249,7 +250,7 @@ fun EstimateScreen(
                     EstimateField("Rate/hr", laborRate, { laborRate = it }, Modifier.weight(1f))
                 }
                 Text(
-                    "Subtotal: $${String.format("%.2f", laborTotal)}",
+                    "Subtotal: $${String.format(Locale.US, "%.2f", laborTotal)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = AccentBlue,
                     modifier = Modifier.align(Alignment.End)
@@ -309,7 +310,7 @@ fun EstimateScreen(
                     ) {
                         Text("TOTAL", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
                         Text(
-                            "$${String.format("%.2f", total)}",
+                            "$${String.format(Locale.US, "%.2f", total)}",
                             style = MaterialTheme.typography.headlineSmall,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.Bold
@@ -351,7 +352,7 @@ fun EstimateScreen(
 
 private fun formatNum(value: Double): String {
     return if (value == value.toLong().toDouble()) value.toLong().toString()
-    else String.format("%.2f", value)
+    else String.format(Locale.US, "%.2f", value)
 }
 
 @Composable
@@ -400,7 +401,7 @@ private fun SummaryRow(label: String, amount: Double, color: Color = TextSeconda
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = color)
         Text(
-            "$${String.format("%.2f", amount)}",
+            "$${String.format(Locale.US, "%.2f", amount)}",
             style = MaterialTheme.typography.bodySmall,
             color = if (amount < 0) SuccessGreen else TextPrimary
         )

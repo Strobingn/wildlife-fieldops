@@ -24,6 +24,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.InventoryItem
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.InventoryViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -194,13 +195,13 @@ private fun InventoryItemCard(item: InventoryItem) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "${String.format("%.0f", item.quantityOnHand)} ${item.unitOfMeasure}",
+                    "${String.format(Locale.US, "%.0f", item.quantityOnHand)} ${item.unitOfMeasure}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (item.isLowStock) StatusPending else TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    "$${String.format("%.2f", item.unitCost)}",
+                    "$${String.format(Locale.US, "%.2f", item.unitCost)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextTertiary
                 )
@@ -226,7 +227,7 @@ private fun LowStockItemCard(item: InventoryItem, onAdjust: (Double) -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(item.name, style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-                Text("Stock: ${String.format("%.0f", item.quantityOnHand)} / Reorder: ${String.format("%.0f", item.reorderLevel)}",
+                Text("Stock: ${String.format(Locale.US, "%.0f", item.quantityOnHand)} / Reorder: ${String.format(Locale.US, "%.0f", item.reorderLevel)}",
                     style = MaterialTheme.typography.labelSmall, color = StatusPending)
             }
             TextButton(onClick = { showAdjust = true }) {

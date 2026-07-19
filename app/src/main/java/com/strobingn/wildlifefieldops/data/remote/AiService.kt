@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -370,7 +371,7 @@ Max ~180 words. Bullet-first. No fluff.
             mileageRate = 0.65,
             taxRate = 8.0,
             discountPercent = 0.0,
-            rationale = "Heuristic draft based on service type/keywords. Labor ~$${String.format("%.0f", totalLabor)}, soft subtotal ~$${String.format("%.0f", sub)} before tax.",
+            rationale = "Heuristic draft based on service type/keywords. Labor ~$${String.format(Locale.US, "%.0f", totalLabor)}, soft subtotal ~$${String.format(Locale.US, "%.0f", sub)} before tax.",
             lineItemNotes = "Review exclusion materials, multi-entry points, and return visits.",
             fromAi = false
         )

@@ -274,8 +274,14 @@ private fun AppNavHost(
         ) { backStackEntry ->
             val rawId = backStackEntry.arguments?.getString("jobId")
             val jobId = rawId?.takeUnless { it.isBlank() || it == "new" }
+            val dictatedText by backStackEntry.savedStateHandle
+                .getStateFlow<String?>("voice_transcription", null)
+                .collectAsState()
             JobFormScreen(
                 jobId = jobId,
+                dictatedText = dictatedText,
+                onDictatedTextConsumed = { backStackEntry.savedStateHandle.remove<String>("voice_transcription") },
+                onNavigateToVoiceDictation = { navController.navigate("voice_dictation") },
                 onBack = { navController.popBackStack() }
             )
         }

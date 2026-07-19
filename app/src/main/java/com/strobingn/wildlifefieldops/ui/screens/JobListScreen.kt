@@ -20,6 +20,7 @@ import com.strobingn.wildlifefieldops.data.model.JobStatus
 import com.strobingn.wildlifefieldops.ui.components.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -227,7 +228,7 @@ private fun JobListItem(job: Job, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.width(2.dp))
                 Text(
-                    String.format("%.2f est.", job.estimatedValue),
+                    String.format(Locale.US, "%.2f est.", job.estimatedValue),
                     style = MaterialTheme.typography.labelMedium,
                     color = PrimaryGreen,
                     fontWeight = FontWeight.Medium

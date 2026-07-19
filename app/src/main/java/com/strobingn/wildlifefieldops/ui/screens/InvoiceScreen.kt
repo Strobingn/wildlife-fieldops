@@ -221,7 +221,7 @@ fun InvoiceScreen(
                     Divider(modifier = Modifier.padding(vertical = 8.dp), color = BorderDark)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("TOTAL", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
-                        Text("$${String.format("%.2f", total)}", style = MaterialTheme.typography.headlineSmall, color = PrimaryGreen, fontWeight = FontWeight.Bold)
+                        Text("$${String.format(Locale.US, "%.2f", total)}", style = MaterialTheme.typography.headlineSmall, color = PrimaryGreen, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -409,7 +409,7 @@ private fun InvoiceLineItemRow(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
         Text(
-            "$${String.format("%.0f", item.calculateTotal())}",
+            "$${String.format(Locale.US, "%.0f", item.calculateTotal())}",
             modifier = Modifier.weight(0.6f),
             color = TextPrimary,
             fontWeight = FontWeight.Medium,
@@ -439,7 +439,7 @@ private fun InvoiceField(label: String, value: String, onChange: (String) -> Uni
 private fun InvoiceTotalRow(label: String, amount: Double, color: Color = TextSecondary) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = color)
-        Text("$${String.format("%.2f", amount)}", style = MaterialTheme.typography.bodySmall, color = if (amount < 0) SuccessGreen else TextPrimary)
+        Text("$${String.format(Locale.US, "%.2f", amount)}", style = MaterialTheme.typography.bodySmall, color = if (amount < 0) SuccessGreen else TextPrimary)
     }
 }
 
@@ -525,9 +525,9 @@ private fun generateInvoicePDF(
     // Line Items
     lineItems.forEach { item ->
         canvas.drawText(item.description.take(40), 40f, y, normalPaint)
-        canvas.drawText(String.format("%.1f", item.quantity), 350f, y, normalPaint)
-        canvas.drawText("$${String.format("%.2f", item.unitPrice)}", 400f, y, normalPaint)
-        canvas.drawText("$${String.format("%.2f", item.calculateTotal())}", 490f, y, normalPaint)
+        canvas.drawText(String.format(Locale.US, "%.1f", item.quantity), 350f, y, normalPaint)
+        canvas.drawText("$${String.format(Locale.US, "%.2f", item.unitPrice)}", 400f, y, normalPaint)
+        canvas.drawText("$${String.format(Locale.US, "%.2f", item.calculateTotal())}", 490f, y, normalPaint)
         y += 16f
     }
 
@@ -538,24 +538,24 @@ private fun generateInvoicePDF(
     // Totals
     val totalX = 420f
     canvas.drawText("Subtotal:", totalX, y, normalPaint)
-    canvas.drawText("$${String.format("%.2f", subtotal)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
+    canvas.drawText("$${String.format(Locale.US, "%.2f", subtotal)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
     normalPaint.textAlign = Paint.Align.LEFT
     y += 16f
 
     if (discountAmount > 0) {
         canvas.drawText("Discount:", totalX, y, normalPaint)
-        canvas.drawText("-$${String.format("%.2f", discountAmount)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
+        canvas.drawText("-$${String.format(Locale.US, "%.2f", discountAmount)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
         normalPaint.textAlign = Paint.Align.LEFT
         y += 16f
     }
 
     canvas.drawText("Tax (${taxRate}%):", totalX, y, normalPaint)
-    canvas.drawText("$${String.format("%.2f", taxAmount)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
+    canvas.drawText("$${String.format(Locale.US, "%.2f", taxAmount)}", 572f, y, normalPaint.apply { textAlign = Paint.Align.RIGHT })
     normalPaint.textAlign = Paint.Align.LEFT
     y += 18f
 
     canvas.drawText("TOTAL:", totalX, y, headerPaint)
-    canvas.drawText("$${String.format("%.2f", total)}", 572f, y, headerPaint.apply { textAlign = Paint.Align.RIGHT })
+    canvas.drawText("$${String.format(Locale.US, "%.2f", total)}", 572f, y, headerPaint.apply { textAlign = Paint.Align.RIGHT })
     headerPaint.textAlign = Paint.Align.LEFT
     y += 20f
 

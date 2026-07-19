@@ -28,6 +28,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.RouteOptimizerViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,7 +118,7 @@ fun RouteOptimizerScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     RouteMetric(orderedJobs.size.toString(), "Stops", AccentBlue)
-                    RouteMetric(String.format("%.1f", totalMiles), "Miles", PrimaryGreen)
+                    RouteMetric(String.format(Locale.US, "%.1f", totalMiles), "Miles", PrimaryGreen)
                     RouteMetric(estimatedMinutes.toString(), "Minutes", AccentPurple)
                 }
             }
