@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 36
-        versionName = "2.5.0-ml-p0"
+        versionCode = 37
+        versionName = "2.5.1-ml-p0-16kb"
 
         // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
@@ -65,6 +65,11 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        // Play / Android 15+: ship native libs with 16 KB zip alignment (AGP 8.5.1+).
+        // ELF LOAD segments still require upstream .so rebuilds (CameraX ≥1.4.2).
+        jniLibs {
+            useLegacyPackaging = false
         }
     }
 
@@ -158,10 +163,12 @@ dependencies {
     implementation("com.itextpdf:bouncy-castle-adapter:8.0.2")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
 
-    implementation("androidx.camera:camera-core:1.3.1")
-    implementation("androidx.camera:camera-camera2:1.3.1")
-    implementation("androidx.camera:camera-lifecycle:1.3.1")
-    implementation("androidx.camera:camera-view:1.3.1")
+    // CameraX 1.4.2+: libimage_processing_util_jni.so is 16 KB page-size aligned
+    // (required for Android 15+ / Play from 2025-11-01). Do not downgrade to 1.3.x.
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
 
     implementation("io.github.jan-tennert.supabase:gotrue-kt:2.5.4")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:2.5.4")
