@@ -45,7 +45,7 @@ fun InspectionFormScreen(
     var rawNotes by remember { mutableStateOf("") }
     val reportDraft by viewModel.reportDraft.collectAsState()
     val reportLoading by viewModel.reportLoading.collectAsState()
-    val existing by viewModel.getInspectionById(inspectionId.orEmpty())
+    val existing by remember(inspectionId) { viewModel.getInspectionById(inspectionId.orEmpty()) }
         .collectAsState(initial = null)
 
     // Apply AI report draft to the form when it arrives

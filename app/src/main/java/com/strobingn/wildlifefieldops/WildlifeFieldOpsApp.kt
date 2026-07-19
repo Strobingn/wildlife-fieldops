@@ -2,6 +2,7 @@ package com.strobingn.wildlifefieldops
 
 import android.app.Application
 import android.util.Log
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
@@ -12,6 +13,7 @@ import androidx.work.WorkManager
 import com.strobingn.wildlifefieldops.data.preferences.AppSettingsKeys
 import com.strobingn.wildlifefieldops.data.preferences.settingsDataStore
 import com.strobingn.wildlifefieldops.data.sync.SyncWorker
+import com.strobingn.wildlifefieldops.ui.theme.ThemeController
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+
+private val DARK_THEME = booleanPreferencesKey("dark_theme")
 
 @HiltAndroidApp
 class WildlifeFieldOpsApp : Application(), Configuration.Provider {
@@ -45,8 +49,14 @@ class WildlifeFieldOpsApp : Application(), Configuration.Provider {
         Log.i("WildlifeFieldOps", "App starting v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
 
         appScope.launch {
+            restorePersistedTheme()
             configurePeriodicSync()
         }
+    }
+
+    private suspend fun restorePersistedTheme() {
+        val darkTheme = settingsDataStore.data.first()[DARK_THEME] ?: true
+        ThemeController.setDark(darkTheme)
     }
 
     private suspend fun configurePeriodicSync() {

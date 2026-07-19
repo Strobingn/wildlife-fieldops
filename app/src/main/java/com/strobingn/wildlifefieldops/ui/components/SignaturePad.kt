@@ -23,8 +23,8 @@ fun SignaturePad(
     strokeWidth: Float = 4f,
     backgroundColor: Color = BackgroundCard
 ) {
-    val paths = remember { mutableStateListOf<MutableList<Offset>>() }
-    var currentPath by remember { mutableStateOf(mutableListOf<Offset>()) }
+    val paths = remember { mutableStateListOf<List<Offset>>() }
+    val currentPath = remember { mutableStateListOf<Offset>() }
 
     Card(
         modifier = modifier.fillMaxWidth().height(200.dp),
@@ -37,18 +37,21 @@ fun SignaturePad(
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
-                            currentPath = mutableListOf(offset)
-                            paths.add(currentPath)
+                            if (currentPath.isNotEmpty()) {
+                                paths.add(currentPath.toList())
+                                currentPath.clear()
+                            }
+                            currentPath.add(offset)
                         },
                         onDrag = { change, _ ->
                             change.consume()
                             currentPath.add(change.position)
-                            onSignatureChanged(paths.flatten())
+                            onSignatureChanged(paths.flatten() + currentPath)
                         }
                     )
                 }
         ) {
-            paths.forEach { path ->
+            (paths + listOf(currentPath)).forEach { path ->
                 if (path.size > 1) {
                     drawPath(
                         path = androidx.compose.ui.graphics.Path().apply {
@@ -72,8 +75,8 @@ fun SignaturePadWithControls(
     onSignatureCaptured: (List<Offset>) -> Unit = {},
     onClear: () -> Unit = {}
 ) {
-    val paths = remember { mutableStateListOf<MutableList<Offset>>() }
-    var currentPath by remember { mutableStateOf(mutableListOf<Offset>()) }
+    val paths = remember { mutableStateListOf<List<Offset>>() }
+    val currentPath = remember { mutableStateListOf<Offset>() }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Card(
@@ -87,8 +90,11 @@ fun SignaturePadWithControls(
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { offset ->
-                                currentPath = mutableListOf(offset)
-                                paths.add(currentPath)
+                                if (currentPath.isNotEmpty()) {
+                                    paths.add(currentPath.toList())
+                                    currentPath.clear()
+                                }
+                                currentPath.add(offset)
                             },
                             onDrag = { change, _ ->
                                 change.consume()
@@ -97,7 +103,7 @@ fun SignaturePadWithControls(
                         )
                     }
             ) {
-                paths.forEach { path ->
+                (paths + listOf(currentPath)).forEach { path ->
                     if (path.size > 1) {
                         drawPath(
                             path = androidx.compose.ui.graphics.Path().apply {
@@ -123,13 +129,14 @@ fun SignaturePadWithControls(
             OutlinedButton(
                 onClick = {
                     paths.clear()
+                    currentPath.clear()
                     onClear()
                 }
             ) {
                 Text("Clear")
             }
             Button(
-                onClick = { onSignatureCaptured(paths.flatten()) },
+                onClick = { onSignatureCaptured(paths.flatten() + currentPath) },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Capture Signature")

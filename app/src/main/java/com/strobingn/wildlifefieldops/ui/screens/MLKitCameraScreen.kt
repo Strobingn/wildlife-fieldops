@@ -5,6 +5,7 @@ package com.strobingn.wildlifefieldops.ui.screens
 import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
+import android.widget.Toast
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -33,6 +34,8 @@ import kotlinx.coroutines.tasks.await
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.*
+import java.io.File
+import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +58,7 @@ fun MLKitCameraScreen(
     var confidence by remember { mutableStateOf(0f) }
 
     val executor = remember { Executors.newSingleThreadExecutor() }
+    val imageCapture = remember { ImageCapture.Builder().build() }
     val imageLabeler = remember { ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS) }
     val objectDetector = remember {
         ObjectDetection.getClient(
@@ -131,6 +135,8 @@ fun MLKitCameraScreen(
                     CameraPreview(
                         modifier = Modifier.fillMaxSize(),
                         lifecycleOwner = lifecycleOwner,
+                        imageCapture = imageCapture,
+                        executor = executor,
                         onImageProxy = { imageProxy ->
                             if (isAnalyzing) return@CameraPreview
                             isAnalyzing = true
@@ -230,7 +236,24 @@ fun MLKitCameraScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledIconButton(
-                        onClick = { /* Capture photo */ },
+                        onClick = {
+                            val photoFile = File(context.cacheDir, "mlkit_${System.currentTimeMillis()}.jpg")
+                            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                            imageCapture.takePicture(
+                                outputOptions,
+                                ContextCompat.getMainExecutor(context),
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                        onPhotoCaptured(photoFile.absolutePath, labels, objects)
+                                    }
+
+                                    override fun onError(exception: ImageCaptureException) {
+                                        Log.e("MLKitCamera", "Photo capture failed", exception)
+                                        Toast.makeText(context, "Photo capture failed", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        },
                         modifier = Modifier.size(64.dp),
                         colors = IconButtonDefaults.filledIconButtonColors(containerColor = PrimaryGreen)
                     ) {
@@ -246,6 +269,8 @@ fun MLKitCameraScreen(
 private fun CameraPreview(
     modifier: Modifier = Modifier,
     lifecycleOwner: LifecycleOwner,
+    imageCapture: ImageCapture,
+    executor: Executor,
     onImageProxy: (ImageProxy) -> Unit
 ) {
     val context = LocalContext.current
@@ -267,7 +292,7 @@ private fun CameraPreview(
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {
-                    it.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
+                    it.setAnalyzer(executor) { imageProxy ->
                         onImageProxy(imageProxy)
                     }
                 }
@@ -278,7 +303,8 @@ private fun CameraPreview(
                     lifecycleOwner,
                     CameraSelector.DEFAULT_BACK_CAMERA,
                     preview,
-                    imageAnalysis
+                    imageAnalysis,
+                    imageCapture
                 )
             } catch (e: Exception) {
                 Log.e("CameraPreview", "Binding failed", e)

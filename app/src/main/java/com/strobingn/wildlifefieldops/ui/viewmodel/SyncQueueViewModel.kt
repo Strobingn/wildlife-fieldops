@@ -20,7 +20,11 @@ class SyncQueueViewModel @Inject constructor(
     val pendingCount = pendingOperationDao.getCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    val isLoading = MutableStateFlow(false)
+    val isLoading = MutableStateFlow(true)
+
+    init {
+        operations.onEach { isLoading.value = false }.launchIn(viewModelScope)
+    }
 
     fun retryOperation(operation: PendingOperation) = viewModelScope.launch {
         pendingOperationDao.update(operation.copy(

@@ -52,10 +52,9 @@ class JobsViewModel @Inject constructor(
 
     val jobs = combine(_searchQuery, _selectedStatus) { query, status -> query to status }
         .flatMapLatest { (query, status) ->
-            when {
-                query.isNotBlank() -> jobDao.search(query)
-                status != null -> jobDao.getByStatus(status)
-                else -> jobDao.getAll()
+            val source = if (query.isNotBlank()) jobDao.search(query) else jobDao.getAll()
+            source.map { list ->
+                if (status == null) list else list.filter { it.status == status }
             }
         }
         .onEach { _isLoading.value = false }
@@ -152,7 +151,7 @@ class JobsViewModel @Inject constructor(
         notes: String,
         scheduledDate: Long? = null
     ) {
-        val existing = jobDao.getById(jobId) ?: error("Job not found")
+        val existing = jobDao.getById(jobId) ?: return
         val normalizedAddress = address.trim()
         val addressChanged = !normalizedAddress.equals(existing.address.trim(), ignoreCase = true)
         val coordinates = if (addressChanged || existing.latitude == null || existing.longitude == null) {

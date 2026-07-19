@@ -39,8 +39,8 @@ class DashboardViewModel @Inject constructor(
         reminderDao.getPending()
     ) { jobs, customers, inspections, reminders ->
         val now = System.currentTimeMillis()
-        val dayStart = now - (now % 86400000L)
-        val dayEnd = dayStart + 86400000L
+        val dayStart = java.time.LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val dayEnd = dayStart + 86_400_000L
 
         DashboardStats(
             totalJobs = jobs.size,

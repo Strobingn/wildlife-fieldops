@@ -227,7 +227,8 @@ private fun AppNavHost(
                 onNavigateToEdit = { id -> navController.navigate(Screen.JobForm.createRoute(id)) },
                 onNavigateToInvoice = { navController.navigate(Screen.Invoice.createRoute(jobId)) },
                 onNavigateToEstimate = { navController.navigate(Screen.Estimate.createRoute(jobId)) },
-                onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
+                onNavigateToInspectionForm = { id -> navController.navigate(Screen.InspectionForm.createRoute(jobId = id)) },
+                onNavigateToContract = { id -> navController.navigate("contract/$id") },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -265,11 +266,16 @@ private fun AppNavHost(
 
         composable(
             route = Screen.InspectionForm.route,
-            arguments = listOf(navArgument("inspectionId") { type = NavType.StringType; nullable = true; defaultValue = null })
+            arguments = listOf(
+                navArgument("inspectionId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                navArgument("jobId") { type = NavType.StringType; nullable = true; defaultValue = null }
+            )
         ) { backStackEntry ->
             val inspectionId = backStackEntry.arguments?.getString("inspectionId")
+            val jobId = backStackEntry.arguments?.getString("jobId")
             InspectionFormScreen(
                 inspectionId = inspectionId,
+                prefilledJobId = jobId.orEmpty(),
                 onBack = { navController.popBackStack() }
             )
         }
@@ -282,7 +288,7 @@ private fun AppNavHost(
             )
         }
 
-        composable("inspection_scheduler") {
+        composable(Screen.InspectionScheduler.route) {
             InspectionSchedulerScreen(
                 onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
                 onNavigateToInspectionDetail = { id -> navController.navigate(Screen.InspectionDetail.createRoute(id)) },
@@ -290,7 +296,7 @@ private fun AppNavHost(
             )
         }
 
-        composable("sync_queue") {
+        composable(Screen.SyncQueue.route) {
             SyncQueueScreen(onBack = { navController.popBackStack() })
         }
 
@@ -305,14 +311,15 @@ private fun AppNavHost(
         composable("voice_dictation") {
             VoiceDictationScreen(
                 onTranscriptionReady = { text ->
-                    // Could navigate back with result or save to clipboard
+                    // Hand the transcription back to whoever opened the dictation screen.
+                    navController.previousBackStackEntry?.savedStateHandle?.set("voice_transcription", text)
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("mlkit_camera") {
+        composable(Screen.MLKitCamera.route) {
             MLKitCameraScreen(
                 onPhotoCaptured = { photoPath, labels, objects ->
                     // Handle captured photo with AI labels
@@ -375,7 +382,8 @@ private fun AppNavHost(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenSyncQueue = { navController.navigate(Screen.SyncQueue.route) }
             )
         }
 

@@ -39,7 +39,6 @@ fun InspectionSchedulerScreen(
     val inspections by viewModel.inspections.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
-    var selectedDate by remember { mutableStateOf(System.currentTimeMillis()) }
     var filterType by remember { mutableStateOf<InspectionType?>(null) }
 
     val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.US)
@@ -79,7 +78,6 @@ fun InspectionSchedulerScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
-            // Date filter row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -122,7 +120,8 @@ fun InspectionSchedulerScreen(
                 }
             } else {
                 val filteredInspections = inspections.filter { inspection ->
-                    filterType == null || inspection.inspectionType == filterType
+                    inspection.inspectionDate >= System.currentTimeMillis() &&
+                        (filterType == null || inspection.inspectionType == filterType)
                 }.sortedBy { it.inspectionDate }
 
                 if (filteredInspections.isEmpty()) {
@@ -447,7 +446,7 @@ private fun AddInspectionDialog(
                             inspectionType = inspectionType,
                             severity = severity,
                             inspectionDate = selectedDate,
-                            notes = notes
+                            notes = listOf("Address: $address".takeIf { address.isNotBlank() }, notes.trim().takeIf { it.isNotBlank() }).filterNotNull().joinToString("\n")
                         )
                     )
                 },

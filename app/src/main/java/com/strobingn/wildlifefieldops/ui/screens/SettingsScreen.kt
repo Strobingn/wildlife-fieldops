@@ -20,7 +20,7 @@ import com.strobingn.wildlifefieldops.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onBack: () -> Unit, onOpenSyncQueue: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showAiOperations by remember { mutableStateOf(false) }
     if (showDiagnostics) { DiagnosticsScreen(onBack = { showDiagnostics = false }); return }
@@ -32,11 +32,14 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val autoSync by viewModel.autoSync.collectAsState(initial = true)
     val offlineMode by viewModel.offlineMode.collectAsState(initial = false)
     val highAccuracyGps by viewModel.highAccuracyGps.collectAsState(initial = true)
+    val darkTheme by viewModel.darkTheme.collectAsState(initial = ThemeController.isDark)
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(syncMessage) {
         syncMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearSyncMessage() }
     }
+
+    LaunchedEffect(darkTheme) { ThemeController.setDark(darkTheme) }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -60,14 +63,17 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     Icons.Default.DarkMode,
                     "Dark theme",
                     "Switch between dark and light app appearance",
-                    ThemeController.isDark,
-                    ThemeController::setDark
-                )
+                    darkTheme
+                ) {
+                    ThemeController.setDark(it)
+                    viewModel.setDarkTheme(it)
+                }
             }
 
             SettingSection("Connection") {
                 SettingItem(Icons.Default.Cloud, "Service status", connectionStatus, showChevron = false)
                 SettingItem(Icons.Default.CloudSync, if (isSyncing) "Syncing…" else "Sync now", if (offlineMode) "Offline mode is enabled" else "Push and pull Supabase data", enabled = !isSyncing, onClick = viewModel::triggerManualSync)
+                SettingItem(Icons.Default.CloudQueue, "Sync Queue", "View pending offline sync operations", onClick = onOpenSyncQueue)
                 SettingSwitch(Icons.Default.Sync, "Automatic sync", "Keep local and cloud records synchronized", autoSync, viewModel::setAutoSync)
                 SettingSwitch(Icons.Default.CloudOff, "Offline mode", "Disable cloud requests", offlineMode, viewModel::setOfflineMode)
             }

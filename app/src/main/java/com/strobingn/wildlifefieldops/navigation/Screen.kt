@@ -27,9 +27,14 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object InspectionDetail : Screen("inspection_detail/{inspectionId}", "Inspection Detail") {
         fun createRoute(inspectionId: String) = "inspection_detail/$inspectionId"
     }
-    object InspectionForm : Screen("inspection_form?inspectionId={inspectionId}", "Inspection Form") {
-        fun createRoute(inspectionId: String? = null) =
-            if (inspectionId != null) "inspection_form?inspectionId=$inspectionId" else "inspection_form"
+    object InspectionForm : Screen("inspection_form?inspectionId={inspectionId}&jobId={jobId}", "Inspection Form") {
+        fun createRoute(inspectionId: String? = null, jobId: String? = null) =
+            listOfNotNull(
+                inspectionId?.let { "inspectionId=$it" },
+                jobId?.let { "jobId=$it" }
+            ).let { params ->
+                if (params.isEmpty()) "inspection_form" else "inspection_form?" + params.joinToString("&")
+            }
     }
 
     object Map : Screen("map", "Property Map", Icons.Default.Map)
@@ -37,6 +42,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun createRoute(jobId: String) = "invoice/$jobId"
     }
     object PhotoGallery : Screen("photos", "Photo Gallery", Icons.Default.PhotoCamera)
+    object MLKitCamera : Screen("mlkit_camera", "AI Camera", Icons.Default.PhotoCamera)
+    object InspectionScheduler : Screen("inspection_scheduler", "Inspection Scheduler", Icons.Default.EventNote)
+    object SyncQueue : Screen("sync_queue", "Sync Queue", Icons.Default.CloudSync)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     object Diagnostics : Screen("diagnostics", "Diagnostics", Icons.Default.BugReport)
     object AIAssistant : Screen("ai_assistant", "AI Assistant", Icons.Default.Psychology)
@@ -56,9 +64,11 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             CustomerList,
             Map,
             PhotoGallery,
+            MLKitCamera,
             Expense,
             Inventory,
             RouteOptimizer,
+            InspectionScheduler,
             VoiceJob,
             SpeciesId,
             ARMeasure,

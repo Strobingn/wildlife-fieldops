@@ -29,5 +29,6 @@ data class Job(
     val notes: String = "",
     val photos: List<String> = emptyList(),
     val isSynced: Boolean = false,
-    val syncError: String? = null
+    val syncError: String? = null,
+    val warrantyMonths: Int = 12
 )

@@ -4,9 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
 import com.strobingn.wildlifefieldops.BuildConfig
 import com.strobingn.wildlifefieldops.data.local.AppDatabase
+import com.strobingn.wildlifefieldops.data.preferences.settingsDataStore
 import com.strobingn.wildlifefieldops.data.remote.SupabaseService
 import com.strobingn.wildlifefieldops.data.remote.WeatherService
 import com.strobingn.wildlifefieldops.data.repository.SyncRepository
@@ -18,8 +18,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-private val Context.dataStore by preferencesDataStore(name = "settings")
-
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -29,7 +27,7 @@ class SettingsViewModel @Inject constructor(
     private val database: AppDatabase
 ) : ViewModel() {
 
-    private val dataStore = context.dataStore
+    private val dataStore = context.settingsDataStore
 
     companion object {
         val DARK_THEME = booleanPreferencesKey("dark_theme")

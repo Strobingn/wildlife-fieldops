@@ -245,6 +245,7 @@ fun VoiceJobScreen(
                         )
                         jobCreated = true
                     },
+                    enabled = !jobCreated,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp)

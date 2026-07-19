@@ -70,7 +70,7 @@ class SpeciesIdViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // On-device first pass (ML Kit labels + damage hints)
-                val offline = PhotoAIHelper.analyzePhotoForFormFilling(context, uri)
+                val offline = withContext(Dispatchers.IO) { PhotoAIHelper.analyzePhotoForFormFilling(context, uri) }
                 val labels = (offline.species + offline.damageTypes + offline.objectDetections).distinct()
                 // Downscaled JPEG for the vision model
                 val base64 = withContext(Dispatchers.IO) { uriToDownscaledBase64(context, uri) }

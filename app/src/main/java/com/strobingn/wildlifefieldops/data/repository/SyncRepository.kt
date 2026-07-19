@@ -13,6 +13,7 @@ import com.strobingn.wildlifefieldops.data.remote.toLocal
 import com.strobingn.wildlifefieldops.data.remote.toRemoteDto
 import com.strobingn.wildlifefieldops.data.remote.toRemoteDtoOrNull
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -43,6 +44,8 @@ class SyncRepository @Inject constructor(
     suspend fun syncAll(): SyncResult = withContext(Dispatchers.IO) {
         try {
             doSync()
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             android.util.Log.e("SyncRepository", "Sync crashed", t)
             SyncResult(
