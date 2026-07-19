@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -38,7 +39,7 @@ fun RouteOptimizerScreen(
     var orderedJobs by remember { mutableStateOf<List<Job>>(emptyList()) }
     var optimized by remember { mutableStateOf(false) }
 
-    LaunchedEffect(jobs) {
+    LaunchedEffect(jobs.map { it.id }) {
         orderedJobs = jobs.sortedWith(
             compareBy<Job> { it.scheduledDate ?: Long.MAX_VALUE }
                 .thenByDescending { it.priority.ordinal }
@@ -50,6 +51,10 @@ fun RouteOptimizerScreen(
         ?: LatLng(41.43, -74.04)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(firstPoint, 10f)
+    }
+
+    LaunchedEffect(firstPoint) {
+        cameraPositionState.move(CameraUpdateFactory.newLatLngZoom(firstPoint, 10f))
     }
 
     val totalMiles = calculateDistanceMiles(orderedJobs)

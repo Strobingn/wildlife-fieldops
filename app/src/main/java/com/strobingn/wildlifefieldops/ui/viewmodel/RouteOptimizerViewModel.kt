@@ -23,6 +23,8 @@ class RouteOptimizerViewModel @Inject constructor(
                 job.latitude != null &&
                     job.longitude != null &&
                     job.status != JobStatus.COMPLETED &&
+                    job.status != JobStatus.CANCELLED &&
+                    job.status != JobStatus.INVOICED &&
                     job.status != JobStatus.PAID
             }
         }

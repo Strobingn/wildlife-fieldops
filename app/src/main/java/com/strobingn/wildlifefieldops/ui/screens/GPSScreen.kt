@@ -2,11 +2,14 @@ package com.strobingn.wildlifefieldops.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -35,7 +39,12 @@ fun GPSScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var hasLocationPermission by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
     var currentLocation by remember { mutableStateOf<LatLng?>(null) }
     var trackingEnabled by remember { mutableStateOf(false) }
     var gpsAccuracy by remember { mutableStateOf(0f) }
@@ -45,6 +54,12 @@ fun GPSScreen(
     var totalDistance by remember { mutableStateOf(0.0) }
     var trackPoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var elapsedTime by remember { mutableStateOf(0L) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasLocationPermission = granted
+    }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(41.45, -74.05), 15f)
@@ -64,7 +79,7 @@ fun GPSScreen(
                         currentLocation?.let { prev ->
                             val results = FloatArray(1)
                             Location.distanceBetween(prev.latitude, prev.longitude, newLatLng.latitude, newLatLng.longitude, results)
-                            totalDistance += results[0].toDouble()
+                            totalDistance += results[0] * 3.28084 // meters to feet
                         }
                         currentLocation = newLatLng
                         gpsAccuracy = location.accuracy
@@ -156,12 +171,12 @@ fun GPSScreen(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
-                        isMyLocationEnabled = true,
+                        isMyLocationEnabled = hasLocationPermission,
                         mapType = MapType.NORMAL
                     ),
                     uiSettings = MapUiSettings(
                         zoomControlsEnabled = true,
-                        myLocationButtonEnabled = true,
+                        myLocationButtonEnabled = hasLocationPermission,
                         compassEnabled = true
                     )
                 ) {
@@ -193,11 +208,16 @@ fun GPSScreen(
             ) {
                 Button(
                     onClick = {
-                        trackingEnabled = !trackingEnabled
-                        if (!trackingEnabled) {
-                            elapsedTime = 0
-                            trackPoints = emptyList()
-                            totalDistance = 0.0
+                        if (!trackingEnabled && !hasLocationPermission) {
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        } else {
+                            trackingEnabled = !trackingEnabled
+                            if (!trackingEnabled) {
+                                elapsedTime = 0
+                                trackPoints = emptyList()
+                                totalDistance = 0.0
+                                currentLocation = null
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -221,6 +241,7 @@ fun GPSScreen(
                             trackPoints = emptyList()
                             totalDistance = 0.0
                             elapsedTime = 0
+                            currentLocation = null
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
                         shape = RoundedCornerShape(12.dp)

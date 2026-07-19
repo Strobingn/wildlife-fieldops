@@ -244,6 +244,13 @@ fun JobDetailScreen(
                         modifier = Modifier.weight(1f),
                         onClick = { onNavigateToInspectionForm(currentJob.id) }
                     )
+                    ActionButton(
+                        label = "Contract",
+                        icon = Icons.Default.Description,
+                        color = AccentOrange,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToContract(currentJob.id) }
+                    )
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton(

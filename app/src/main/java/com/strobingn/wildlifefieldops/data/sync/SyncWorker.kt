@@ -9,6 +9,7 @@ import com.strobingn.wildlifefieldops.data.preferences.settingsDataStore
 import com.strobingn.wildlifefieldops.data.repository.SyncRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 
 @HiltWorker
@@ -39,6 +40,8 @@ class SyncWorker @AssistedInject constructor(
         return try {
             val result = syncRepository.syncAll()
             if (result.success) Result.success() else Result.retry()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             android.util.Log.e("SyncWorker", "Sync failed", e)
             Result.retry()

@@ -18,7 +18,7 @@ if (!src.includes('import { runFieldAI, formatFieldAIResult } from "./ai/fieldAs
   );
 }
 
-const newAiPage = `function aiPage() { shell(\\`
+const newAiPage = `function aiPage() { shell(\`
 ## Kimi AI Field Assistant
 
 <div class="card">
@@ -34,7 +34,7 @@ const newAiPage = `function aiPage() { shell(\\`
 
   <label>Species</label>
   <select id="aiSpecies">
-    \${SPECIES.map(s => \\`<option>\${s}</option>\\`).join("")}
+    \${SPECIES.map(s => \`<option>\${s}</option>\`).join("")}
   </select>
 
   <label>Field Observations</label>
@@ -50,7 +50,7 @@ const newAiPage = `function aiPage() { shell(\\`
   <label>Kimi AI Output</label>
   <textarea id="aiOut" rows="18" placeholder="AI output appears here..."></textarea>
 </div>
-\\`); }`;
+\`); }`;
 
 const newAiSuggest = `window.aiSuggest = async function () {
   const mode = document.getElementById("aiMode")?.value || "field_plan";

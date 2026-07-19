@@ -16,8 +16,10 @@ import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.model.Job
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -65,6 +67,7 @@ class ContractViewModel @Inject constructor(
                 address = address,
                 description = description,
                 estimatedValue = estimatedValue,
+                warrantyMonths = warrantyMonths,
                 updatedAt = System.currentTimeMillis()
             ))
         }
@@ -80,77 +83,79 @@ class ContractViewModel @Inject constructor(
     ) = viewModelScope.launch {
         _isGeneratingPdf.value = true
         try {
-            val pdfDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "contracts")
-            pdfDir.mkdirs()
+            withContext(Dispatchers.IO) {
+                val pdfDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "contracts")
+                pdfDir.mkdirs()
 
-            val fileName = "Contract_${customerName.replace(" ", "_")}_${System.currentTimeMillis()}.pdf"
-            val pdfFile = File(pdfDir, fileName)
+                val fileName = "Contract_${customerName.replace(" ", "_")}_${System.currentTimeMillis()}.pdf"
+                val pdfFile = File(pdfDir, fileName)
 
-            PdfWriter(pdfFile.absolutePath).use { writer ->
-                PdfDocument(writer).use { pdfDoc ->
-                    Document(pdfDoc).use { document ->
-                        document.add(
-                            Paragraph("WILDLIFE REMOVAL SERVICE AGREEMENT")
-                                .setTextAlignment(TextAlignment.CENTER)
-                                .setFontSize(20f)
-                                .setBold()
-                        )
-                        document.add(Paragraph("\n"))
-                        document.add(Paragraph("Date: $signatureDate").setTextAlignment(TextAlignment.RIGHT))
-                        document.add(Paragraph("\n"))
+                PdfWriter(pdfFile.absolutePath).use { writer ->
+                    PdfDocument(writer).use { pdfDoc ->
+                        Document(pdfDoc).use { document ->
+                            document.add(
+                                Paragraph("WILDLIFE REMOVAL SERVICE AGREEMENT")
+                                    .setTextAlignment(TextAlignment.CENTER)
+                                    .setFontSize(20f)
+                                    .setBold()
+                            )
+                            document.add(Paragraph("\n"))
+                            document.add(Paragraph("Date: $signatureDate").setTextAlignment(TextAlignment.RIGHT))
+                            document.add(Paragraph("\n"))
 
-                        val infoTable = Table(UnitValue.createPercentArray(floatArrayOf(1f, 2f))).useAllAvailableWidth()
-                        infoTable.addCell("Customer Name:")
-                        infoTable.addCell(customerName)
-                        infoTable.addCell("Service Address:")
-                        infoTable.addCell(address)
-                        document.add(infoTable)
-                        document.add(Paragraph("\n"))
+                            val infoTable = Table(UnitValue.createPercentArray(floatArrayOf(1f, 2f))).useAllAvailableWidth()
+                            infoTable.addCell("Customer Name:")
+                            infoTable.addCell(customerName)
+                            infoTable.addCell("Service Address:")
+                            infoTable.addCell(address)
+                            document.add(infoTable)
+                            document.add(Paragraph("\n"))
 
-                        document.add(Paragraph("Description of Services").setBold().setFontSize(14f))
-                        document.add(Paragraph(description))
-                        document.add(Paragraph("\n"))
+                            document.add(Paragraph("Description of Services").setBold().setFontSize(14f))
+                            document.add(Paragraph(description))
+                            document.add(Paragraph("\n"))
 
-                        val pricingTable = Table(UnitValue.createPercentArray(floatArrayOf(2f, 1f))).useAllAvailableWidth()
-                        pricingTable.addCell("Service")
-                        pricingTable.addCell("Amount")
-                        pricingTable.addCell("Estimated Cost")
-                        pricingTable.addCell(String.format("$%.2f", estimatedValue))
-                        pricingTable.addCell("Warranty Period")
-                        pricingTable.addCell("$warrantyMonths months")
-                        document.add(pricingTable)
-                        document.add(Paragraph("\n"))
+                            val pricingTable = Table(UnitValue.createPercentArray(floatArrayOf(2f, 1f))).useAllAvailableWidth()
+                            pricingTable.addCell("Service")
+                            pricingTable.addCell("Amount")
+                            pricingTable.addCell("Estimated Cost")
+                            pricingTable.addCell(String.format("$%.2f", estimatedValue))
+                            pricingTable.addCell("Warranty Period")
+                            pricingTable.addCell("$warrantyMonths months")
+                            document.add(pricingTable)
+                            document.add(Paragraph("\n"))
 
-                        document.add(Paragraph("Terms & Conditions").setBold().setFontSize(14f))
-                        document.add(Paragraph("1. Wildlife Whisperer LLC agrees to perform the described wildlife removal services."))
-                        document.add(Paragraph("2. Customer grants access to property for inspection, service, and follow-up visits."))
-                        document.add(Paragraph("3. Payment is due upon completion of services unless otherwise agreed in writing."))
-                        document.add(Paragraph("4. Warranty covers workmanship and materials for the specified period."))
-                        document.add(Paragraph("5. Wildlife Whisperer LLC is not liable for pre-existing structural damage."))
-                        document.add(Paragraph("6. This agreement constitutes the entire understanding between parties."))
-                        document.add(Paragraph("\n"))
+                            document.add(Paragraph("Terms & Conditions").setBold().setFontSize(14f))
+                            document.add(Paragraph("1. Wildlife Whisperer LLC agrees to perform the described wildlife removal services."))
+                            document.add(Paragraph("2. Customer grants access to property for inspection, service, and follow-up visits."))
+                            document.add(Paragraph("3. Payment is due upon completion of services unless otherwise agreed in writing."))
+                            document.add(Paragraph("4. Warranty covers workmanship and materials for the specified period."))
+                            document.add(Paragraph("5. Wildlife Whisperer LLC is not liable for pre-existing structural damage."))
+                            document.add(Paragraph("6. This agreement constitutes the entire understanding between parties."))
+                            document.add(Paragraph("\n"))
 
-                        document.add(Paragraph("Electronic Signature").setBold().setFontSize(14f))
-                        document.add(Paragraph("Signed by: $customerName"))
-                        document.add(Paragraph("Date: $signatureDate"))
-                        document.add(Paragraph("\n\n"))
-                        document.add(Paragraph("_______________________________").setTextAlignment(TextAlignment.LEFT))
-                        document.add(Paragraph("Customer Signature"))
+                            document.add(Paragraph("Electronic Signature").setBold().setFontSize(14f))
+                            document.add(Paragraph("Signed by: $customerName"))
+                            document.add(Paragraph("Date: $signatureDate"))
+                            document.add(Paragraph("\n\n"))
+                            document.add(Paragraph("_______________________________").setTextAlignment(TextAlignment.LEFT))
+                            document.add(Paragraph("Customer Signature"))
+                        }
                     }
                 }
-            }
 
-            _pdfPath.value = pdfFile.absolutePath
-            _pdfGenerated.value = true
+                _pdfPath.value = pdfFile.absolutePath
+                _pdfGenerated.value = true
 
-            _job.value?.let { currentJob ->
-                jobDao.update(currentJob.copy(
-                    customerName = customerName,
-                    address = address,
-                    description = description,
-                    estimatedValue = estimatedValue,
-                    updatedAt = System.currentTimeMillis()
-                ))
+                _job.value?.let { currentJob ->
+                    jobDao.update(currentJob.copy(
+                        customerName = customerName,
+                        address = address,
+                        description = description,
+                        estimatedValue = estimatedValue,
+                        updatedAt = System.currentTimeMillis()
+                    ))
+                }
             }
 
         } catch (e: Exception) {

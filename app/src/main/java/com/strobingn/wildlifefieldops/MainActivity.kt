@@ -360,7 +360,9 @@ private fun AppNavHost(
 
         composable(Screen.VoiceDictation.route) {
             VoiceDictationScreen(
-                onTranscriptionReady = { _ ->
+                onTranscriptionReady = { text ->
+                    // Hand the transcription back to whoever opened the dictation screen.
+                    navController.previousBackStackEntry?.savedStateHandle?.set("voice_transcription", text)
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
@@ -428,7 +430,8 @@ private fun AppNavHost(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenSyncQueue = { navController.navigate(Screen.SyncQueue.route) }
             )
         }
 

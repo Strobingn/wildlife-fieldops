@@ -28,7 +28,7 @@ fun EstimateScreen(
     jobsViewModel: JobsViewModel = hiltViewModel(),
     jobAiViewModel: JobAiViewModel = hiltViewModel()
 ) {
-    val job by jobsViewModel.getJobById(jobId).collectAsState(initial = null)
+    val job by remember(jobId) { jobsViewModel.getJobById(jobId) }.collectAsState(initial = null)
     val draft by jobAiViewModel.estimateDraft.collectAsState()
     val estimateLoading by jobAiViewModel.estimateLoading.collectAsState()
     val aiMessage by jobAiViewModel.message.collectAsState()

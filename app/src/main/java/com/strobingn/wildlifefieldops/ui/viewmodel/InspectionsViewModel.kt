@@ -9,6 +9,9 @@ import com.strobingn.wildlifefieldops.data.model.FindingSeverity
 import com.strobingn.wildlifefieldops.data.remote.AiService
 import com.strobingn.wildlifefieldops.data.remote.InspectionReportDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,6 +21,9 @@ class InspectionsViewModel @Inject constructor(
     private val inspectionDao: InspectionDao,
     private val aiService: AiService
 ) : ViewModel() {
+
+    /** Writes must survive a navigation pop that clears the screen-scoped ViewModel. */
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _reportDraft = MutableStateFlow<InspectionReportDraft?>(null)
     val reportDraft = _reportDraft.asStateFlow()
@@ -53,7 +59,8 @@ class InspectionsViewModel @Inject constructor(
                 list.filter {
                     it.customerName.contains(query, ignoreCase = true) ||
                     it.findings.contains(query, ignoreCase = true) ||
-                    it.speciesIdentified.contains(query, ignoreCase = true)
+                    it.speciesIdentified.contains(query, ignoreCase = true) ||
+                    it.inspectorName.contains(query, ignoreCase = true)
                 }
             }
         }
@@ -79,19 +86,19 @@ class InspectionsViewModel @Inject constructor(
     fun getInspectionsByJob(jobId: String): Flow<List<Inspection>> =
         inspectionDao.getByJob(jobId)
 
-    fun saveInspection(inspection: Inspection) = viewModelScope.launch {
+    fun saveInspection(inspection: Inspection) = persistenceScope.launch {
         inspectionDao.insert(inspection)
     }
 
-    fun updateInspection(inspection: Inspection) = viewModelScope.launch {
+    fun updateInspection(inspection: Inspection) = persistenceScope.launch {
         inspectionDao.update(inspection.copy(updatedAt = System.currentTimeMillis()))
     }
 
-    fun deleteInspection(inspection: Inspection) = viewModelScope.launch {
+    fun deleteInspection(inspection: Inspection) = persistenceScope.launch {
         inspectionDao.delete(inspection)
     }
 
-    fun scheduleInspection(inspection: Inspection) = viewModelScope.launch {
+    fun scheduleInspection(inspection: Inspection) = persistenceScope.launch {
         inspectionDao.insert(inspection.copy(updatedAt = System.currentTimeMillis()))
     }
 
@@ -111,7 +118,7 @@ class InspectionsViewModel @Inject constructor(
         followUpDate: Long?,
         weatherConditions: String,
         notes: String
-    ) = viewModelScope.launch {
+    ) = persistenceScope.launch {
         val inspection = Inspection(
             jobId = jobId,
             customerId = customerId,

@@ -25,7 +25,7 @@ import com.strobingn.wildlifefieldops.data.model.*
         TrainingLabel::class,
         CaptureSession::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -47,6 +47,25 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun captureSessionDao(): CaptureSessionDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // v1 shipped in two flavors: early builds lack inspections.notes, later v1 builds have it.
+                var hasNotes = false
+                database.query("PRAGMA table_info(inspections)").use { cursor ->
+                    val nameIndex = cursor.getColumnIndex("name")
+                    while (cursor.moveToNext()) {
+                        if (nameIndex >= 0 && cursor.getString(nameIndex) == "notes") {
+                            hasNotes = true
+                            break
+                        }
+                    }
+                }
+                if (!hasNotes) {
+                    database.execSQL("ALTER TABLE inspections ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+                }
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -185,6 +204,13 @@ abstract class AppDatabase : RoomDatabase() {
                 database.execSQL(
                     "ALTER TABLE `photos` ADD COLUMN `visionSummaryJson` TEXT NOT NULL DEFAULT '{}'"
                 )
+            }
+        }
+
+        /** Kimi V7: contract warranty persisted on jobs (warranty was collected but never saved). */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE jobs ADD COLUMN warrantyMonths INTEGER NOT NULL DEFAULT 12")
             }
         }
     }
