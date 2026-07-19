@@ -119,7 +119,7 @@ class ContractViewModel @Inject constructor(
                             pricingTable.addCell("Service")
                             pricingTable.addCell("Amount")
                             pricingTable.addCell("Estimated Cost")
-                            pricingTable.addCell(String.format("$%.2f", estimatedValue))
+                            pricingTable.addCell(String.format(Locale.US, "$%.2f", estimatedValue))
                             pricingTable.addCell("Warranty Period")
                             pricingTable.addCell("$warrantyMonths months")
                             document.add(pricingTable)

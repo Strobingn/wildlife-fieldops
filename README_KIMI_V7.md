@@ -1,9 +1,11 @@
 # Kimi V7 — Audit & Fix Notes
 
 Branch: `Kimi_V7` (based on `ChatGPTv6`)
-Commit: `dc04548`
 
 This document breaks down the full audit of the `ChatGPTv6` branch and every fix applied in `Kimi_V7`.
+
+- **Round 1** (`dc04548`): audit + 30 runtime/logic fixes across 28 files.
+- **Round 2**: closed the remaining feature gaps (offline sync queue, voice dictation entry point) and cleared all 39 `DefaultLocale` lint warnings.
 
 ## How the audit was run
 
@@ -72,9 +74,33 @@ Result: the branch compiled, but had **30 runtime/logic bugs** — crashes, sile
 - `./gradlew :app:assembleDebug :app:lintDebug` → **BUILD SUCCESSFUL**, 0 lint errors.
 - All fixes verified by re-reading the final files and reviewing the complete diff (28 files, +311/−142).
 
-## Known remaining gaps (not bugs — deliberate scope)
+---
 
-- **`PendingOperation` queue is never populated.** The sync-queue table/DAO/retry machinery exists, but repositories write directly (sync goes straight to Supabase), so the Sync Queue screen will always show "all synced" until an enqueue path is built. The screen is now reachable; the machinery behind it is future work.
-- **`voice_dictation` has no entry point yet.** The result contract is now correct, but no screen currently navigates to it.
+## Round 2 — Gap closure
+
+### Offline sync queue wired end-to-end
+
+The `pending_operations` table, DAO, retry/backoff machinery, and Sync Queue screen existed but were never populated — sync went straight to Supabase and failures were invisible. Now (`data/repository/SyncRepository.kt`, `data/local/PendingOperationDao.kt`):
+
+- **On push failure**: each entity in the failed batch is recorded as a `PendingOperation` (deduped by entity type + id, preserving retry history), visible in Settings → Sync Queue with the error message.
+- **On the next sync**: queued operations are processed first, before the regular push/pull. Each re-reads the entity from Room (freshest data), upserts it, marks it synced, and leaves the queue on success. Failures bump the retry count (`markFailed`); stuck `isProcessing` flags from killed runs are reset each pass.
+- **Manual retry**: the screen's Retry button (shown after 5 exhausted retries) resets the count so the next sync re-attempts.
+- Successful regular pushes also clear any queued operations for those entities.
+- Supports JOB, CUSTOMER, INSPECTION, INVOICE — the four entity types that have push paths.
+
+### Voice dictation entry point
+
+`voice_dictation` was registered in the NavHost but unreachable, and its result was discarded. Now:
+
+- The Job form's **Notes** field has a mic button that opens the dictation screen (`ui/screens/JobFormScreen.kt`, `MainActivity.kt`).
+- The transcription returns via the back-stack `savedStateHandle` (round 1 fix) and is appended to Notes; the handle is cleared after consumption so it doesn't re-apply.
+- Mic permission is requested by `VoiceDictationScreen` itself.
+
+### Lint: `DefaultLocale` cleared
+
+All 39 locale-less `String.format(...)` calls across 14 files now pass `Locale.US` explicitly (default-locale formatting breaks numbers in comma-decimal locales). Lint warnings went **97 → 56**.
+
+## Remaining warnings & notes (deliberate scope)
+
+- **56 lint warnings remain**, all non-blocking: 27 `GradleDependency` (newer library versions available — deferred, upgrades need testing), 10 `UnusedResources`, 7 launcher-icon cosmetics, 2 `ObsoleteSdkInt`, 2 informational.
 - **`EstimateViewModel` is unused** (EstimateScreen works through `JobsViewModel`/`JobAiViewModel`). Harmless dead code, kept as-is.
-- Lint still reports 97 warnings (locale-unsafe `String.format`, unused resources, etc.) — none blocking.

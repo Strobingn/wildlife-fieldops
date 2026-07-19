@@ -125,10 +125,10 @@ fun JobDetailScreen(
                     }
                     InfoRow(Icons.Default.PersonOutline, currentJob.assignedTo.ifBlank { "Unassigned" })
                     if (currentJob.estimatedValue > 0) {
-                        InfoRow(Icons.Default.AttachMoney, "Estimated: $${String.format("%.2f", currentJob.estimatedValue)}")
+                        InfoRow(Icons.Default.AttachMoney, "Estimated: $${String.format(Locale.US, "%.2f", currentJob.estimatedValue)}")
                     }
                     if (currentJob.actualCost > 0) {
-                        InfoRow(Icons.Default.Money, "Actual: $${String.format("%.2f", currentJob.actualCost)}")
+                        InfoRow(Icons.Default.Money, "Actual: $${String.format(Locale.US, "%.2f", currentJob.actualCost)}")
                     }
                 }
 

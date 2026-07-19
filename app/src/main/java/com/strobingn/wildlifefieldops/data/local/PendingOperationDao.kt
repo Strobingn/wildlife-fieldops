@@ -1,6 +1,7 @@
 package com.strobingn.wildlifefieldops.data.local
 
 import androidx.room.*
+import com.strobingn.wildlifefieldops.data.model.EntityType
 import com.strobingn.wildlifefieldops.data.model.PendingOperation
 import kotlinx.coroutines.flow.Flow
 
@@ -32,6 +33,12 @@ interface PendingOperationDao {
 
     @Delete
     suspend fun delete(operation: PendingOperation)
+
+    @Query("SELECT * FROM pending_operations WHERE entityType = :entityType AND entityId = :entityId LIMIT 1")
+    suspend fun findByEntity(entityType: EntityType, entityId: String): PendingOperation?
+
+    @Query("DELETE FROM pending_operations WHERE entityType = :entityType AND entityId = :entityId")
+    suspend fun deleteByEntity(entityType: EntityType, entityId: String)
 
     @Query("DELETE FROM pending_operations WHERE id = :id")
     suspend fun deleteById(id: String)

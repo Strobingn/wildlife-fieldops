@@ -8,6 +8,7 @@ import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.objects.ObjectDetection
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import java.util.Locale
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resumeWithException
 // Note: kotlinx-coroutines-play-services dependency not included.
@@ -66,7 +67,7 @@ object PhotoAIHelper {
             val notes = buildString {
                 if (species.isNotEmpty()) append("Species observed: ${species.joinToString()}. ")
                 if (damage.isNotEmpty()) append("Damage noted: ${damage.joinToString()}. ")
-                append("On-device confidence: ${String.format("%.0f", confidence * 100)}%. ")
+                append("On-device confidence: ${String.format(Locale.US, "%.0f", confidence * 100)}%. ")
                 append("Verify on site and photograph all entry points.")
             }
             val prices = when {

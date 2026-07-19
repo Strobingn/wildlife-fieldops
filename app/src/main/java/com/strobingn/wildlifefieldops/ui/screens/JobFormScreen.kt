@@ -27,6 +27,7 @@ import com.strobingn.wildlifefieldops.data.model.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,6 +35,9 @@ import kotlinx.coroutines.launch
 fun JobFormScreen(
     jobId: String? = null,
     onBack: () -> Unit,
+    dictatedText: String? = null,
+    onDictatedTextConsumed: () -> Unit = {},
+    onNavigateToVoiceDictation: () -> Unit = {},
     viewModel: JobsViewModel = hiltViewModel(),
     serviceTypesViewModel: ServiceTypesViewModel = hiltViewModel()
 ) {
@@ -65,6 +69,14 @@ fun JobFormScreen(
     var selectedPhoto by remember { mutableStateOf<Uri?>(null) }
     var aiStatus by remember { mutableStateOf("") }
 
+    // Append text dictated on the voice dictation screen to the notes field.
+    LaunchedEffect(dictatedText) {
+        if (!dictatedText.isNullOrBlank()) {
+            notes = listOf(notes.trim(), dictatedText.trim()).filter { it.isNotBlank() }.joinToString("\n")
+            onDictatedTextConsumed()
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         selectedPhoto = uri
@@ -87,7 +99,7 @@ fun JobFormScreen(
                         .filter { it.isNotBlank() }.joinToString("\n\n")
                 }
                 val mid = (result.estimatedPriceLow + result.estimatedPriceHigh) / 2.0
-                if (estimatedValue.isBlank() && mid > 0) estimatedValue = String.format("%.2f", mid)
+                if (estimatedValue.isBlank() && mid > 0) estimatedValue = String.format(Locale.US, "%.2f", mid)
                 if (title.isBlank() && species.isNotBlank()) title = "$species removal"
                 aiStatus = if (result.fromGrok) "Live Grok analysis applied" else "Offline ML analysis applied"
             }.onFailure {
@@ -229,6 +241,11 @@ fun JobFormScreen(
             OutlinedTextField(description, { description = it }, label = { Text("Description") }, colors = jobFieldColors(),
                 modifier = Modifier.fillMaxWidth().height(100.dp), maxLines = 4, shape = RoundedCornerShape(12.dp))
             OutlinedTextField(notes, { notes = it }, label = { Text("Notes") }, colors = jobFieldColors(),
+                trailingIcon = {
+                    IconButton(onClick = onNavigateToVoiceDictation) {
+                        Icon(Icons.Default.Mic, contentDescription = "Dictate notes", tint = PrimaryGreen)
+                    }
+                },
                 modifier = Modifier.fillMaxWidth().height(120.dp).testTag("notes_field"), maxLines = 6, shape = RoundedCornerShape(12.dp))
 
             Button(

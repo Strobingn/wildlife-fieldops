@@ -44,6 +44,7 @@ import com.strobingn.wildlifefieldops.ui.theme.PrimaryGreen
 import com.strobingn.wildlifefieldops.ui.theme.StatusPending
 import com.strobingn.wildlifefieldops.ui.theme.TextPrimary
 import com.strobingn.wildlifefieldops.ui.theme.TextSecondary
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlin.math.sqrt
 
@@ -359,7 +360,7 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                "Total: ${String.format("%.1f", totalFeet)} ft",
+                                "Total: ${String.format(Locale.US, "%.1f", totalFeet)} ft",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = PrimaryGreen,
                                 fontWeight = FontWeight.Bold
@@ -368,7 +369,7 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                                 "${points.size} point${if (points.size == 1) "" else "s"} placed · " +
                                     "${points.zipWithNext().size} segment(s)" +
                                     if (points.size >= 2) {
-                                        " · last: ${String.format("%.1f", segmentFeet(points.last(), points[points.size - 2]))} ft"
+                                        " · last: ${String.format(Locale.US, "%.1f", segmentFeet(points.last(), points[points.size - 2]))} ft"
                                     } else {
                                         ""
                                     },
@@ -408,7 +409,7 @@ fun ARMeasureScreen(onBack: () -> Unit) {
                             onClick = {
                                 clipboard.setText(
                                     AnnotatedString(
-                                        "Linear footage: ${String.format("%.1f", totalFeet)} ft " +
+                                        "Linear footage: ${String.format(Locale.US, "%.1f", totalFeet)} ft " +
                                             "(${points.size} points, AR measured)"
                                     )
                                 )

@@ -85,7 +85,7 @@ fun ExpenseScreen(
                     Column {
                         Text("This Month", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                         Text(
-                            "$${String.format("%.2f", totalThisMonth)}",
+                            "$${String.format(Locale.US, "%.2f", totalThisMonth)}",
                             style = MaterialTheme.typography.headlineMedium,
                             color = PrimaryGreen,
                             fontWeight = FontWeight.Bold
@@ -191,7 +191,7 @@ private fun ExpenseCard(expense: Expense, onDelete: () -> Unit) {
                 )
             }
             Text(
-                "$${String.format("%.2f", expense.totalAmount)}",
+                "$${String.format(Locale.US, "%.2f", expense.totalAmount)}",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextPrimary,
                 fontWeight = FontWeight.Bold

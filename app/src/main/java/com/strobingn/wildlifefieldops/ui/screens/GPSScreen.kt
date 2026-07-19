@@ -29,6 +29,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.strobingn.wildlifefieldops.ui.theme.*
+import java.util.Locale
 import kotlinx.coroutines.delay
 import com.google.maps.android.compose.MapType
 
@@ -160,8 +161,8 @@ fun GPSScreen(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                StatPill("${String.format("%.1f", speed)} mph", Icons.Default.Speed, AccentBlue, Modifier.weight(1f))
-                StatPill("${String.format("%.0f", totalDistance)} ft", Icons.Default.Straighten, PrimaryGreen, Modifier.weight(1f))
+                StatPill("${String.format(Locale.US, "%.1f", speed)} mph", Icons.Default.Speed, AccentBlue, Modifier.weight(1f))
+                StatPill("${String.format(Locale.US, "%.0f", totalDistance)} ft", Icons.Default.Straighten, PrimaryGreen, Modifier.weight(1f))
                 StatPill(formatElapsedTime(elapsedTime), Icons.Default.Timer, AccentPurple, Modifier.weight(1f))
             }
 
@@ -184,7 +185,7 @@ fun GPSScreen(
                         Marker(
                             state = MarkerState(position = location),
                             title = "Current Location",
-                            snippet = "${String.format("%.6f", location.latitude)}, ${String.format("%.6f", location.longitude)}"
+                            snippet = "${String.format(Locale.US, "%.6f", location.latitude)}, ${String.format(Locale.US, "%.6f", location.longitude)}"
                         )
                     }
 
@@ -274,5 +275,5 @@ private fun formatElapsedTime(ms: Long): String {
     val seconds = ms / 1000
     val minutes = seconds / 60
     val hours = minutes / 60
-    return String.format("%02d:%02d:%02d", hours, minutes % 60, seconds % 60)
+    return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes % 60, seconds % 60)
 }
