@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 37
-        versionName = "2.5.1-ml-p0-16kb"
+        versionCode = 38
+        versionName = "2.5.2-ml-p0-hover-fix"
 
         // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
@@ -129,7 +129,11 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    // 2024.02.00 pinned compose-ui 1.6.1, which crashes with:
+    // IllegalStateException: The ACTION_HOVER_EXIT event was not cleared
+    // (issuetracker.google.com/issues/314269723 — fixed in compose-ui 1.7.0-alpha03+).
+    // 2024.09.00+ ships compose-ui 1.7.x; 2024.12.01 is a stable 1.7.x BOM.
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
