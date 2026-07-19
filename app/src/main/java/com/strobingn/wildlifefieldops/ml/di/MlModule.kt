@@ -1,6 +1,8 @@
 package com.strobingn.wildlifefieldops.ml.di
 
 import android.content.Context
+import com.strobingn.wildlifefieldops.ml.commit.RoomCaptureCommitter
+import com.strobingn.wildlifefieldops.ml.domain.CaptureCommitter
 import com.strobingn.wildlifefieldops.ml.domain.MultimodalFusionEngine
 import com.strobingn.wildlifefieldops.ml.domain.VisionAnalyzer
 import com.strobingn.wildlifefieldops.ml.domain.VoiceJobParser
@@ -37,6 +39,10 @@ abstract class MlBindingsModule {
     @Binds
     @Singleton
     abstract fun bindMultimodalFusionEngine(impl: DefaultMultimodalFusionEngine): MultimodalFusionEngine
+
+    @Binds
+    @Singleton
+    abstract fun bindCaptureCommitter(impl: RoomCaptureCommitter): CaptureCommitter
 }
 
 @Module
