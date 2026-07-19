@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary_green">#FF3B7AE8</color>
-    <color name="background_dark">#FFF5F6F8</color>
-    <color name="surface_dark">#FFFFFFFF</color>
-    <color name="text_primary">#FF171A1F</color>
-    <color name="text_secondary">#FF515866</color>
-    <color name="ic_launcher_background">#FFF5F6F8</color>
-    <color name="splash_background">#FFF5F6F8</color>
+    <!-- Brand: charcoal field-ops + forest emerald -->
+    <color name="primary_green">#FF2F7A55</color>
+    <color name="brand_mint">#FF8FCB9B</color>
+    <color name="background_dark">#FF181A1D</color>
+    <color name="surface_dark">#FF23272B</color>
+    <color name="text_primary">#FFF1F3F5</color>
+    <color name="text_secondary">#FFC0C5CC</color>
+    <color name="ic_launcher_background">#FF181A1D</color>
+    <color name="splash_background">#FF0F1114</color>
     <color name="md_theme_light_background">#FFF5F6F8</color>
     <color name="md_theme_light_surface">#FFFFFFFF</color>
     <color name="accent_purple">#FF8B5CF6</color>

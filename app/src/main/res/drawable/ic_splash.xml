@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Splash screen animated icon — raccoon logo centered on dark background -->
+<!-- System splash (Android 12+) — centered raccoon brand mark -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:width="48dp"
-        android:height="48dp"
+        android:width="200dp"
+        android:height="200dp"
         android:gravity="center">
-        <bitmap android:src="@mipmap/ic_launcher_foreground" />
+        <bitmap
+            android:gravity="fill"
+            android:src="@drawable/splash_logo" />
     </item>
 </layer-list>
