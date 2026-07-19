@@ -23,7 +23,45 @@ Return a bullet list of issues and recommendations.
 
     fun complianceAudit(serviceType: String, formText: String): String = complianceAuditPrompt("$serviceType $formText")
 
-    fun voiceToStructuredJob(voiceText: String, currentJobContext: String = ""): String = "Convert voice note to structured wildlife job JSON: $voiceText $currentJobContext"
+    fun voiceToStructuredJob(voiceText: String, currentJobContext: String = ""): String =
+        voiceToMultimodalJson(voiceText, currentJobContext)
+
+    /**
+     * Strict JSON for [com.strobingn.wildlifefieldops.ml.model.GrokVoiceJsonDto].
+     * Taxonomy ids only — see assets/ml/taxonomy_v1.json.
+     */
+    fun voiceToMultimodalJson(voiceText: String, knownAddress: String = ""): String = """
+Convert this wildlife field voice note into strict JSON only (no markdown).
+
+Transcript:
+""" + voiceText + """
+
+Known address hint (may be empty): $knownAddress
+
+Return exactly this shape:
+{
+  "speciesLabelIds": ["raccoon"],
+  "damageLabelIds": ["entry_hole","chew_marks"],
+  "severity": 0,
+  "customerName": "",
+  "address": "",
+  "findings": "",
+  "recommendations": "",
+  "entryPoints": "",
+  "notes": "",
+  "serviceType": "",
+  "priority": "MEDIUM"
+}
+
+Rules:
+- speciesLabelIds / damageLabelIds MUST use taxonomy ids only:
+  species: raccoon,squirrel,bat,bird,rodent,opossum,skunk,snake,coyote,insect_other,unknown,none
+  damage: entry_hole,chew_marks,droppings,urine_stain,grease_rub,nest,insulation_damage,wire_damage,scratch_marks,latrine,odor_only,structural_damage,unknown,none
+- severity integer 0-4 (0 none … 4 critical). Use >=3 for emergency/urgent/fire/chewed wires.
+- priority one of: LOW, MEDIUM, HIGH, URGENT
+- Omit unknown guesses; empty arrays are fine.
+- Do not invent phone numbers or SSNs.
+"""
 
     fun predictTrapCheckPriority(trapHistory: String, species: String, weather: String, season: String): String = "Predict trap check priority for $species based on $weather $season $trapHistory"
 
