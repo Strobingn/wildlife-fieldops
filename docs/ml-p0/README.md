@@ -1,7 +1,7 @@
 # ML P0 — Field Capture (implementation)
 
 **Branch:** `feature/ml-p0`  
-**Version:** `2.5.0-ml-p0` (versionCode 36)  
+**Version:** `2.5.1-ml-p0-16kb` (versionCode 37)  
 **Base:** `fix/chatgptv6-audit`
 
 ## What shipped (PR-01 … PR-06)
@@ -51,6 +51,12 @@ Share via Android share sheet (FileProvider, cache `exports/`).
 ```bash
 ./gradlew :app:assembleDebug
 ```
+
+## 16 KB page size (Play / Android 15+)
+
+- **Cause:** CameraX `1.3.1` shipped `libimage_processing_util_jni.so` with 4 KB ELF alignment.
+- **Fix:** CameraX **1.4.2+**, `packaging.jniLibs.useLegacyPackaging = false`, AGP 8.5.2.
+- Rebuild debug APK after dependency change; do not sideload an old APK from `android/app/build` (Capacitor leftover).
 
 ## Next (not P0)
 
