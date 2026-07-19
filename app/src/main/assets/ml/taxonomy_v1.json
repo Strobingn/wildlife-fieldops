@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "species": [
+    { "id": "raccoon", "displayName": "Raccoon" },
+    { "id": "squirrel", "displayName": "Squirrel" },
+    { "id": "bat", "displayName": "Bat" },
+    { "id": "bird", "displayName": "Bird" },
+    { "id": "rodent", "displayName": "Rodent" },
+    { "id": "opossum", "displayName": "Opossum" },
+    { "id": "skunk", "displayName": "Skunk" },
+    { "id": "snake", "displayName": "Snake" },
+    { "id": "coyote", "displayName": "Coyote" },
+    { "id": "insect_other", "displayName": "Insect / other pest" },
+    { "id": "unknown", "displayName": "Unknown" },
+    { "id": "none", "displayName": "No animal" }
+  ],
+  "damage": [
+    { "id": "entry_hole", "displayName": "Entry hole / gap" },
+    { "id": "chew_marks", "displayName": "Chew marks" },
+    { "id": "droppings", "displayName": "Droppings / scat" },
+    { "id": "urine_stain", "displayName": "Urine / ammonia stain" },
+    { "id": "grease_rub", "displayName": "Grease rub marks" },
+    { "id": "nest", "displayName": "Nest / bedding" },
+    { "id": "insulation_damage", "displayName": "Insulation damage" },
+    { "id": "wire_damage", "displayName": "Chewed wiring" },
+    { "id": "scratch_marks", "displayName": "Scratch marks" },
+    { "id": "latrine", "displayName": "Latrine" },
+    { "id": "odor_only", "displayName": "Odor (no visual)" },
+    { "id": "structural_damage", "displayName": "Structural damage" },
+    { "id": "unknown", "displayName": "Unknown damage" },
+    { "id": "none", "displayName": "No damage observed" }
+  ]
+}
