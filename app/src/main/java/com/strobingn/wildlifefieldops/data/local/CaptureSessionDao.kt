@@ -51,4 +51,17 @@ interface CaptureSessionDao {
 
     @Query("SELECT COUNT(*) FROM capture_sessions WHERE status = :status")
     suspend fun countByStatus(status: CaptureSessionStatus): Int
+
+    @Query(
+        """
+        SELECT * FROM capture_sessions
+        WHERE errorMessage != ''
+        ORDER BY updatedAt DESC
+        LIMIT 1
+        """
+    )
+    suspend fun getLastWithError(): CaptureSession?
+
+    @Query("SELECT COUNT(*) FROM capture_sessions")
+    suspend fun countAll(): Int
 }

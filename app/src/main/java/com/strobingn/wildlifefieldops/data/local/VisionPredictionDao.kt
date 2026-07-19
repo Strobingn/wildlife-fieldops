@@ -43,4 +43,7 @@ interface VisionPredictionDao {
 
     @Query("SELECT COUNT(*) FROM vision_predictions")
     fun observeCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM vision_predictions")
+    suspend fun countAll(): Int
 }

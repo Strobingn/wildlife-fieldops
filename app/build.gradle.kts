@@ -14,8 +14,8 @@ android {
         applicationId = "com.strobingn.wildlifefieldops"
         minSdk = 29
         targetSdk = 35
-        versionCode = 35
-        versionName = "2.4.2-chatgpt-v6-audit"
+        versionCode = 36
+        versionName = "2.5.0-ml-p0"
 
         // Direct-from-app AI wiring is intentionally preserved.
         val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
@@ -36,6 +36,9 @@ android {
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherKey\"")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$mapsKey\"")
         buildConfigField("int", "LLM_KEY_LENGTH", "${llmKey.length}")
+        // ML P0 feature flags (TFLite / cloud VLM off until assets/policy ready)
+        buildConfigField("boolean", "ML_TFLITE_ENABLED", "false")
+        buildConfigField("boolean", "ML_CLOUD_VLM_ENABLED", "false")
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = mapsKey
     }
 

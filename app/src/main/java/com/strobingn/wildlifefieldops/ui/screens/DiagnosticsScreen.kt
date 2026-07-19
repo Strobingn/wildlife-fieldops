@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,13 +25,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.BuildConfig
 import com.strobingn.wildlifefieldops.ui.theme.*
+import com.strobingn.wildlifefieldops.ui.viewmodel.MlDiagnosticsViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsScreen(
     onBack: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    mlViewModel: MlDiagnosticsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val connectionStatus by viewModel.connectionStatus.collectAsState()
@@ -38,7 +42,19 @@ fun DiagnosticsScreen(
     val autoSync by viewModel.autoSync.collectAsState(initial = true)
     val offlineMode by viewModel.offlineMode.collectAsState(initial = false)
     val highAccuracyGps by viewModel.highAccuracyGps.collectAsState(initial = true)
+    val ml by mlViewModel.ui.collectAsState()
     var networkStatus by remember { mutableStateOf(readNetworkStatus(context)) }
+
+    LaunchedEffect(Unit) {
+        mlViewModel.refresh()
+    }
+
+    LaunchedEffect(ml.pendingShareIntent) {
+        ml.pendingShareIntent?.let { intent ->
+            runCatching { context.startActivity(intent) }
+            mlViewModel.consumeShareIntent()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -76,19 +92,100 @@ fun DiagnosticsScreen(
                 DiagnosticRow("Supabase", if (supabaseReady) "Configured" else "Missing", supabaseReady)
                 DiagnosticRow("Google Maps", if (mapsReady) "Configured" else "Missing", mapsReady)
                 DiagnosticRow("AI", if (aiReady) "Configured" else "Missing", aiReady)
-                DiagnosticRow("Service status", connectionStatus, !connectionStatus.contains("missing", ignoreCase = true))
+                DiagnosticRow(
+                    "Service status",
+                    connectionStatus,
+                    !connectionStatus.contains("missing", ignoreCase = true)
+                )
+            }
+
+            DiagnosticSection("ML / Field Capture") {
+                DiagnosticRow("Training labels", ml.trainingLabelCount.toString(), ml.trainingLabelCount >= 0)
+                DiagnosticRow(
+                    "Unexported labels",
+                    ml.unexportedLabelCount.toString(),
+                    ml.unexportedLabelCount == 0 || ml.trainingLabelCount > 0
+                )
+                DiagnosticRow("Vision predictions", ml.visionPredictionCount.toString(), true)
+                DiagnosticRow("Capture sessions", ml.captureSessionCount.toString(), true)
+                DiagnosticRow("Committed captures", ml.committedSessionCount.toString(), true)
+                DiagnosticRow(
+                    "TFLite model flag",
+                    if (ml.mlTfliteEnabled) "Enabled" else "Disabled (ML Kit path)",
+                    !ml.mlTfliteEnabled || ml.mlTfliteEnabled
+                )
+                DiagnosticRow(
+                    "Cloud VLM flag",
+                    if (ml.mlCloudVlmEnabled) "Enabled" else "Disabled",
+                    true
+                )
+                DiagnosticRow("Taxonomy asset", ml.taxonomyAsset, true)
+                DiagnosticRow(
+                    "Last capture error",
+                    ml.lastSessionError.ifBlank { "None" },
+                    ml.lastSessionError.isBlank()
+                )
+            }
+
+            Button(
+                onClick = { mlViewModel.exportLabels(unexportedOnly = false) },
+                enabled = !ml.isExporting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (ml.isExporting) {
+                    CircularProgressIndicator(
+                        Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Exporting…")
+                } else {
+                    Icon(Icons.Default.UploadFile, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Export training labels (JSONL)")
+                }
+            }
+
+            OutlinedButton(
+                onClick = { mlViewModel.exportLabels(unexportedOnly = true) },
+                enabled = !ml.isExporting && ml.unexportedLabelCount > 0,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Share, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Export unexported only (${ml.unexportedLabelCount})")
+            }
+
+            if (!ml.message.isNullOrBlank()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = BackgroundCard),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = ml.message ?: "",
+                        color = TextPrimary,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
 
             DiagnosticSection("Runtime") {
                 DiagnosticRow("Network", networkStatus, networkStatus != "Offline")
                 DiagnosticRow("Auto sync", if (autoSync) "Enabled" else "Disabled", autoSync)
                 DiagnosticRow("Offline mode", if (offlineMode) "Enabled" else "Disabled", !offlineMode)
-                DiagnosticRow("High accuracy GPS", if (highAccuracyGps) "Enabled" else "Disabled", highAccuracyGps)
+                DiagnosticRow(
+                    "High accuracy GPS",
+                    if (highAccuracyGps) "Enabled" else "Disabled",
+                    highAccuracyGps
+                )
             }
 
             Button(
                 onClick = {
                     networkStatus = readNetworkStatus(context)
+                    mlViewModel.refresh()
                     viewModel.triggerManualSync()
                 },
                 enabled = !isSyncing,
@@ -125,7 +222,10 @@ private fun DiagnosticSection(title: String, content: @Composable ColumnScope.()
             colors = CardDefaults.cardColors(containerColor = BackgroundCard),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 content()
             }
         }

@@ -54,8 +54,14 @@ interface TrainingLabelDao {
     @Query("SELECT COUNT(*) FROM training_labels")
     fun observeCount(): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM training_labels")
+    suspend fun countAll(): Int
+
     @Query("SELECT COUNT(*) FROM training_labels WHERE exportedAt IS NULL")
     suspend fun countUnexported(): Int
+
+    @Query("SELECT * FROM training_labels ORDER BY createdAt DESC LIMIT :limit")
+    suspend fun getAll(limit: Int = 5000): List<TrainingLabel>
 }
 
 /** Projection for [TrainingLabelDao.countByLabel]. */
