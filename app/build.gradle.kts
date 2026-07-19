@@ -163,4 +163,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:gotrue-kt:2.5.4")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:2.5.4")
     implementation("io.github.jan-tennert.supabase:storage-kt:2.5.4")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

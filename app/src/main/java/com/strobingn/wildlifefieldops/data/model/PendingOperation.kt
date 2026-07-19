@@ -27,5 +27,17 @@ enum class OperationType {
 }
 
 enum class EntityType {
-    JOB, CUSTOMER, INSPECTION, PHOTO, INVOICE, EXPENSE, INVENTORY, REPAIR, TRAP_LOG
+    JOB,
+    CUSTOMER,
+    INSPECTION,
+    PHOTO,
+    INVOICE,
+    EXPENSE,
+    INVENTORY,
+    REPAIR,
+    TRAP_LOG,
+    /** ML P0 — local-first; cloud sync optional later. */
+    VISION_PREDICTION,
+    TRAINING_LABEL,
+    CAPTURE_SESSION
 }

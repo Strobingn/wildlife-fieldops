@@ -24,5 +24,11 @@ data class Photo(
     val fileSize: Long = 0,
     val isUploaded: Boolean = false,
     val uploadError: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Optional link to multimodal Field Capture session (Room v4). */
+    val captureSessionId: String? = null,
+    val visionAnalyzedAt: Long? = null,
+    val primarySpeciesLabelId: String = "",
+    val primaryDamageLabelId: String = "",
+    val visionSummaryJson: String = "{}"
 )

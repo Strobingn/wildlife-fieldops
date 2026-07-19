@@ -22,7 +22,10 @@ object AppModule {
             AppDatabase::class.java,
             "wildlife_fieldops.db"
         )
-            .addMigrations(AppDatabase.MIGRATION_2_3)
+            .addMigrations(
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4
+            )
             .build()
     }
 
@@ -61,4 +64,13 @@ object AppModule {
 
     @Provides
     fun providePendingOperationDao(database: AppDatabase) = database.pendingOperationDao()
+
+    @Provides
+    fun provideVisionPredictionDao(database: AppDatabase) = database.visionPredictionDao()
+
+    @Provides
+    fun provideTrainingLabelDao(database: AppDatabase) = database.trainingLabelDao()
+
+    @Provides
+    fun provideCaptureSessionDao(database: AppDatabase) = database.captureSessionDao()
 }
