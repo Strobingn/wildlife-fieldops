@@ -37,6 +37,7 @@ fun DashboardScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAI: () -> Unit,
+    onNavigateToFieldCapture: () -> Unit = {},
     onOpenDrawer: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
@@ -62,13 +63,22 @@ fun DashboardScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNavigateToJobForm,
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("New job") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SmallFloatingActionButton(
+                    onClick = onNavigateToFieldCapture,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Icon(Icons.Default.AddAPhoto, contentDescription = "Field Capture")
+                }
+                ExtendedFloatingActionButton(
+                    onClick = onNavigateToJobForm,
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { Text("New job") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
@@ -93,6 +103,43 @@ fun DashboardScreen(
                     QuickAction("Inspections", Icons.Default.FactCheck, onNavigateToInspections, Modifier.weight(1f))
                     QuickAction("Schedule", Icons.Default.CalendarMonth, onNavigateToSchedule, Modifier.weight(1f))
                     QuickAction("Map", Icons.Default.Map, onNavigateToMap, Modifier.weight(1f))
+                }
+            }
+            item {
+                Card(
+                    onClick = onNavigateToFieldCapture,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AddAPhoto,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Field Capture",
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                "Voice + photos + GPS → fused job draft",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                            )
+                        }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                 }
             }
             item {

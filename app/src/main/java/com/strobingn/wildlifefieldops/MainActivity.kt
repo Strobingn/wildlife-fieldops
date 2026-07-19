@@ -204,8 +204,39 @@ private fun AppNavHost(
                 onNavigateToMap = { navController.navigate(Screen.Map.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
                 onNavigateToAI = { navController.navigate(Screen.AIAssistant.route) },
+                onNavigateToFieldCapture = {
+                    navController.navigate(Screen.FieldCapture.createRoute())
+                },
                 onOpenDrawer = onOpenDrawer
             )
+        }
+
+        val openFieldCapture: @Composable (String?) -> Unit = { sessionId ->
+            FieldCaptureScreen(
+                sessionId = sessionId,
+                onBack = { navController.popBackStack() },
+                onCommittedJob = { jobId ->
+                    navController.navigate(Screen.JobDetail.createRoute(jobId)) {
+                        popUpTo(Screen.Dashboard.route) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+        composable(Screen.FieldCapture.route) {
+            openFieldCapture(null)
+        }
+        composable(
+            route = Screen.FieldCapture.ROUTE_WITH_SESSION,
+            arguments = listOf(
+                navArgument("sessionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            openFieldCapture(backStackEntry.arguments?.getString("sessionId"))
         }
 
         composable(Screen.JobList.route) {

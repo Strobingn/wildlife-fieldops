@@ -65,6 +65,14 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     object VoiceDictation : Screen("voice_dictation", "Voice Dictation", Icons.Default.Mic)
     object MlKitCamera : Screen("mlkit_camera", "AI Camera", Icons.Default.CameraAlt)
 
+    /** Base route is arg-free so drawer navigation works (no `{sessionId}` literal). */
+    object FieldCapture : Screen("field_capture", "Field Capture", Icons.Default.AddAPhoto) {
+        const val ROUTE_WITH_SESSION = "field_capture?sessionId={sessionId}"
+        fun createRoute(sessionId: String? = null): String =
+            if (sessionId.isNullOrBlank()) route
+            else "field_capture?sessionId=$sessionId"
+    }
+
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
         val drawerItems = listOf(
@@ -74,6 +82,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             Expense,
             Inventory,
             RouteOptimizer,
+            FieldCapture,
             InspectionScheduler,
             SyncQueue,
             VoiceJob,
