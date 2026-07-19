@@ -113,6 +113,14 @@ fun JobDetailScreen(
                     }
                 }
 
+                // House location mini-map (Maps Compose)
+                JobLocationMapCard(
+                    address = currentJob.address,
+                    latitude = currentJob.latitude,
+                    longitude = currentJob.longitude,
+                    customerLabel = currentJob.customerName
+                )
+
                 // Job Details
                 InfoCard(title = "Job Details") {
                     InfoRow(Icons.Default.Description, currentJob.description.ifBlank { "No description" })
