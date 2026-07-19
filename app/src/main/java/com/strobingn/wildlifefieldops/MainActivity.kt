@@ -3,6 +3,7 @@ package com.strobingn.wildlifefieldops
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +45,20 @@ class MainActivity : AppCompatActivity() {
         permissions.entries.forEach { (permission, granted) ->
             android.util.Log.d("Permissions", "$permission: $granted")
         }
+    }
+
+    /**
+     * Workaround for a Jetpack Compose framework crash:
+     * "IllegalStateException: The ACTION_HOVER_EXIT event was not cleared"
+     * (AndroidComposeView.sendHoverExitEvent). It fires when a mouse/stylus hover
+     * sequence is interrupted — e.g. the pointer leaves a Compose element that was
+     * just removed, or crosses the Compose/AndroidView boundary of an embedded
+     * Google Map. Consuming hover-exit here keeps the Compose view off the broken
+     * code path; hover enter/move still work, and touch input is unaffected.
+     */
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_HOVER_EXIT) return true
+        return super.dispatchGenericMotionEvent(event)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

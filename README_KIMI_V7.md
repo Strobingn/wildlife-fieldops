@@ -6,6 +6,7 @@ This document breaks down the full audit of the `ChatGPTv6` branch and every fix
 
 - **Round 1** (`dc04548`): audit + 30 runtime/logic fixes across 28 files.
 - **Round 2**: closed the remaining feature gaps (offline sync queue, voice dictation entry point) and cleared all 39 `DefaultLocale` lint warnings.
+- **Round 3**: workaround for the Compose framework crash `IllegalStateException: The ACTION_HOVER_EXIT event was not cleared` (`AndroidComposeView.sendHoverExitEvent`), seen in device logcat when a mouse/stylus hover sequence is interrupted (e.g. crossing the Compose ↔ embedded Google Map boundary). `MainActivity.dispatchGenericMotionEvent` now consumes hover-exit events before they reach the broken Compose code path; hover enter/move and all touch input are unaffected. The permanent fix is a Compose BOM upgrade — deferred, since it cascades through the whole UI stack and needs device testing.
 
 ## How the audit was run
 
