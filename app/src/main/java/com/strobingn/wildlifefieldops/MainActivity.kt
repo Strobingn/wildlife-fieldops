@@ -227,7 +227,12 @@ private fun AppNavHost(
                 onNavigateToEdit = { id -> navController.navigate(Screen.JobForm.createRoute(id)) },
                 onNavigateToInvoice = { navController.navigate(Screen.Invoice.createRoute(jobId)) },
                 onNavigateToEstimate = { navController.navigate(Screen.Estimate.createRoute(jobId)) },
-                onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
+                onNavigateToInspectionForm = { linkedJobId ->
+                    navController.navigate(Screen.InspectionForm.createRoute(jobId = linkedJobId))
+                },
+                onNavigateToContract = { id ->
+                    navController.navigate(Screen.Contract.createRoute(id))
+                },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -265,11 +270,24 @@ private fun AppNavHost(
 
         composable(
             route = Screen.InspectionForm.route,
-            arguments = listOf(navArgument("inspectionId") { type = NavType.StringType; nullable = true; defaultValue = null })
+            arguments = listOf(
+                navArgument("inspectionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("jobId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val inspectionId = backStackEntry.arguments?.getString("inspectionId")
+            val linkedJobId = backStackEntry.arguments?.getString("jobId").orEmpty()
             InspectionFormScreen(
                 inspectionId = inspectionId,
+                prefilledJobId = linkedJobId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -282,19 +300,26 @@ private fun AppNavHost(
             )
         }
 
-        composable("inspection_scheduler") {
+        composable(Screen.InspectionScheduler.route) {
             InspectionSchedulerScreen(
-                onNavigateToInspectionForm = { navController.navigate(Screen.InspectionForm.createRoute()) },
-                onNavigateToInspectionDetail = { id -> navController.navigate(Screen.InspectionDetail.createRoute(id)) },
+                onNavigateToInspectionForm = { id ->
+                    navController.navigate(Screen.InspectionForm.createRoute(inspectionId = id))
+                },
+                onNavigateToInspectionDetail = { id ->
+                    navController.navigate(Screen.InspectionDetail.createRoute(id))
+                },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("sync_queue") {
+        composable(Screen.SyncQueue.route) {
             SyncQueueScreen(onBack = { navController.popBackStack() })
         }
 
-        composable("contract/{jobId}") { backStackEntry ->
+        composable(
+            route = Screen.Contract.route,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId")
             ContractScreen(
                 jobId = jobId,
@@ -302,21 +327,18 @@ private fun AppNavHost(
             )
         }
 
-        composable("voice_dictation") {
+        composable(Screen.VoiceDictation.route) {
             VoiceDictationScreen(
-                onTranscriptionReady = { text ->
-                    // Could navigate back with result or save to clipboard
+                onTranscriptionReady = { _ ->
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
             )
         }
 
-        composable("mlkit_camera") {
+        composable(Screen.MlKitCamera.route) {
             MLKitCameraScreen(
-                onPhotoCaptured = { photoPath, labels, objects ->
-                    // Handle captured photo with AI labels
-                },
+                onPhotoCaptured = { _, _, _ -> },
                 onBack = { navController.popBackStack() }
             )
         }
@@ -571,7 +593,7 @@ private fun AppDrawer(
             )
 
             Text(
-                "v2.0.1 · Modern UI",
+                "v${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp)

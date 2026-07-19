@@ -29,6 +29,7 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
     val isSyncing by viewModel.isSyncing.collectAsState()
     val syncMessage by viewModel.syncMessage.collectAsState()
     val connectionStatus by viewModel.connectionStatus.collectAsState()
+    val darkTheme by viewModel.darkTheme.collectAsState(initial = ThemeController.isDark)
     val autoSync by viewModel.autoSync.collectAsState(initial = true)
     val offlineMode by viewModel.offlineMode.collectAsState(initial = false)
     val highAccuracyGps by viewModel.highAccuracyGps.collectAsState(initial = true)
@@ -60,8 +61,8 @@ fun SettingsScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewMo
                     Icons.Default.DarkMode,
                     "Dark theme",
                     "Switch between dark and light app appearance",
-                    ThemeController.isDark,
-                    ThemeController::setDark
+                    darkTheme,
+                    viewModel::setDarkTheme
                 )
             }
 

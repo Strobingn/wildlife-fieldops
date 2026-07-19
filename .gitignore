@@ -1,8 +1,40 @@
+# Dependencies / generated
 node_modules/
 android/
 dist/
 .DS_Store
 *.log
+compile-audit.log
+
+# Secrets & local machine config
 .env
+.env.*
+!.env.example
 .env.kimi
+local.properties
+*.pem
+*.key
+*.jks
+*.keystore
+
+# Gradle / Android build
 .gradle/
+**/build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+Desktop.ini

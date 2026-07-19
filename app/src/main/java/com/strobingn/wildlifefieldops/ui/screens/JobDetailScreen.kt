@@ -34,6 +34,7 @@ fun JobDetailScreen(
     onNavigateToInvoice: (String) -> Unit,
     onNavigateToEstimate: (String) -> Unit,
     onNavigateToInspectionForm: (String) -> Unit,
+    onNavigateToContract: (String) -> Unit = {},
     onBack: () -> Unit,
     viewModel: JobsViewModel = hiltViewModel(),
     jobAiViewModel: JobAiViewModel = hiltViewModel()
@@ -242,6 +243,15 @@ fun JobDetailScreen(
                         color = AccentCyan,
                         modifier = Modifier.weight(1f),
                         onClick = { onNavigateToInspectionForm(currentJob.id) }
+                    )
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ActionButton(
+                        label = "Contract",
+                        icon = Icons.Default.Description,
+                        color = AccentPurple,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onNavigateToContract(currentJob.id) }
                     )
                 }
 

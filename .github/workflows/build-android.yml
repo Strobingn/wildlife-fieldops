@@ -7,6 +7,7 @@ on:
       - WildlifeFieldApp
       - app-fixed-by-chatgptV4
       - ChatGPTv6
+      - fix/chatgptv6-audit
       - feature/build-32-diagnostics
       - feature/build-33-ai-operations
   pull_request:

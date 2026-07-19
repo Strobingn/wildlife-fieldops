@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import com.strobingn.wildlifefieldops.data.preferences.AppSettingsKeys
 import com.strobingn.wildlifefieldops.data.preferences.settingsDataStore
 import com.strobingn.wildlifefieldops.data.sync.SyncWorker
+import com.strobingn.wildlifefieldops.ui.theme.ThemeController
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +46,18 @@ class WildlifeFieldOpsApp : Application(), Configuration.Provider {
         Log.i("WildlifeFieldOps", "App starting v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
 
         appScope.launch {
+            restoreThemePreference()
             configurePeriodicSync()
+        }
+    }
+
+    private suspend fun restoreThemePreference() {
+        try {
+            val preferences = settingsDataStore.data.first()
+            val dark = preferences[AppSettingsKeys.DARK_THEME] ?: true
+            ThemeController.setDark(dark)
+        } catch (t: Throwable) {
+            Log.w("WildlifeFieldOps", "Could not restore theme preference", t)
         }
     }
 
