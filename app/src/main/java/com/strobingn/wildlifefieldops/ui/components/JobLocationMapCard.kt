@@ -113,14 +113,28 @@ fun JobLocationMapCard(
         }
     }
 
+    // Default camera; updated when point resolves. Do NOT call CameraUpdateFactory
+    // until the Maps SDK has initialized (see onMapLoaded) — that NPE crashes Job Detail.
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(41.45, -74.05), 12f)
     }
+    var mapLoaded by remember { mutableStateOf(false) }
 
+    // Safe: assigning CameraPosition does not require CameraUpdateFactory.
     LaunchedEffect(resolvedPoint, expanded) {
         val point = resolvedPoint ?: return@LaunchedEffect
         val zoom = if (expanded) 17.5f else 16.5f
-        cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(point, zoom))
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(point, zoom)
+    }
+
+    // Optional smooth animate only after GoogleMap reports loaded (SDK ready).
+    LaunchedEffect(resolvedPoint, expanded, mapLoaded) {
+        if (!mapLoaded) return@LaunchedEffect
+        val point = resolvedPoint ?: return@LaunchedEffect
+        val zoom = if (expanded) 17.5f else 16.5f
+        runCatching {
+            cameraPositionState.animate(CameraUpdateFactory.newLatLngZoom(point, zoom))
+        }
     }
 
     Card(
@@ -189,6 +203,9 @@ fun JobLocationMapCard(
                                 .clip(RoundedCornerShape(10.dp))
                                 .clickable { expanded = !expanded }
                         ) {
+                            val markerState = remember(point.latitude, point.longitude) {
+                                MarkerState(position = point)
+                            }
                             GoogleMap(
                                 modifier = Modifier.fillMaxSize(),
                                 cameraPositionState = cameraPositionState,
@@ -206,10 +223,11 @@ fun JobLocationMapCard(
                                     rotationGesturesEnabled = false,
                                     tiltGesturesEnabled = false
                                 ),
+                                onMapLoaded = { mapLoaded = true },
                                 onMapClick = { expanded = !expanded }
                             ) {
                                 Marker(
-                                    state = MarkerState(position = point),
+                                    state = markerState,
                                     title = customerLabel.ifBlank { "House" },
                                     snippet = address.ifBlank { null },
                                     icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)
