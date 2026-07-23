@@ -111,7 +111,7 @@ fun InspectionListScreen(
                             )
                         }
                     } else {
-                        itemsIndexed(inspections) { index, inspection ->
+                        itemsIndexed(inspections, key = { _, inspection -> inspection.id }) { index, inspection ->
                             FadeSlideIn(index = index) {
                                 InspectionListItem(
                                     inspection = inspection,

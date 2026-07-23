@@ -152,7 +152,7 @@ fun InspectionSchedulerScreen(
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(filteredInspections) { inspection ->
+                        items(filteredInspections, key = { it.id }) { inspection ->
                             InspectionCard(
                                 inspection = inspection,
                                 onClick = { onNavigateToInspectionDetail(inspection.id) },

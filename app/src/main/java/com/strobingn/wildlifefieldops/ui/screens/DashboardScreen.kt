@@ -145,7 +145,7 @@ fun DashboardScreen(
             if (recentJobs.isEmpty()) {
                 item { Text("No jobs yet", color = TextSecondary) }
             } else {
-                items(recentJobs) { job ->
+                items(recentJobs, key = { it.id }) { job ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = BackgroundCard),

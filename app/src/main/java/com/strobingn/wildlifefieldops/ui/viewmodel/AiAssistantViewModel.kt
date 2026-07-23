@@ -13,7 +13,8 @@ import javax.inject.Inject
 data class ChatMessage(
     val text: String,
     val isUser: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val id: String = java.util.UUID.randomUUID().toString()
 )
 
 @HiltViewModel

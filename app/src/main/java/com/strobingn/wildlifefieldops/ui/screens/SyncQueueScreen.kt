@@ -103,7 +103,7 @@ fun SyncQueueScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(operations) { operation ->
+                    items(operations, key = { it.id }) { operation ->
                         OperationCard(
                             operation = operation,
                             dateFormat = dateFormat,
