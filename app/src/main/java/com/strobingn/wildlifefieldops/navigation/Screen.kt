@@ -58,6 +58,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
     object Predictive : Screen("predictive", "Predictive", Icons.Default.AutoAwesome)
     object VoiceNotes : Screen("voice_notes", "Voice Notes", Icons.Default.Mic)
+    object WearStatus : Screen("wear", "Wear OS", Icons.Default.Watch)
 
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
@@ -72,6 +73,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             Analytics,
             Predictive,
             VoiceNotes,
+            WearStatus,
             AIAssistant,
             Settings
         )
