@@ -368,8 +368,11 @@ private fun AppNavHost(
         }
 
         composable(Screen.Predictive.route) {
-            // Placeholder – full predictive UI can be expanded later
-            AnalyticsScreen(onBack = { navController.popBackStack() })
+            PredictiveScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.VoiceNotes.route) {
+            VoiceNotesScreen(onBack = { navController.popBackStack() })
         }
 
         composable(
@@ -464,7 +467,7 @@ private fun AppDrawer(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BrandMark(size = 48)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             "Wildlife FieldOps",
@@ -531,7 +534,7 @@ private fun AppDrawer(
             )
 
             Text(
-                "v2.4 · Features branch",
+                "v2.5 · Features branch",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp)

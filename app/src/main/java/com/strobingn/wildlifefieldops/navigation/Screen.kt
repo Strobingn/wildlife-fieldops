@@ -57,6 +57,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun createRoute(jobId: String) = "ar_measure/$jobId"
     }
     object Predictive : Screen("predictive", "Predictive", Icons.Default.AutoAwesome)
+    object VoiceNotes : Screen("voice_notes", "Voice Notes", Icons.Default.Mic)
 
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
@@ -70,6 +71,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             Heatmap,
             Analytics,
             Predictive,
+            VoiceNotes,
             AIAssistant,
             Settings
         )
