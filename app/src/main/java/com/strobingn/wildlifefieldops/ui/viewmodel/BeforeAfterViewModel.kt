@@ -21,16 +21,8 @@ class BeforeAfterViewModel @Inject constructor(
 
     fun loadForJob(jobId: String) {
         viewModelScope.launch {
-            // Assumes PhotoDao has getByJobId or similar; falls back to all if needed
-            try {
-                photoDao.getByJobId(jobId).collect { list ->
-                    _photos.value = list
-                }
-            } catch (e: Exception) {
-                // Fallback for schemas without getByJobId
-                photoDao.getAll().collect { all ->
-                    _photos.value = all.filter { it.jobId == jobId }
-                }
+            photoDao.getByJob(jobId).collect { list ->
+                _photos.value = list
             }
         }
     }
