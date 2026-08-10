@@ -47,6 +47,17 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun createRoute(jobId: String) = "estimate/$jobId"
     }
 
+    // v2 features
+    object Analytics : Screen("analytics", "Analytics", Icons.Default.Analytics)
+    object Heatmap : Screen("heatmap", "Heatmap", Icons.Default.Whatshot)
+    object BeforeAfter : Screen("before_after/{jobId}", "Before / After") {
+        fun createRoute(jobId: String) = "before_after/$jobId"
+    }
+    object ARMeasure : Screen("ar_measure/{jobId}", "AR Measure") {
+        fun createRoute(jobId: String) = "ar_measure/$jobId"
+    }
+    object Predictive : Screen("predictive", "Predictive", Icons.Default.AutoAwesome)
+
     companion object {
         val bottomNavItems = listOf(Dashboard, JobList, InspectionList, Schedule, GPS)
         val drawerItems = listOf(
@@ -56,6 +67,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             Expense,
             Inventory,
             RouteOptimizer,
+            Heatmap,
+            Analytics,
+            Predictive,
             AIAssistant,
             Settings
         )
