@@ -56,8 +56,6 @@ class MainActivity : AppCompatActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        // Show UI first. Ask for location only after a short delay
-                        // (Samsung One UI / Android 15 can be strict about permission storms at cold start).
                         LaunchedEffect(Unit) {
                             kotlinx.coroutines.delay(800)
                             requestLaunchPermissions()
@@ -72,10 +70,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Only permissions needed to land on Home without scaring Android 14/15 privacy checks.
-     * Camera / media / notifications are requested later from the screens that need them.
-     */
     private fun requestLaunchPermissions() {
         val permissions = listOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -99,7 +93,6 @@ fun WildlifeFieldOpsNavHost() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Show bottom nav only on main screens
     val showBottomNav = currentRoute in Screen.bottomNavItems.map { it.route }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -107,22 +100,18 @@ fun WildlifeFieldOpsNavHost() {
     val drawerOpen = drawerState.currentValue == DrawerValue.Open ||
         drawerState.targetValue == DrawerValue.Open
 
-    // Always close the drawer when leaving main tabs — prevents stuck scrim
-    // if navigation runs before the close animation finishes.
     LaunchedEffect(showBottomNav) {
         if (!showBottomNav && drawerState.isOpen) {
             drawerState.close()
         }
     }
 
-    // System back closes the drawer first instead of trapping the user under the scrim.
     BackHandler(enabled = drawerOpen) {
         scope.launch { drawerState.close() }
     }
 
     fun navigateFromDrawer(route: String) {
         scope.launch {
-            // Wait for close so ModalNavigationDrawer clears the scrim before route change.
             drawerState.close()
             navController.navigate(route) {
                 popUpTo(Screen.Dashboard.route) { inclusive = false }
@@ -133,12 +122,9 @@ fun WildlifeFieldOpsNavHost() {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        // Allow open + close gestures on main tabs (not only while already open).
         gesturesEnabled = showBottomNav,
         scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f),
         drawerContent = {
-            // Always compose drawer content — an empty drawerContent while Open
-            // was leaving a permanent dim overlay with no sheet to dismiss.
             AppDrawer(
                 onNavigate = { route -> navigateFromDrawer(route) },
                 onClose = { scope.launch { drawerState.close() } }
@@ -146,8 +132,6 @@ fun WildlifeFieldOpsNavHost() {
         }
     ) {
         Scaffold(
-            // Screens own their headers — shell only provides chrome (drawer + bottom bar)
-            // so we avoid double top bars on Home/Jobs/etc.
             topBar = {},
             bottomBar = {
                 if (showBottomNav) {
@@ -373,6 +357,42 @@ private fun AppNavHost(
                 onBack = { navController.popBackStack() }
             )
         }
+
+        // ===== v2 FEATURES =====
+        composable(Screen.Heatmap.route) {
+            HeatmapScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.Analytics.route) {
+            AnalyticsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.Predictive.route) {
+            // Placeholder – full predictive UI can be expanded later
+            AnalyticsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Screen.BeforeAfter.route,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            BeforeAfterScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ARMeasure.route,
+            arguments = listOf(navArgument("jobId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
+            ARMeasureScreen(
+                jobId = jobId,
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -423,7 +443,6 @@ private fun AppDrawer(
     ModalDrawerSheet(
         drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         drawerContentColor = MaterialTheme.colorScheme.onSurface,
-        // Fixed width so the sheet never covers the full screen (scrim stays tappable).
         modifier = Modifier
             .fillMaxHeight()
             .width(300.dp)
@@ -433,7 +452,6 @@ private fun AppDrawer(
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Brand header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -513,7 +531,7 @@ private fun AppDrawer(
             )
 
             Text(
-                "v2.0.1 · Modern UI",
+                "v2.4 · Features branch",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp)
