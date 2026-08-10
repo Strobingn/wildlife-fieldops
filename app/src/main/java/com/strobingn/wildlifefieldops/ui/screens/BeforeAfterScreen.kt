@@ -31,6 +31,13 @@ fun BeforeAfterScreen(
 
     LaunchedEffect(jobId) { viewModel.loadForJob(jobId) }
 
+    fun photoSource(p: com.strobingn.wildlifefieldops.data.model.Photo?): Any? {
+        if (p == null) return null
+        return p.remoteUrl.takeIf { it.isNotBlank() }
+            ?: p.localPath.takeIf { it.isNotBlank() }
+            ?: p.filePath.takeIf { it.isNotBlank() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -53,13 +60,13 @@ fun BeforeAfterScreen(
             } else {
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                     AsyncImage(
-                        model = photos.getOrNull(afterIdx)?.uri ?: photos.getOrNull(afterIdx)?.path,
+                        model = photoSource(photos.getOrNull(afterIdx)),
                         contentDescription = "After",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
                     AsyncImage(
-                        model = photos.getOrNull(beforeIdx)?.uri ?: photos.getOrNull(beforeIdx)?.path,
+                        model = photoSource(photos.getOrNull(beforeIdx)),
                         contentDescription = "Before",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
