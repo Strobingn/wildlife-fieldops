@@ -66,7 +66,7 @@ class RouteOptimizerViewModel @Inject constructor(
     private fun priorityScore(job: Job): Float = when (job.priority) {
         JobPriority.URGENT -> 0f
         JobPriority.HIGH -> 800f
-        JobPriority.NORMAL -> 2500f
+        JobPriority.MEDIUM -> 2500f
         JobPriority.LOW -> 5000f
     }
 
