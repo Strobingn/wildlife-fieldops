@@ -30,7 +30,7 @@ class AnalyticsViewModel @Inject constructor(
         val completed = jobs.count { it.status == JobStatus.COMPLETED || it.status == JobStatus.PAID }
         val open = jobs.count { it.status != JobStatus.COMPLETED && it.status != JobStatus.PAID && it.status != JobStatus.CANCELLED }
         val byType = jobs.groupingBy { it.type.ifBlank { "Other" } }.eachCount()
-        val revenue = invoices.sumOf { it.total ?: 0.0 }
+        val revenue = invoices.sumOf { it.totalAmount }
 
         AnalyticsSnapshot(
             totalJobs = jobs.size,
