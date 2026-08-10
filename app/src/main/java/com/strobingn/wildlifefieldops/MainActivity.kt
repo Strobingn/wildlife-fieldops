@@ -375,6 +375,10 @@ private fun AppNavHost(
             VoiceNotesScreen(onBack = { navController.popBackStack() })
         }
 
+        composable(Screen.WearStatus.route) {
+            WearStatusScreen(onBack = { navController.popBackStack() })
+        }
+
         composable(
             route = Screen.BeforeAfter.route,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
