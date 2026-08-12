@@ -27,6 +27,11 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Setup Gradle and cache wrapper distributions
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -68,14 +73,38 @@ jobs:
           echo "LLM_API_KEY length: ${#LLM_API_KEY}"
 
       - name: Clean generated KSP and build state
-        run: ./gradlew clean --no-daemon --stacktrace
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            if ./gradlew clean --no-daemon --stacktrace; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Gradle clean failed after 4 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Gradle download/setup failed on attempt $attempt; retrying shortly."
+            sleep "$delay"
+          done
 
       - name: Build Debug APK
         run: |
-          set -o pipefail
+          set -euo pipefail
           export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
           export JAVA_OPTS="-Xmx4g"
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
+          for attempt in 1 2 3; do
+            if ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Android build failed after 3 attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Build attempt $attempt failed; retrying shortly."
+            sleep "$delay"
+          done
         timeout-minutes: 45
 
       - name: Check for APK and list outputs
