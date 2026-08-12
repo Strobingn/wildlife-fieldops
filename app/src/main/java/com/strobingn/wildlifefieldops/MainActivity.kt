@@ -277,6 +277,7 @@ private fun AppNavHost(
             ScheduleScreen(
                 onNavigateToJobDetail = { id -> navController.navigate(Screen.JobDetail.createRoute(id)) },
                 onNavigateToJobForm = { navController.navigate(Screen.JobForm.createRoute()) },
+                onNavigateToInspectionDetail = { id -> navController.navigate(Screen.InspectionDetail.createRoute(id)) },
                 onBack = { navController.popBackStack() }
             )
         }
