@@ -1,5 +1,6 @@
 package com.strobingn.wildlifefieldops.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.strobingn.wildlifefieldops.data.model.*
 import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.InspectionsViewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,8 +45,21 @@ fun InspectionFormScreen(
     var followUpRequired by remember { mutableStateOf(false) }
     var weatherConditions by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var inspectionDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var followUpDateMillis by remember { mutableStateOf<Long?>(null) }
     var showTypeDropdown by remember { mutableStateOf(false) }
     var showSeverityDropdown by remember { mutableStateOf(false) }
+
+    // Date/time picker state
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var pickingFollowUp by remember { mutableStateOf(false) }
+    var pendingDateMillis by remember { mutableStateOf<Long?>(null) }
+
+    val dateFormatter = remember {
+        SimpleDateFormat("EEE, MMM d, yyyy  h:mm a", Locale.getDefault())
+    }
+
     val existing by viewModel.getInspectionById(inspectionId.orEmpty())
         .collectAsState(initial = null)
 
@@ -59,6 +77,87 @@ fun InspectionFormScreen(
         followUpRequired = insp.followUpRequired
         weatherConditions = insp.weatherConditions
         notes = insp.notes
+        inspectionDateMillis = insp.inspectionDate
+        followUpDateMillis = insp.followUpDate
+    }
+
+    // DatePicker
+    if (showDatePicker) {
+        val initial = if (pickingFollowUp) {
+            followUpDateMillis ?: (System.currentTimeMillis() + 7 * 86400000L)
+        } else {
+            inspectionDateMillis
+        }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initial)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selected = datePickerState.selectedDateMillis
+                    if (selected != null) {
+                        pendingDateMillis = selected
+                        showDatePicker = false
+                        showTimePicker = true
+                    } else {
+                        showDatePicker = false
+                    }
+                }) { Text("Next") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // TimePicker
+    if (showTimePicker) {
+        val base = pendingDateMillis ?: System.currentTimeMillis()
+        val initialCal = Calendar.getInstance().apply { timeInMillis = base }
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialCal.get(Calendar.HOUR_OF_DAY),
+            initialMinute = initialCal.get(Calendar.MINUTE),
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text(if (pickingFollowUp) "Follow-up time" else "Inspection time") },
+            text = {
+                Box(Modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cal = Calendar.getInstance().apply {
+                        timeInMillis = base
+                        set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        set(Calendar.MINUTE, timePickerState.minute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    if (pickingFollowUp) {
+                        followUpDateMillis = cal.timeInMillis
+                        followUpRequired = true
+                    } else {
+                        inspectionDateMillis = cal.timeInMillis
+                    }
+                    pendingDateMillis = null
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    if (pickingFollowUp) {
+                        followUpDateMillis = null
+                        followUpRequired = false
+                    }
+                    pendingDateMillis = null
+                    showTimePicker = false
+                }) { Text(if (pickingFollowUp) "Clear" else "Cancel") }
+            }
+        )
     }
 
     Scaffold(
@@ -109,6 +208,27 @@ fun InspectionFormScreen(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
+            )
+
+            // Inspection Date & Time
+            OutlinedTextField(
+                value = dateFormatter.format(Date(inspectionDateMillis)),
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Inspection Date & Time") },
+                leadingIcon = { Icon(Icons.Default.Event, contentDescription = null, tint = TextSecondary) },
+                trailingIcon = {
+                    Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = TextSecondary)
+                },
+                colors = fieldColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        pickingFollowUp = false
+                        showDatePicker = true
+                    },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
             )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,8 +373,48 @@ fun InspectionFormScreen(
                 Text("Follow-up Required", color = TextPrimary)
                 Switch(
                     checked = followUpRequired,
-                    onCheckedChange = { followUpRequired = it },
+                    onCheckedChange = {
+                        followUpRequired = it
+                        if (it && followUpDateMillis == null) {
+                            // Default follow-up to 7 days from inspection date
+                            followUpDateMillis = inspectionDateMillis + 7 * 86400000L
+                        }
+                        if (!it) followUpDateMillis = null
+                    },
                     colors = SwitchDefaults.colors(checkedThumbColor = PrimaryGreen, checkedTrackColor = PrimaryGreen.copy(alpha = 0.5f))
+                )
+            }
+
+            // Follow-up Date (only when required)
+            if (followUpRequired) {
+                OutlinedTextField(
+                    value = followUpDateMillis?.let { dateFormatter.format(Date(it)) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Follow-up Date & Time") },
+                    placeholder = { Text("Tap to select") },
+                    leadingIcon = { Icon(Icons.Default.EventRepeat, contentDescription = null, tint = TextSecondary) },
+                    trailingIcon = {
+                        if (followUpDateMillis != null) {
+                            IconButton(onClick = {
+                                followUpDateMillis = null
+                                followUpRequired = false
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextSecondary)
+                            }
+                        } else {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = TextSecondary)
+                        }
+                    },
+                    colors = fieldColors(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            pickingFollowUp = true
+                            showDatePicker = true
+                        },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
             }
 
@@ -269,6 +429,7 @@ fun InspectionFormScreen(
                                 customerName = customerName,
                                 inspectorName = inspectorName,
                                 inspectionType = selectedType,
+                                inspectionDate = inspectionDateMillis,
                                 findings = findings,
                                 recommendations = recommendations,
                                 severity = selectedSeverity,
@@ -276,9 +437,7 @@ fun InspectionFormScreen(
                                 entryPoints = entryPoints,
                                 damageAssessment = damageAssessment,
                                 followUpRequired = followUpRequired,
-                                followUpDate = if (followUpRequired) {
-                                    base.followUpDate ?: (System.currentTimeMillis() + 7 * 86400000L)
-                                } else null,
+                                followUpDate = if (followUpRequired) followUpDateMillis else null,
                                 weatherConditions = weatherConditions,
                                 notes = notes,
                                 isSynced = false
@@ -298,9 +457,10 @@ fun InspectionFormScreen(
                             entryPoints = entryPoints,
                             damageAssessment = damageAssessment,
                             followUpRequired = followUpRequired,
-                            followUpDate = if (followUpRequired) System.currentTimeMillis() + 7 * 86400000L else null,
+                            followUpDate = if (followUpRequired) followUpDateMillis else null,
                             weatherConditions = weatherConditions,
-                            notes = notes
+                            notes = notes,
+                            inspectionDate = inspectionDateMillis
                         )
                     }
                     onBack()

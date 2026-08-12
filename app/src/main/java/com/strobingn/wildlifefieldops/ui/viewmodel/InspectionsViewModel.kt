@@ -83,7 +83,8 @@ class InspectionsViewModel @Inject constructor(
         followUpRequired: Boolean,
         followUpDate: Long?,
         weatherConditions: String,
-        notes: String
+        notes: String,
+        inspectionDate: Long = System.currentTimeMillis()
     ) = viewModelScope.launch {
         val inspection = Inspection(
             jobId = jobId,
@@ -91,6 +92,7 @@ class InspectionsViewModel @Inject constructor(
             customerName = customerName,
             inspectorName = inspectorName,
             inspectionType = inspectionType,
+            inspectionDate = inspectionDate,
             findings = findings,
             recommendations = recommendations,
             severity = severity,

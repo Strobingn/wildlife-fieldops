@@ -2,8 +2,10 @@ package com.strobingn.wildlifefieldops.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.strobingn.wildlifefieldops.data.local.InspectionDao
 import com.strobingn.wildlifefieldops.data.local.JobDao
 import com.strobingn.wildlifefieldops.data.local.ReminderDao
+import com.strobingn.wildlifefieldops.data.model.Inspection
 import com.strobingn.wildlifefieldops.data.model.Job
 import com.strobingn.wildlifefieldops.data.model.Reminder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,12 +17,14 @@ import javax.inject.Inject
 data class DaySchedule(
     val date: Long,
     val jobs: List<Job>,
+    val inspections: List<Inspection>,
     val reminders: List<Reminder>
 )
 
 @HiltViewModel
 class ScheduleViewModel @Inject constructor(
     private val jobDao: JobDao,
+    private val inspectionDao: InspectionDao,
     private val reminderDao: ReminderDao
 ) : ViewModel() {
 
@@ -28,6 +32,9 @@ class ScheduleViewModel @Inject constructor(
     val selectedDate = _selectedDate.asStateFlow()
 
     val allJobs = jobDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allInspections = inspectionDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allReminders = reminderDao.getAll()
