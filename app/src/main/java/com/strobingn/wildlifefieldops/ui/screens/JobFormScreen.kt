@@ -3,6 +3,7 @@ package com.strobingn.wildlifefieldops.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +29,10 @@ import com.strobingn.wildlifefieldops.ui.theme.*
 import com.strobingn.wildlifefieldops.ui.viewmodel.JobsViewModel
 import com.strobingn.wildlifefieldops.ui.viewmodel.ServiceTypesViewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +58,7 @@ fun JobFormScreen(
     var actualCost by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var species by remember { mutableStateOf("") }
+    var scheduledDateMillis by remember { mutableStateOf<Long?>(null) }
     var showTypeDropdown by remember { mutableStateOf(false) }
     var showPriorityDropdown by remember { mutableStateOf(false) }
     var showAddServiceDialog by remember { mutableStateOf(false) }
@@ -64,6 +70,15 @@ fun JobFormScreen(
     var isAnalyzing by remember { mutableStateOf(false) }
     var selectedPhoto by remember { mutableStateOf<Uri?>(null) }
     var aiStatus by remember { mutableStateOf("") }
+
+    // Date / Time picker state
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    var pendingDateMillis by remember { mutableStateOf<Long?>(null) }
+
+    val dateFormatter = remember {
+        SimpleDateFormat("EEE, MMM d, yyyy  h:mm a", Locale.getDefault())
+    }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -116,8 +131,80 @@ fun JobFormScreen(
             estimatedValue = if (job.estimatedValue > 0) job.estimatedValue.toString() else ""
             actualCost = if (job.actualCost > 0) job.actualCost.toString() else ""
             notes = job.notes
+            scheduledDateMillis = job.scheduledDate
         }
         loaded = true
+    }
+
+    // DatePicker dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = scheduledDateMillis ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selected = datePickerState.selectedDateMillis
+                    if (selected != null) {
+                        pendingDateMillis = selected
+                        showDatePicker = false
+                        showTimePicker = true
+                    } else {
+                        showDatePicker = false
+                    }
+                }) { Text("Next") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // TimePicker dialog
+    if (showTimePicker) {
+        val initialCal = Calendar.getInstance().apply {
+            timeInMillis = pendingDateMillis ?: scheduledDateMillis ?: System.currentTimeMillis()
+        }
+        val timePickerState = rememberTimePickerState(
+            initialHour = initialCal.get(Calendar.HOUR_OF_DAY),
+            initialMinute = initialCal.get(Calendar.MINUTE),
+            is24Hour = false
+        )
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            title = { Text("Select time") },
+            text = {
+                Box(Modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val base = pendingDateMillis ?: scheduledDateMillis ?: System.currentTimeMillis()
+                    val cal = Calendar.getInstance().apply {
+                        timeInMillis = base
+                        set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        set(Calendar.MINUTE, timePickerState.minute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    scheduledDateMillis = cal.timeInMillis
+                    pendingDateMillis = null
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    // Allow clearing the date
+                    scheduledDateMillis = null
+                    pendingDateMillis = null
+                    showTimePicker = false
+                }) { Text("Clear") }
+            }
+        )
     }
 
     Scaffold(
@@ -183,6 +270,32 @@ fun JobFormScreen(
             FormField(customerName, { customerName = it }, "Customer Name", Icons.Default.Person)
             FormField(address, { address = it }, "Address", Icons.Default.LocationOn, KeyboardCapitalization.Words)
             FormField(species, { species = it }, "Species / evidence", Icons.Default.Pets, modifier = Modifier.testTag("species_field"))
+
+            // Scheduled Date & Time picker field
+            OutlinedTextField(
+                value = scheduledDateMillis?.let { dateFormatter.format(Date(it)) } ?: "",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Scheduled Date & Time") },
+                placeholder = { Text("Tap to select date & time") },
+                leadingIcon = { Icon(Icons.Default.Event, contentDescription = null, tint = TextSecondary) },
+                trailingIcon = {
+                    if (scheduledDateMillis != null) {
+                        IconButton(onClick = { scheduledDateMillis = null }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear date", tint = TextSecondary)
+                        }
+                    } else {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = TextSecondary)
+                    }
+                },
+                colors = jobFieldColors(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true }
+                    .testTag("scheduled_date_field"),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExposedDropdownMenuBox(showTypeDropdown, { showTypeDropdown = it }, Modifier.weight(1f)) {
@@ -251,7 +364,8 @@ fun JobFormScreen(
                             selectedPriority,
                             value,
                             actualCostValue,
-                            notes.trim()
+                            notes.trim(),
+                            scheduledDateMillis
                         )
                     } else {
                         viewModel.createJob(
@@ -263,7 +377,7 @@ fun JobFormScreen(
                             DefaultServiceTypes.display(selectedType),
                             selectedPriority,
                             value,
-                            null,
+                            scheduledDateMillis,
                             notes.trim()
                         )
                     }
