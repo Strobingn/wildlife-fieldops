@@ -93,18 +93,7 @@ jobs:
           set -euo pipefail
           export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -Dorg.gradle.daemon=false"
           export JAVA_OPTS="-Xmx4g"
-          for attempt in 1 2 3; do
-            if ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log; then
-              break
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::Android build failed after 3 attempts."
-              exit 1
-            fi
-            delay=$((attempt * 15))
-            echo "::warning::Build attempt $attempt failed; retrying shortly."
-            sleep "$delay"
-          done
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info -x test -x lint 2>&1 | tee build.log
         timeout-minutes: 45
 
       - name: Check for APK and list outputs

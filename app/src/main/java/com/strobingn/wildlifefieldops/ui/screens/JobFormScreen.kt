@@ -177,7 +177,7 @@ fun JobFormScreen(
             onDismissRequest = { showTimePicker = false },
             title = { Text("Select time") },
             text = {
-                Box(Modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     TimePicker(state = timePickerState)
                 }
             },

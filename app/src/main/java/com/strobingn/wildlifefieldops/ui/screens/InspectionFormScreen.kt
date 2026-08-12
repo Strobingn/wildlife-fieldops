@@ -124,7 +124,7 @@ fun InspectionFormScreen(
             onDismissRequest = { showTimePicker = false },
             title = { Text(if (pickingFollowUp) "Follow-up time" else "Inspection time") },
             text = {
-                Box(Modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     TimePicker(state = timePickerState)
                 }
             },
