@@ -6,6 +6,53 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+import java.util.Properties
+
+fun parseDotEnv(file: File): Map<String, String> {
+    if (!file.isFile) return emptyMap()
+    return file.readLines().mapNotNull { rawLine ->
+        val line = rawLine.trim()
+        if (line.isBlank() || line.startsWith("#") || !line.contains('=')) return@mapNotNull null
+        val key = line.substringBefore('=').removePrefix("export ").trim()
+        val value = line.substringAfter('=').trim().removeSurrounding("\"").removeSurrounding("'")
+        key.takeIf { it.isNotBlank() }?.let { it to value }
+    }.toMap()
+}
+
+fun usableSecret(value: String?): String {
+    val cleaned = value?.trim().orEmpty()
+    if (cleaned.isBlank()) return ""
+    val upper = cleaned.uppercase()
+    if (upper.startsWith("YOUR_") || upper.startsWith("MY_") || upper.contains("PLACEHOLDER") || upper.contains("_HERE")) return ""
+    return cleaned
+}
+
+val localProperties = Properties().apply {
+    listOf(
+        rootProject.file("local.properties"),
+        rootProject.file("app/local.properties"),
+        rootProject.rootDir.parentFile?.resolve("local.properties"),
+    ).filterNotNull().forEach { file ->
+        if (file.isFile) file.inputStream().use(::load)
+    }
+}
+
+val dotEnv = parseDotEnv(rootProject.file(".env")) +
+    parseDotEnv(rootProject.rootDir.parentFile?.resolve(".env") ?: File(""))
+
+fun projectSecret(name: String, vararg aliases: String): String {
+    val names = listOf(name) + aliases.toList()
+    for (n in names) {
+        val fromEnv = usableSecret(System.getenv(n))
+        if (fromEnv.isNotBlank()) return fromEnv
+        val fromLocal = usableSecret(localProperties.getProperty(n))
+        if (fromLocal.isNotBlank()) return fromLocal
+        val fromDot = usableSecret(dotEnv[n])
+        if (fromDot.isNotBlank()) return fromDot
+    }
+    return ""
+}
+
 android {
     namespace = "com.strobingn.wildlifefieldops"
     compileSdk = 35
@@ -17,18 +64,23 @@ android {
         versionCode = 33
         versionName = "2.4.0-ai-operations"
 
-        val llmKey = System.getenv("XAI_API_KEY") ?: System.getenv("LLM_API_KEY") ?: ""
-        val llmBase = System.getenv("LLM_BASE_URL") ?: "https://api.x.ai/v1"
-        val llmModel = System.getenv("LLM_MODEL") ?: "grok-4.5"
+        val llmKey = projectSecret("XAI_API_KEY", "LLM_API_KEY")
+        val llmBase = projectSecret("LLM_BASE_URL").ifBlank { "https://api.x.ai/v1" }
+        val llmModel = projectSecret("LLM_MODEL").ifBlank { "grok-4.5" }
 
         buildConfigField("String", "LLM_API_KEY", "\"${llmKey.replace("\"", "\\\"")}\"")
         buildConfigField("String", "LLM_BASE_URL", "\"$llmBase\"")
         buildConfigField("String", "LLM_MODEL", "\"$llmModel\"")
 
-        val supabaseUrl = System.getenv("SUPABASE_URL") ?: ""
-        val supabaseKey = System.getenv("SUPABASE_ANON_KEY") ?: ""
-        val weatherKey = System.getenv("OPENWEATHER_API_KEY") ?: ""
-        val mapsKey = System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
+        val supabaseUrl = projectSecret("SUPABASE_URL", "VITE_SUPABASE_URL")
+        val supabaseKey = projectSecret("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY")
+        val weatherKey = projectSecret("OPENWEATHER_API_KEY", "VITE_OPENWEATHER_API_KEY")
+        // Maps key: accept both native Android name and the old VITE_ prefix from .env.example
+        val mapsKey = projectSecret(
+            "GOOGLE_MAPS_API_KEY",
+            "VITE_GOOGLE_MAPS_API_KEY",
+            "MAPS_API_KEY",
+        )
 
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseKey\"")
